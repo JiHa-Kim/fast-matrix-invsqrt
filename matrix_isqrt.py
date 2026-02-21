@@ -1,43 +1,47 @@
 """
 isqrt_bench_full.py
 
-Matmul-only inverse-square-root iterations for SPD matrices:
-- NS (coupled Newton-Schulz): B = 1.5 I - 0.5 Y
-- PE-quadratic schedule (your "quintic-in-X" variant): B = a I + b Y + c Y^2
-- PE-affine schedule ("PE-NS"): B = a I + b Y   (same GEMM count as NS)
-- AUTO policy: chooses among NS3, PE-NS3, PE2 based on size and a cheap proxy.
-
-Critical preconditioning:
-- AOL diagonal similarity scaling (optional)
-- ridge
-- normalize lambda_max <= 1 via max row sum bound
-- enforce floor lambda_min >= l_target using Gershgorin lower bound + diagonal shift, then renormalize
-
-This means you are effectively computing inverse sqrt of a damped matrix, which is what you want for ML preconditioning.
-
-Example:
-  python isqrt_bench_full.py --sizes 256,512,1024 --dtype bf16 --trials 8 --ridge-rel 1e-4 --l-target 0.05 --target-resid 0.01
+Matmul-only inverse-square-root benchmark harness.
+Core iteration/preconditioning code lives in isqrt_core.py.
+Metrics code lives in isqrt_metrics.py.
 """
 
 from __future__ import annotations
 
 import argparse
-import math
 import time
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Sequence, Tuple
 
 import torch
 
-
-# ---------------------------
-# Helpers
-# ---------------------------
+from isqrt_core import (
+    AutoPolicyConfig,
+    IsqrtWorkspace,
+    _affine_coeffs,
+    _quad_coeffs,
+    build_pe_schedules,
+    choose_auto_method,
+    inverse_sqrt_ns,
+    inverse_sqrt_pe_affine,
+    inverse_sqrt_pe_quadratic,
+    precond_spd,
+)
+from isqrt_metrics import compute_quality_stats, isqrt_relative_error
 
 
 def median(xs: Sequence[float]) -> float:
     ys = sorted(float(x) for x in xs)
     return ys[len(ys) // 2]
+
+
+def pctl(xs: Sequence[float], q: float) -> float:
+    ys = sorted(float(x) for x in xs)
+    if not ys:
+        return float("nan")
+    qf = max(0.0, min(1.0, float(q)))
+    idx = int(round(qf * (len(ys) - 1)))
+    return ys[idx]
 
 
 def time_ms(
@@ -57,277 +61,32 @@ def time_ms(
     return 1000.0 * (time.perf_counter() - t0), out
 
 
-# ---------------------------
-# Workspace
-# ---------------------------
+def time_ms_any(fn: Callable[[], object], device: torch.device) -> Tuple[float, object]:
+    if device.type == "cuda":
+        torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    out = fn()
+    if device.type == "cuda":
+        torch.cuda.synchronize()
+    return 1000.0 * (time.perf_counter() - t0), out
 
 
-@dataclass
-class IsqrtWorkspace:
-    X: torch.Tensor
-    Xbuf: torch.Tensor
-    Y: torch.Tensor
-    Ybuf: torch.Tensor
-    Y2: torch.Tensor
-    B: torch.Tensor
-    B2: torch.Tensor
-    eye_mat: torch.Tensor
+def time_ms_repeat(
+    fn: Callable[[], torch.Tensor], device: torch.device, reps: int = 1
+) -> Tuple[float, torch.Tensor]:
+    reps_i = max(1, int(reps))
+    if reps_i == 1:
+        return time_ms(fn, device)
 
+    def run_many() -> torch.Tensor:
+        out: Optional[torch.Tensor] = None
+        for _ in range(reps_i):
+            out = fn()
+        assert out is not None
+        return out
 
-def _alloc_ws(A: torch.Tensor) -> IsqrtWorkspace:
-    shape = A.shape
-    n = shape[-1]
-    eye = torch.eye(n, device=A.device, dtype=A.dtype).expand_as(A).contiguous()
-    return IsqrtWorkspace(
-        X=A.new_empty(shape),
-        Xbuf=A.new_empty(shape),
-        Y=A.new_empty(shape),
-        Ybuf=A.new_empty(shape),
-        Y2=A.new_empty(shape),
-        B=A.new_empty(shape),
-        B2=A.new_empty(shape),
-        eye_mat=eye,
-    )
-
-
-def _ws_ok(ws: Optional[IsqrtWorkspace], A: torch.Tensor) -> bool:
-    if ws is None:
-        return False
-    return ws.X.device == A.device and ws.X.dtype == A.dtype and ws.X.shape == A.shape
-
-
-@torch.no_grad()
-def _symmetrize_inplace(M: torch.Tensor) -> None:
-    M.copy_(0.5 * (M + M.mT))
-
-
-# ---------------------------
-# Preconditioning
-# ---------------------------
-
-
-@torch.no_grad()
-def precond_spd(
-    A: torch.Tensor,
-    mode: str,
-    eps: float = 1e-12,
-    ridge_rel: float = 0.0,
-    l_target: float = 0.05,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Returns (A_norm, rho_proxy).
-
-    A_norm: normalized SPD-ish matrix with spectrum roughly in [l_target, 1].
-    rho_proxy: cheap proxy for spikiness: max_row_sum(|A_norm|) / mean_diag(A_norm).
-               After normalization, max_row_sum is ~1, so rho ~ 1/mean_diag.
-
-    Note: enforcing a floor implies a diagonal shift; this is intentional damping.
-    """
-    n = A.shape[-1]
-
-    if mode == "none":
-        A_pre = A
-    elif mode == "frob":
-        s = torch.linalg.matrix_norm(A, ord="fro")
-        s = torch.clamp(s / math.sqrt(n), min=eps)
-        A_pre = A / s.unsqueeze(-1).unsqueeze(-1)
-    elif mode == "aol":
-        d = torch.rsqrt(A.abs().sum(dim=-1).clamp_min(eps))
-        A_pre = (d.unsqueeze(-1) * A) * d.unsqueeze(-2)
-    else:
-        raise ValueError(f"unknown preconditioner: {mode}")
-
-    if ridge_rel > 0.0:
-        diag_mean = A_pre.diagonal(dim1=-2, dim2=-1).mean(dim=-1).abs()
-        lam = torch.clamp(ridge_rel * diag_mean, min=eps)
-        A_pre = A_pre.clone()
-        A_pre.diagonal(dim1=-2, dim2=-1).add_(lam.unsqueeze(-1))
-
-    # Upper-bound normalize via max row sum (Gershgorin-ish): lambda_max <= 1
-    abs_row_sum = A_pre.abs().sum(dim=-1)
-    u = abs_row_sum.max(dim=-1)[0].clamp_min(eps)
-    A_norm = A_pre / u.unsqueeze(-1).unsqueeze(-1)
-
-    # Enforce a lower spectral floor via Gershgorin lower bound + diagonal shift, then renormalize top.
-    if l_target > 0.0:
-        abs_row_sum2 = A_norm.abs().sum(dim=-1)
-        diag = A_norm.diagonal(dim1=-2, dim2=-1)
-        off = abs_row_sum2 - diag.abs()
-        g_lo = (diag - off).min(dim=-1)[0]
-        shift = (float(l_target) - g_lo).clamp_min(0.0)
-
-        if torch.any(shift > 0):
-            A_norm = A_norm.clone()
-            A_norm.diagonal(dim1=-2, dim2=-1).add_(shift.unsqueeze(-1))
-            abs_row_sum3 = A_norm.abs().sum(dim=-1)
-            u2 = abs_row_sum3.max(dim=-1)[0].clamp_min(eps)
-            A_norm = A_norm / u2.unsqueeze(-1).unsqueeze(-1)
-
-    # rho proxy in fp32
-    diag_mean = A_norm.float().diagonal(dim1=-2, dim2=-1).mean(dim=-1).clamp_min(1e-12)
-    max_row = A_norm.float().abs().sum(dim=-1).max(dim=-1)[0].clamp_min(1e-12)
-    rho = max_row / diag_mean
-
-    return A_norm, rho
-
-
-# ---------------------------
-# Iteration kernels
-# ---------------------------
-
-
-@torch.no_grad()
-def inverse_sqrt_ns(
-    A_norm: torch.Tensor,
-    iters: int,
-    ws: Optional[IsqrtWorkspace] = None,
-    symmetrize_Y: bool = True,
-) -> Tuple[torch.Tensor, IsqrtWorkspace]:
-    """
-    NS: B = 1.5 I - 0.5 Y
-        X <- X B
-        Y <- Y B^2
-    """
-    if not _ws_ok(ws, A_norm):
-        ws = _alloc_ws(A_norm)
-    assert ws is not None
-
-    ws.X.copy_(ws.eye_mat)
-    ws.Y.copy_(A_norm)
-
-    for _ in range(int(iters)):
-        ws.B.copy_(ws.Y).mul_(-0.5)
-        ws.B.diagonal(dim1=-2, dim2=-1).add_(1.5)
-
-        ws.Xbuf = ws.X @ ws.B
-        ws.X, ws.Xbuf = ws.Xbuf, ws.X
-
-        ws.B2 = ws.B @ ws.B
-        ws.Ybuf = ws.Y @ ws.B2
-        if symmetrize_Y:
-            _symmetrize_inplace(ws.Ybuf)
-        ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
-
-    return ws.X, ws
-
-
-@torch.no_grad()
-def inverse_sqrt_pe_affine(
-    A_norm: torch.Tensor,
-    ab_t: torch.Tensor,  # [T,2], B = a I + b Y
-    ws: Optional[IsqrtWorkspace] = None,
-    symmetrize_Y: bool = True,
-) -> Tuple[torch.Tensor, IsqrtWorkspace]:
-    """
-    PE-NS: affine schedule, NS GEMM count:
-      B = a I + b Y
-      X <- X B
-      Y <- Y B^2
-    """
-    if not _ws_ok(ws, A_norm):
-        ws = _alloc_ws(A_norm)
-    assert ws is not None
-
-    ws.X.copy_(ws.eye_mat)
-    ws.Y.copy_(A_norm)
-
-    T = int(ab_t.shape[0])
-    for t in range(T):
-        a = float(ab_t[t, 0])
-        b = float(ab_t[t, 1])
-
-        ws.B.copy_(ws.Y).mul_(b)
-        ws.B.diagonal(dim1=-2, dim2=-1).add_(a)
-
-        ws.Xbuf = ws.X @ ws.B
-        ws.X, ws.Xbuf = ws.Xbuf, ws.X
-
-        ws.B2 = ws.B @ ws.B
-        ws.Ybuf = ws.Y @ ws.B2
-        if symmetrize_Y:
-            _symmetrize_inplace(ws.Ybuf)
-        ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
-
-    return ws.X, ws
-
-
-@torch.no_grad()
-def inverse_sqrt_pe_quadratic(
-    A_norm: torch.Tensor,
-    abc_t: torch.Tensor,  # [T,3], B = a I + b Y + c Y^2
-    ws: Optional[IsqrtWorkspace] = None,
-    symmetrize_Y: bool = True,
-) -> Tuple[torch.Tensor, IsqrtWorkspace]:
-    """
-    PE-quadratic:
-      B = a I + b Y + c Y^2
-      X <- X B
-      Y <- Y B^2
-    Extra GEMM vs NS due to Y^2.
-    """
-    if not _ws_ok(ws, A_norm):
-        ws = _alloc_ws(A_norm)
-    assert ws is not None
-
-    ws.X.copy_(ws.eye_mat)
-    ws.Y.copy_(A_norm)
-
-    T = int(abc_t.shape[0])
-    for t in range(T):
-        a = float(abc_t[t, 0])
-        b = float(abc_t[t, 1])
-        c = float(abc_t[t, 2])
-
-        ws.Y2 = ws.Y @ ws.Y
-        ws.B.copy_(ws.Y2).mul_(c)
-        ws.B.add_(ws.Y, alpha=b)
-        ws.B.diagonal(dim1=-2, dim2=-1).add_(a)
-
-        ws.Xbuf = ws.X @ ws.B
-        ws.X, ws.Xbuf = ws.Xbuf, ws.X
-
-        ws.B2 = ws.B @ ws.B
-        ws.Ybuf = ws.Y @ ws.B2
-        if symmetrize_Y:
-            _symmetrize_inplace(ws.Ybuf)
-        ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
-
-    return ws.X, ws
-
-
-# ---------------------------
-# Metrics
-# ---------------------------
-
-
-@torch.no_grad()
-def isqrt_residual(X: torch.Tensor, A: torch.Tensor) -> torch.Tensor:
-    n = A.shape[-1]
-    eye = torch.eye(n, device=A.device, dtype=A.dtype).expand_as(A).contiguous()
-    R = eye - (X @ A @ X)
-    return torch.linalg.matrix_norm(R, ord="fro") / math.sqrt(n)
-
-
-@torch.no_grad()
-def exact_inverse_sqrt(A: torch.Tensor, eps: float = 1e-20) -> torch.Tensor:
-    eigvals, V = torch.linalg.eigh(A.double())
-    eigvals = eigvals.clamp_min(eps)
-    D = torch.diag_embed(torch.rsqrt(eigvals))
-    X = V @ D @ V.mT
-    return X.to(dtype=A.dtype)
-
-
-@torch.no_grad()
-def isqrt_relative_error(Xhat: torch.Tensor, A: torch.Tensor) -> torch.Tensor:
-    Xref = exact_inverse_sqrt(A)
-    denom = torch.linalg.matrix_norm(Xref, ord="fro").clamp_min(1e-12)
-    num = torch.linalg.matrix_norm(Xhat - Xref, ord="fro")
-    return num / denom
-
-
-# ---------------------------
-# SPD cases
-# ---------------------------
+    ms_total, out = time_ms(run_many, device)
+    return ms_total / float(reps_i), out
 
 
 def _qr_orthonormal(
@@ -382,15 +141,18 @@ def make_spd_cases(
     return mats
 
 
-# ---------------------------
-# Benchmarking
-# ---------------------------
-
-
 @dataclass
 class BenchResult:
     ms: float
+    ms_iter: float
+    ms_precond: float
     residual: float
+    residual_p95: float
+    residual_max: float
+    residual_spec: float
+    sym_x: float
+    sym_w: float
+    mv_err: float
     relerr: float
     bad: int
 
@@ -405,62 +167,173 @@ def eval_method(
     method: str,
     pe_affine: torch.Tensor,
     pe_quad: torch.Tensor,
-    n_switch: int,
-    rho_switch: float,
+    auto_cfg: AutoPolicyConfig,
+    timing_reps: int,
+    symmetrize_Y: bool,
+    compute_relerr: bool,
+    power_iters: int,
+    mv_samples: int,
 ) -> BenchResult:
-    ms_list: List[float] = []
+    ms_iter_list: List[float] = []
+    ms_pre_list: List[float] = []
     res_list: List[float] = []
+    res2_list: List[float] = []
+    symx_list: List[float] = []
+    symw_list: List[float] = []
+    mv_list: List[float] = []
     err_list: List[float] = []
     bad = 0
     ws: Optional[IsqrtWorkspace] = None
+    if len(mats) == 0:
+        return BenchResult(
+            ms=float("nan"),
+            ms_iter=float("nan"),
+            ms_precond=float("nan"),
+            residual=float("nan"),
+            residual_p95=float("nan"),
+            residual_max=float("nan"),
+            residual_spec=float("nan"),
+            sym_x=float("nan"),
+            sym_w=float("nan"),
+            mv_err=float("nan"),
+            relerr=float("nan"),
+            bad=0,
+        )
+
+    pe_affine_use = (
+        pe_affine
+        if (pe_affine.device.type == "cpu" and pe_affine.dtype == torch.float32)
+        else pe_affine.to(device="cpu", dtype=torch.float32)
+    )
+    pe_quad_use = (
+        pe_quad
+        if (pe_quad.device.type == "cpu" and pe_quad.dtype == torch.float32)
+        else pe_quad.to(device="cpu", dtype=torch.float32)
+    )
+    pe_affine_coeffs = _affine_coeffs(pe_affine_use)
+    pe_quad_coeffs = _quad_coeffs(pe_quad_use)
 
     for A in mats:
-        A_norm, rho = precond_spd(
-            A, mode=precond, ridge_rel=ridge_rel, l_target=l_target
+        t_pre, out = time_ms_any(
+            lambda: precond_spd(
+                A,
+                mode=precond,
+                ridge_rel=ridge_rel,
+                l_target=l_target,
+            ),
+            device,
         )
+        A_norm, stats = out
+        ms_pre_list.append(t_pre)
         n = A_norm.shape[-1]
-        rho_val = float(rho.item())
 
         def run():
             nonlocal ws
             if method == "NS3":
-                Xn, ws2 = inverse_sqrt_ns(A_norm, iters=3, ws=ws)
+                Xn, ws2 = inverse_sqrt_ns(
+                    A_norm,
+                    iters=3,
+                    ws=ws,
+                    symmetrize_Y=symmetrize_Y,
+                    terminal_last_step=True,
+                )
             elif method == "NS4":
-                Xn, ws2 = inverse_sqrt_ns(A_norm, iters=4, ws=ws)
+                Xn, ws2 = inverse_sqrt_ns(
+                    A_norm,
+                    iters=4,
+                    ws=ws,
+                    symmetrize_Y=symmetrize_Y,
+                    terminal_last_step=True,
+                )
             elif method == "PE-NS3":
-                Xn, ws2 = inverse_sqrt_pe_affine(A_norm, ab_t=pe_affine, ws=ws)
+                Xn, ws2 = inverse_sqrt_pe_affine(
+                    A_norm,
+                    ab_t=pe_affine_coeffs,
+                    ws=ws,
+                    symmetrize_Y=symmetrize_Y,
+                    terminal_last_step=True,
+                )
             elif method == "PE2":
-                Xn, ws2 = inverse_sqrt_pe_quadratic(A_norm, abc_t=pe_quad, ws=ws)
+                Xn, ws2 = inverse_sqrt_pe_quadratic(
+                    A_norm,
+                    abc_t=pe_quad_coeffs,
+                    ws=ws,
+                    symmetrize_Y=symmetrize_Y,
+                    terminal_last_step=True,
+                )
             elif method == "AUTO":
-                # Simple, stable policy based on your observed scaling:
-                # - large n: PE2 wins strongly in bf16
-                # - small/med: prefer NS3 unless spiky proxy suggests PE helps
-                if (n >= int(n_switch)) or (rho_val >= float(rho_switch)):
-                    Xn, ws2 = inverse_sqrt_pe_quadratic(A_norm, abc_t=pe_quad, ws=ws)
+                auto_method = choose_auto_method(n, stats, auto_cfg)
+                if auto_method == "NS3":
+                    Xn, ws2 = inverse_sqrt_ns(
+                        A_norm,
+                        iters=3,
+                        ws=ws,
+                        symmetrize_Y=symmetrize_Y,
+                        terminal_last_step=True,
+                    )
+                elif auto_method == "PE-NS3":
+                    Xn, ws2 = inverse_sqrt_pe_affine(
+                        A_norm,
+                        ab_t=pe_affine_coeffs,
+                        ws=ws,
+                        symmetrize_Y=symmetrize_Y,
+                        terminal_last_step=True,
+                    )
+                elif auto_method == "PE2":
+                    Xn, ws2 = inverse_sqrt_pe_quadratic(
+                        A_norm,
+                        abc_t=pe_quad_coeffs,
+                        ws=ws,
+                        symmetrize_Y=symmetrize_Y,
+                        terminal_last_step=True,
+                    )
                 else:
-                    # PE-NS3 is the "NS-cost" improvement; if it ever regresses, swap to NS3 here.
-                    Xn, ws2 = inverse_sqrt_pe_affine(A_norm, ab_t=pe_affine, ws=ws)
+                    raise ValueError(f"unknown AUTO sub-method: {auto_method}")
             else:
                 raise ValueError(f"unknown method: {method}")
             ws = ws2
             return Xn
 
-        ms, Xn = time_ms(run, device)
-        ms_list.append(ms)
+        ms_iter, Xn = time_ms_repeat(run, device, reps=timing_reps)
+        ms_iter_list.append(ms_iter)
 
         if not torch.isfinite(Xn).all():
             bad += 1
             res_list.append(float("inf"))
+            res2_list.append(float("inf"))
+            symx_list.append(float("inf"))
+            symw_list.append(float("inf"))
+            mv_list.append(float("inf"))
             err_list.append(float("inf"))
             continue
 
-        res_list.append(float(isqrt_residual(Xn.float(), A_norm.float()).mean().item()))
-        err_list.append(
-            float(isqrt_relative_error(Xn.float(), A_norm.float()).mean().item())
-        )
+        q = compute_quality_stats(Xn, A_norm, power_iters=power_iters, mv_samples=mv_samples)
+        res_list.append(q.residual_fro)
+        res2_list.append(q.residual_spec)
+        symx_list.append(q.sym_x)
+        symw_list.append(q.sym_w)
+        mv_list.append(q.mv_err)
 
+        if compute_relerr:
+            err_list.append(float(isqrt_relative_error(Xn.float(), A_norm.float()).mean().item()))
+        else:
+            err_list.append(float("nan"))
+
+    ms_iter_med = median(ms_iter_list)
+    ms_pre_med = median(ms_pre_list)
     return BenchResult(
-        ms=median(ms_list), residual=median(res_list), relerr=median(err_list), bad=bad
+        ms=ms_pre_med + ms_iter_med,
+        ms_iter=ms_iter_med,
+        ms_precond=ms_pre_med,
+        residual=median(res_list),
+        residual_p95=pctl(res_list, 0.95),
+        residual_max=max(float(x) for x in res_list),
+        residual_spec=median(res2_list),
+        sym_x=median(symx_list),
+        sym_w=median(symw_list),
+        mv_err=median(mv_list),
+        relerr=median(err_list),
+        bad=bad,
     )
 
 
@@ -502,6 +375,33 @@ def main():
     p.add_argument("--target-resid", type=float, default=0.01)
     p.add_argument("--n-switch", type=int, default=768)
     p.add_argument("--rho-switch", type=float, default=4.0)
+    p.add_argument(
+        "--auto-policy",
+        type=str,
+        default="hybrid",
+        choices=["size_rho", "interval", "hybrid"],
+    )
+    p.add_argument("--kappa-ns3-max", type=float, default=32.0)
+    p.add_argument("--kappa-pe2-min", type=float, default=96.0)
+    p.add_argument(
+        "--coeff-mode",
+        type=str,
+        default="auto",
+        choices=["auto", "precomputed", "tuned"],
+    )
+    p.add_argument("--coeff-seed", type=int, default=0)
+    p.add_argument("--coeff-safety", type=float, default=1.0)
+    p.add_argument("--coeff-no-final-safety", action="store_true")
+    p.add_argument("--timing-reps", type=int, default=1)
+    p.add_argument("--no-symmetrize-y", action="store_true")
+    p.add_argument(
+        "--metrics-mode",
+        type=str,
+        default="full",
+        choices=["full", "fast"],
+    )
+    p.add_argument("--power-iters", type=int, default=0)
+    p.add_argument("--mv-samples", type=int, default=0)
     args = p.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -519,40 +419,31 @@ def main():
     sizes = parse_shapes(args.sizes)
     cases = ["gaussian_spd", "illcond_1e6", "illcond_1e12", "near_rank_def", "spike"]
 
-    # PE-quadratic schedule for [0.05, 1.0] (B = a I + b Y + c Y^2)
-    pe4_005 = torch.tensor(
-        [
-            [3.9167303160, -7.5013552885, 4.6874100508],
-            [1.9487493185, -1.3745051244, 0.4234345641],
-            [1.8750975412, -1.2501586662, 0.3750611211],
-            [1.8749537616, -1.2499075251, 0.3749537634],
-        ],
+    pe_ns3_005, pe2_005, coeff_desc = build_pe_schedules(
+        l_target=args.l_target,
         device=device,
-        dtype=torch.float32,
+        coeff_mode=args.coeff_mode,
+        coeff_seed=args.coeff_seed,
+        coeff_safety=args.coeff_safety,
+        coeff_no_final_safety=args.coeff_no_final_safety,
     )
-    pe2_005 = pe4_005[:2].contiguous()
+    print(f"[coeff] using {coeff_desc}")
 
-    # PE-affine (PE-NS) schedule for [0.05, 1.0] (B = a I + b Y), 3 steps.
-    # These were computed with a minimax-ish smooth-max objective + positivity constraint + interval propagation.
-    pe_ns3_005 = torch.tensor(
-        [
-            [2.8783235621, -2.2575982465],
-            [1.6910184521, -0.6213401081],
-            [1.5241523252, -0.5209329213],
-        ],
-        device=device,
-        dtype=torch.float32,
+    auto_cfg = AutoPolicyConfig(
+        policy=args.auto_policy,
+        n_switch=args.n_switch,
+        rho_switch=args.rho_switch,
+        kappa_ns3_max=args.kappa_ns3_max,
+        kappa_pe2_min=args.kappa_pe2_min,
+    )
+    print(
+        f"[auto] policy={auto_cfg.policy} n_switch={auto_cfg.n_switch} rho_switch={auto_cfg.rho_switch} kappa_ns3_max={auto_cfg.kappa_ns3_max} kappa_pe2_min={auto_cfg.kappa_pe2_min}"
     )
 
-    # Optional compile
     if args.compile:
         globals()["inverse_sqrt_ns"] = maybe_compile(inverse_sqrt_ns, True)
-        globals()["inverse_sqrt_pe_affine"] = maybe_compile(
-            inverse_sqrt_pe_affine, True
-        )
-        globals()["inverse_sqrt_pe_quadratic"] = maybe_compile(
-            inverse_sqrt_pe_quadratic, True
-        )
+        globals()["inverse_sqrt_pe_affine"] = maybe_compile(inverse_sqrt_pe_affine, True)
+        globals()["inverse_sqrt_pe_quadratic"] = maybe_compile(inverse_sqrt_pe_quadratic, True)
 
     g = torch.Generator(device=device)
     g.manual_seed(args.seed)
@@ -560,10 +451,9 @@ def main():
     with torch.inference_mode():
         for n in sizes:
             print(
-                f"== SPD size {n}x{n} | dtype={dtype_compute} | compile={args.compile} | precond={args.precond} | l_target={args.l_target} =="
+                f"== SPD size {n}x{n} | dtype={dtype_compute} | compile={args.compile} | precond={args.precond} | l_target={args.l_target} | lmax=row_sum | terminal=True | timing_reps={max(1, args.timing_reps)} | symY={not args.no_symmetrize_y} | auto={args.auto_policy} | metrics={args.metrics_mode} | power_it={args.power_iters} | mv_k={args.mv_samples} =="
             )
 
-            # Warmup
             warm = make_spd_cases(
                 "gaussian_spd", n, max(1, args.warmup), device, torch.float32, g
             )
@@ -576,7 +466,13 @@ def main():
                     ridge_rel=args.ridge_rel,
                     l_target=args.l_target,
                 )
-                _, ws = inverse_sqrt_ns(A_norm, iters=2, ws=ws)
+                _, ws = inverse_sqrt_ns(
+                    A_norm,
+                    iters=2,
+                    ws=ws,
+                    symmetrize_Y=not args.no_symmetrize_y,
+                    terminal_last_step=True,
+                )
 
             for case in cases:
                 mats = make_spd_cases(case, n, args.trials, device, torch.float32, g)
@@ -593,15 +489,19 @@ def main():
                         method=name,
                         pe_affine=pe_ns3_005,
                         pe_quad=pe2_005,
-                        n_switch=args.n_switch,
-                        rho_switch=args.rho_switch,
+                        auto_cfg=auto_cfg,
+                        timing_reps=args.timing_reps,
+                        symmetrize_Y=not args.no_symmetrize_y,
+                        compute_relerr=(args.metrics_mode == "full"),
+                        power_iters=args.power_iters,
+                        mv_samples=args.mv_samples,
                     )
                     rows.append((name, rr))
 
                 print(f"-- case {case} --")
                 for name, rr in rows:
                     print(
-                        f"{name:<10s} {rr.ms:8.3f} ms | resid {rr.residual:.3e} | relerr {rr.relerr:.3e} | bad {rr.bad}"
+                        f"{name:<10s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}) | resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e} | relerr {rr.relerr:.3e} | r2 {rr.residual_spec:.3e} | symX {rr.sym_x:.2e} symW {rr.sym_w:.2e} | mv {rr.mv_err:.3e} | bad {rr.bad}"
                     )
 
                 feasible = [

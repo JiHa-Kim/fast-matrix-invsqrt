@@ -18,6 +18,7 @@ import torch
 from isqrt_core import (
     AutoPolicyConfig,
     IsqrtWorkspace,
+    PrecondStats,
     _affine_coeffs,
     _quad_coeffs,
     build_pe_schedules,
@@ -157,16 +158,46 @@ class BenchResult:
     bad: int
 
 
+@dataclass
+class PreparedInput:
+    A_norm: torch.Tensor
+    stats: PrecondStats
+
+
 @torch.no_grad()
-def eval_method(
+def prepare_preconditioned_inputs(
     mats: List[torch.Tensor],
     device: torch.device,
     precond: str,
     ridge_rel: float,
     l_target: float,
+) -> Tuple[List[PreparedInput], float]:
+    prepared: List[PreparedInput] = []
+    ms_pre_list: List[float] = []
+    for A in mats:
+        t_pre, out = time_ms_any(
+            lambda: precond_spd(
+                A,
+                mode=precond,
+                ridge_rel=ridge_rel,
+                l_target=l_target,
+            ),
+            device,
+        )
+        A_norm, stats = out
+        ms_pre_list.append(t_pre)
+        prepared.append(PreparedInput(A_norm=A_norm, stats=stats))
+    return prepared, (median(ms_pre_list) if ms_pre_list else float("nan"))
+
+
+@torch.no_grad()
+def eval_method(
+    prepared_inputs: List[PreparedInput],
+    ms_precond_median: float,
+    device: torch.device,
     method: str,
-    pe_affine: torch.Tensor,
-    pe_quad: torch.Tensor,
+    pe_affine_coeffs: Sequence[Tuple[float, float]],
+    pe_quad_coeffs: Sequence[Tuple[float, float, float]],
     auto_cfg: AutoPolicyConfig,
     timing_reps: int,
     symmetrize_Y: bool,
@@ -175,7 +206,6 @@ def eval_method(
     mv_samples: int,
 ) -> BenchResult:
     ms_iter_list: List[float] = []
-    ms_pre_list: List[float] = []
     res_list: List[float] = []
     res2_list: List[float] = []
     symx_list: List[float] = []
@@ -184,7 +214,8 @@ def eval_method(
     err_list: List[float] = []
     bad = 0
     ws: Optional[IsqrtWorkspace] = None
-    if len(mats) == 0:
+    eye_mat: Optional[torch.Tensor] = None
+    if len(prepared_inputs) == 0:
         return BenchResult(
             ms=float("nan"),
             ms_iter=float("nan"),
@@ -200,32 +231,12 @@ def eval_method(
             bad=0,
         )
 
-    pe_affine_use = (
-        pe_affine
-        if (pe_affine.device.type == "cpu" and pe_affine.dtype == torch.float32)
-        else pe_affine.to(device="cpu", dtype=torch.float32)
-    )
-    pe_quad_use = (
-        pe_quad
-        if (pe_quad.device.type == "cpu" and pe_quad.dtype == torch.float32)
-        else pe_quad.to(device="cpu", dtype=torch.float32)
-    )
-    pe_affine_coeffs = _affine_coeffs(pe_affine_use)
-    pe_quad_coeffs = _quad_coeffs(pe_quad_use)
-
-    for A in mats:
-        t_pre, out = time_ms_any(
-            lambda: precond_spd(
-                A,
-                mode=precond,
-                ridge_rel=ridge_rel,
-                l_target=l_target,
-            ),
-            device,
-        )
-        A_norm, stats = out
-        ms_pre_list.append(t_pre)
+    for prep in prepared_inputs:
+        A_norm = prep.A_norm
+        stats = prep.stats
         n = A_norm.shape[-1]
+        if eye_mat is None or eye_mat.shape != A_norm.shape:
+            eye_mat = torch.eye(n, device=A_norm.device, dtype=torch.float32)
 
         def run():
             nonlocal ws
@@ -307,7 +318,13 @@ def eval_method(
             err_list.append(float("inf"))
             continue
 
-        q = compute_quality_stats(Xn, A_norm, power_iters=power_iters, mv_samples=mv_samples)
+        q = compute_quality_stats(
+            Xn,
+            A_norm,
+            power_iters=power_iters,
+            mv_samples=mv_samples,
+            eye_mat=eye_mat,
+        )
         res_list.append(q.residual_fro)
         res2_list.append(q.residual_spec)
         symx_list.append(q.sym_x)
@@ -320,7 +337,7 @@ def eval_method(
             err_list.append(float("nan"))
 
     ms_iter_med = median(ms_iter_list)
-    ms_pre_med = median(ms_pre_list)
+    ms_pre_med = ms_precond_median
     return BenchResult(
         ms=ms_pre_med + ms_iter_med,
         ms_iter=ms_iter_med,
@@ -428,6 +445,8 @@ def main():
         coeff_no_final_safety=args.coeff_no_final_safety,
     )
     print(f"[coeff] using {coeff_desc}")
+    pe_affine_coeffs = _affine_coeffs(pe_ns3_005)
+    pe_quad_coeffs = _quad_coeffs(pe2_005)
 
     auto_cfg = AutoPolicyConfig(
         policy=args.auto_policy,
@@ -477,18 +496,23 @@ def main():
             for case in cases:
                 mats = make_spd_cases(case, n, args.trials, device, torch.float32, g)
                 mats = [m.to(dtype_compute) for m in mats]
+                prepared_inputs, ms_precond_med = prepare_preconditioned_inputs(
+                    mats=mats,
+                    device=device,
+                    precond=args.precond,
+                    ridge_rel=args.ridge_rel,
+                    l_target=args.l_target,
+                )
 
                 rows = []
                 for name in ["NS3", "NS4", "PE-NS3", "PE2", "AUTO"]:
                     rr = eval_method(
-                        mats=mats,
+                        prepared_inputs=prepared_inputs,
+                        ms_precond_median=ms_precond_med,
                         device=device,
-                        precond=args.precond,
-                        ridge_rel=args.ridge_rel,
-                        l_target=args.l_target,
                         method=name,
-                        pe_affine=pe_ns3_005,
-                        pe_quad=pe2_005,
+                        pe_affine_coeffs=pe_affine_coeffs,
+                        pe_quad_coeffs=pe_quad_coeffs,
                         auto_cfg=auto_cfg,
                         timing_reps=args.timing_reps,
                         symmetrize_Y=not args.no_symmetrize_y,

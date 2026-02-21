@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Optional
 
 import torch
 
@@ -38,13 +39,21 @@ def compute_quality_stats(
     A: torch.Tensor,
     power_iters: int,
     mv_samples: int,
+    eye_mat: Optional[torch.Tensor] = None,
 ) -> QualityStats:
     n = A.shape[-1]
     Xf = X.float()
     Af = A.float()
-    eye_mat = torch.eye(n, device=Af.device, dtype=Af.dtype)
+    eye = eye_mat
+    if (
+        eye is None
+        or eye.shape != Af.shape
+        or eye.device != Af.device
+        or eye.dtype != Af.dtype
+    ):
+        eye = torch.eye(n, device=Af.device, dtype=Af.dtype)
     W = Xf @ Af @ Xf
-    R = eye_mat - W
+    R = eye - W
 
     residual_fro = torch.linalg.matrix_norm(R, ord="fro").item() / math.sqrt(float(n))
 

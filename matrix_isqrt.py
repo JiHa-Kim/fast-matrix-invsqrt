@@ -1,5 +1,5 @@
 """
-isqrt_bench_full.py
+matrix_isqrt.py
 
 Matmul-only inverse-square-root benchmark harness.
 Core iteration/preconditioning code lives in isqrt_core.py.
@@ -33,6 +33,8 @@ from isqrt_metrics import compute_quality_stats, isqrt_relative_error
 
 def median(xs: Sequence[float]) -> float:
     ys = sorted(float(x) for x in xs)
+    if not ys:
+        return float("nan")
     return ys[len(ys) // 2]
 
 
@@ -42,7 +44,7 @@ def pctl(xs: Sequence[float], q: float) -> float:
         return float("nan")
     qf = max(0.0, min(1.0, float(q)))
     idx = int(round(qf * (len(ys) - 1)))
-    return ys[idx]
+    return float(ys[idx])
 
 
 def time_ms(
@@ -191,6 +193,100 @@ def prepare_preconditioned_inputs(
     return prepared, (median(ms_pre_list) if ms_pre_list else float("nan"))
 
 
+def parse_shapes(spec: str) -> List[int]:
+    vals: List[int] = []
+    for tok in spec.split(","):
+        tok = tok.strip()
+        if tok:
+            vals.append(int(tok))
+    if not vals:
+        raise ValueError("empty shape list")
+    return vals
+
+
+def maybe_compile(fn, enabled: bool):
+    if not enabled:
+        return fn
+    try:
+        return torch.compile(fn, mode="max-autotune", fullgraph=False)
+    except Exception:
+        return fn
+
+
+def _build_runner(
+    method: str,
+    n: int,
+    stats: PrecondStats,
+    auto_cfg: AutoPolicyConfig,
+    pe_affine_coeffs: Sequence[Tuple[float, float]],
+    pe_quad_coeffs: Sequence[Tuple[float, float, float]],
+    symmetrize_Y: bool,
+) -> Callable[
+    [torch.Tensor, Optional[IsqrtWorkspace]], Tuple[torch.Tensor, IsqrtWorkspace]
+]:
+    """
+    Returns a function runner(A_norm, ws) -> (Xn, ws2) with method choice fixed
+    (AUTO is resolved using n/stats/auto_cfg).
+    """
+    chosen = method
+    if method == "AUTO":
+        chosen = choose_auto_method(n, stats, auto_cfg)
+
+    if chosen == "NS3":
+
+        def run(A_norm: torch.Tensor, ws: Optional[IsqrtWorkspace]):
+            return inverse_sqrt_ns(
+                A_norm,
+                iters=3,
+                ws=ws,
+                symmetrize_Y=symmetrize_Y,
+                terminal_last_step=True,
+            )
+
+        return run
+
+    if chosen == "NS4":
+
+        def run(A_norm: torch.Tensor, ws: Optional[IsqrtWorkspace]):
+            return inverse_sqrt_ns(
+                A_norm,
+                iters=4,
+                ws=ws,
+                symmetrize_Y=symmetrize_Y,
+                terminal_last_step=True,
+            )
+
+        return run
+
+    if chosen == "PE-NS3":
+
+        def run(A_norm: torch.Tensor, ws: Optional[IsqrtWorkspace]):
+            return inverse_sqrt_pe_affine(
+                A_norm,
+                ab_t=pe_affine_coeffs,
+                ws=ws,
+                symmetrize_Y=symmetrize_Y,
+                terminal_last_step=True,
+            )
+
+        return run
+
+    if chosen == "PE2":
+
+        def run(A_norm: torch.Tensor, ws: Optional[IsqrtWorkspace]):
+            return inverse_sqrt_pe_quadratic(
+                A_norm,
+                abc_t=pe_quad_coeffs,
+                ws=ws,
+                symmetrize_Y=symmetrize_Y,
+                terminal_last_step=True,
+            )
+
+        return run
+
+    raise ValueError(f"unknown method: {method} (resolved to {chosen})")
+
+
 @torch.no_grad()
 def eval_method(
     prepared_inputs: List[PreparedInput],
@@ -216,8 +312,7 @@ def eval_method(
     hard_list: List[float] = []
     err_list: List[float] = []
     bad = 0
-    ws: Optional[IsqrtWorkspace] = None
-    eye_mat: Optional[torch.Tensor] = None
+
     if len(prepared_inputs) == 0:
         return BenchResult(
             ms=float("nan"),
@@ -235,81 +330,39 @@ def eval_method(
             bad=0,
         )
 
+    ws: Optional[IsqrtWorkspace] = None
+    eye_mat: Optional[torch.Tensor] = None
+
     for prep in prepared_inputs:
         A_norm = prep.A_norm
         stats = prep.stats
         n = A_norm.shape[-1]
-        if eye_mat is None or eye_mat.shape != A_norm.shape:
+
+        # FIX: robust, avoids comparing against A_norm.shape and avoids rebuilding per trial.
+        if (
+            eye_mat is None
+            or eye_mat.shape != (n, n)
+            or eye_mat.device != A_norm.device
+        ):
             eye_mat = torch.eye(n, device=A_norm.device, dtype=torch.float32)
 
-        def run():
+        runner = _build_runner(
+            method=method,
+            n=n,
+            stats=stats,
+            auto_cfg=auto_cfg,
+            pe_affine_coeffs=pe_affine_coeffs,
+            pe_quad_coeffs=pe_quad_coeffs,
+            symmetrize_Y=symmetrize_Y,
+        )
+
+        def run_once() -> torch.Tensor:
             nonlocal ws
-            if method == "NS3":
-                Xn, ws2 = inverse_sqrt_ns(
-                    A_norm,
-                    iters=3,
-                    ws=ws,
-                    symmetrize_Y=symmetrize_Y,
-                    terminal_last_step=True,
-                )
-            elif method == "NS4":
-                Xn, ws2 = inverse_sqrt_ns(
-                    A_norm,
-                    iters=4,
-                    ws=ws,
-                    symmetrize_Y=symmetrize_Y,
-                    terminal_last_step=True,
-                )
-            elif method == "PE-NS3":
-                Xn, ws2 = inverse_sqrt_pe_affine(
-                    A_norm,
-                    ab_t=pe_affine_coeffs,
-                    ws=ws,
-                    symmetrize_Y=symmetrize_Y,
-                    terminal_last_step=True,
-                )
-            elif method == "PE2":
-                Xn, ws2 = inverse_sqrt_pe_quadratic(
-                    A_norm,
-                    abc_t=pe_quad_coeffs,
-                    ws=ws,
-                    symmetrize_Y=symmetrize_Y,
-                    terminal_last_step=True,
-                )
-            elif method == "AUTO":
-                auto_method = choose_auto_method(n, stats, auto_cfg)
-                if auto_method == "NS3":
-                    Xn, ws2 = inverse_sqrt_ns(
-                        A_norm,
-                        iters=3,
-                        ws=ws,
-                        symmetrize_Y=symmetrize_Y,
-                        terminal_last_step=True,
-                    )
-                elif auto_method == "PE-NS3":
-                    Xn, ws2 = inverse_sqrt_pe_affine(
-                        A_norm,
-                        ab_t=pe_affine_coeffs,
-                        ws=ws,
-                        symmetrize_Y=symmetrize_Y,
-                        terminal_last_step=True,
-                    )
-                elif auto_method == "PE2":
-                    Xn, ws2 = inverse_sqrt_pe_quadratic(
-                        A_norm,
-                        abc_t=pe_quad_coeffs,
-                        ws=ws,
-                        symmetrize_Y=symmetrize_Y,
-                        terminal_last_step=True,
-                    )
-                else:
-                    raise ValueError(f"unknown AUTO sub-method: {auto_method}")
-            else:
-                raise ValueError(f"unknown method: {method}")
+            Xn, ws2 = runner(A_norm, ws)
             ws = ws2
             return Xn
 
-        ms_iter, Xn = time_ms_repeat(run, device, reps=timing_reps)
+        ms_iter, Xn = time_ms_repeat(run_once, device, reps=timing_reps)
         ms_iter_list.append(ms_iter)
 
         if not torch.isfinite(Xn).all():
@@ -339,19 +392,23 @@ def eval_method(
         hard_list.append(q.hard_dir_err)
 
         if compute_relerr:
-            err_list.append(float(isqrt_relative_error(Xn.float(), A_norm.float()).mean().item()))
+            # isqrt_relative_error returns per-batch (here scalar) tensor; take item safely.
+            err_list.append(
+                float(isqrt_relative_error(Xn.float(), A_norm.float()).mean().item())
+            )
         else:
             err_list.append(float("nan"))
 
     ms_iter_med = median(ms_iter_list)
     ms_pre_med = ms_precond_median
+
     return BenchResult(
         ms=ms_pre_med + ms_iter_med,
         ms_iter=ms_iter_med,
         ms_precond=ms_pre_med,
         residual=median(res_list),
         residual_p95=pctl(res_list, 0.95),
-        residual_max=max(float(x) for x in res_list),
+        residual_max=max(float(x) for x in res_list) if res_list else float("nan"),
         residual_spec=median(res2_list),
         sym_x=median(symx_list),
         sym_w=median(symw_list),
@@ -360,26 +417,6 @@ def eval_method(
         relerr=median(err_list),
         bad=bad,
     )
-
-
-def parse_shapes(spec: str) -> List[int]:
-    vals = []
-    for tok in spec.split(","):
-        tok = tok.strip()
-        if tok:
-            vals.append(int(tok))
-    if not vals:
-        raise ValueError("empty shape list")
-    return vals
-
-
-def maybe_compile(fn, enabled: bool):
-    if not enabled:
-        return fn
-    try:
-        return torch.compile(fn, mode="max-autotune", fullgraph=False)
-    except Exception:
-        return fn
 
 
 def main():
@@ -398,7 +435,12 @@ def main():
     p.add_argument("--ridge-rel", type=float, default=1e-4)
     p.add_argument("--l-target", type=float, default=0.05)
     p.add_argument("--target-resid", type=float, default=0.01)
-    p.add_argument("--target-metric", type=str, default="residual", choices=["residual", "hard_dir"])
+    p.add_argument(
+        "--target-metric",
+        type=str,
+        default="residual",
+        choices=["residual", "hard_dir"],
+    )
     p.add_argument("--n-switch", type=int, default=768)
     p.add_argument("--rho-switch", type=float, default=4.0)
     p.add_argument(
@@ -420,12 +462,7 @@ def main():
     p.add_argument("--coeff-no-final-safety", action="store_true")
     p.add_argument("--timing-reps", type=int, default=1)
     p.add_argument("--no-symmetrize-y", action="store_true")
-    p.add_argument(
-        "--metrics-mode",
-        type=str,
-        default="full",
-        choices=["full", "fast"],
-    )
+    p.add_argument("--metrics-mode", type=str, default="full", choices=["full", "fast"])
     p.add_argument("--power-iters", type=int, default=0)
     p.add_argument("--mv-samples", type=int, default=0)
     p.add_argument("--hard-probe-iters", type=int, default=0)
@@ -466,13 +503,20 @@ def main():
         kappa_pe2_min=args.kappa_pe2_min,
     )
     print(
-        f"[auto] policy={auto_cfg.policy} n_switch={auto_cfg.n_switch} rho_switch={auto_cfg.rho_switch} kappa_ns3_max={auto_cfg.kappa_ns3_max} kappa_pe2_min={auto_cfg.kappa_pe2_min}"
+        f"[auto] policy={auto_cfg.policy} n_switch={auto_cfg.n_switch} "
+        f"rho_switch={auto_cfg.rho_switch} kappa_ns3_max={auto_cfg.kappa_ns3_max} "
+        f"kappa_pe2_min={auto_cfg.kappa_pe2_min}"
     )
 
+    # Compile (store compiled fns back into module globals so _build_runner uses them).
     if args.compile:
         globals()["inverse_sqrt_ns"] = maybe_compile(inverse_sqrt_ns, True)
-        globals()["inverse_sqrt_pe_affine"] = maybe_compile(inverse_sqrt_pe_affine, True)
-        globals()["inverse_sqrt_pe_quadratic"] = maybe_compile(inverse_sqrt_pe_quadratic, True)
+        globals()["inverse_sqrt_pe_affine"] = maybe_compile(
+            inverse_sqrt_pe_affine, True
+        )
+        globals()["inverse_sqrt_pe_quadratic"] = maybe_compile(
+            inverse_sqrt_pe_quadratic, True
+        )
 
     g = torch.Generator(device=device)
     g.manual_seed(args.seed)
@@ -480,9 +524,14 @@ def main():
     with torch.inference_mode():
         for n in sizes:
             print(
-                f"== SPD size {n}x{n} | dtype={dtype_compute} | compile={args.compile} | precond={args.precond} | l_target={args.l_target} | lmax=row_sum | terminal=True | timing_reps={max(1, args.timing_reps)} | symY={not args.no_symmetrize_y} | auto={args.auto_policy} | metrics={args.metrics_mode} | power_it={args.power_iters} | mv_k={args.mv_samples} | hard_it={args.hard_probe_iters} =="
+                f"== SPD size {n}x{n} | dtype={dtype_compute} | compile={args.compile} | "
+                f"precond={args.precond} | l_target={args.l_target} | lmax=row_sum | terminal=True | "
+                f"timing_reps={max(1, args.timing_reps)} | symY={not args.no_symmetrize_y} | "
+                f"auto={args.auto_policy} | metrics={args.metrics_mode} | power_it={args.power_iters} | "
+                f"mv_k={args.mv_samples} | hard_it={args.hard_probe_iters} =="
             )
 
+            # Warmup
             warm = make_spd_cases(
                 "gaussian_spd", n, max(1, args.warmup), device, torch.float32, g
             )
@@ -506,6 +555,7 @@ def main():
             for case in cases:
                 mats = make_spd_cases(case, n, args.trials, device, torch.float32, g)
                 mats = [m.to(dtype_compute) for m in mats]
+
                 prepared_inputs, ms_precond_med = prepare_preconditioned_inputs(
                     mats=mats,
                     device=device,
@@ -514,7 +564,7 @@ def main():
                     l_target=args.l_target,
                 )
 
-                rows = []
+                rows: List[Tuple[str, BenchResult]] = []
                 for name in ["NS3", "NS4", "PE-NS3", "PE2", "AUTO"]:
                     rr = eval_method(
                         prepared_inputs=prepared_inputs,
@@ -536,7 +586,10 @@ def main():
                 print(f"-- case {case} --")
                 for name, rr in rows:
                     print(
-                        f"{name:<10s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}) | resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e} | relerr {rr.relerr:.3e} | r2 {rr.residual_spec:.3e} | hard {rr.hard_dir:.3e} | symX {rr.sym_x:.2e} symW {rr.sym_w:.2e} | mv {rr.mv_err:.3e} | bad {rr.bad}"
+                        f"{name:<10s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}) | "
+                        f"resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e} | "
+                        f"relerr {rr.relerr:.3e} | r2 {rr.residual_spec:.3e} | hard {rr.hard_dir:.3e} | "
+                        f"symX {rr.sym_x:.2e} symW {rr.sym_w:.2e} | mv {rr.mv_err:.3e} | bad {rr.bad}"
                     )
 
                 if args.target_metric == "hard_dir":
@@ -551,19 +604,24 @@ def main():
                         for nm, rr in rows
                         if rr.bad == 0 and rr.residual <= args.target_resid
                     ]
+
                 if feasible:
                     best_name, best_rr = min(feasible, key=lambda t: t[1].ms)
                     print(
-                        f"BEST<=target({args.target_metric}={args.target_resid:.3g}): {best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}, hard={best_rr.hard_dir:.3e}"
+                        f"BEST<=target({args.target_metric}={args.target_resid:.3g}): "
+                        f"{best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}, hard={best_rr.hard_dir:.3e}"
                     )
                 else:
-                    best_name, best_rr = min(
-                        [(nm, rr) for nm, rr in rows if rr.bad == 0],
-                        key=lambda t: t[1].ms,
-                    )
-                    print(
-                        f"BEST overall: {best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}, hard={best_rr.hard_dir:.3e}"
-                    )
+                    ok = [(nm, rr) for nm, rr in rows if rr.bad == 0]
+                    if ok:
+                        best_name, best_rr = min(ok, key=lambda t: t[1].ms)
+                        print(
+                            f"BEST overall: {best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}, hard={best_rr.hard_dir:.3e}"
+                        )
+                    else:
+                        print(
+                            "BEST overall: none (all runs produced non-finite output)"
+                        )
                 print()
 
 

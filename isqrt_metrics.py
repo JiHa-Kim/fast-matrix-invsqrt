@@ -14,6 +14,7 @@ class QualityStats:
     sym_x: float
     sym_w: float
     mv_err: float
+    hard_dir_err: float
 
 
 @torch.no_grad()
@@ -39,6 +40,7 @@ def compute_quality_stats(
     A: torch.Tensor,
     power_iters: int,
     mv_samples: int,
+    hard_probe_iters: int = 0,
     eye_mat: Optional[torch.Tensor] = None,
 ) -> QualityStats:
     n = A.shape[-1]
@@ -81,10 +83,23 @@ def compute_quality_stats(
     else:
         residual_spec = float("nan")
 
+    if hard_probe_iters > 0:
+        u = torch.randn(n, 1, device=Af.device, dtype=Af.dtype)
+        u = u / torch.linalg.vector_norm(u).clamp_min(1e-12)
+        for _ in range(int(hard_probe_iters)):
+            u = torch.linalg.solve(Af, u)
+            u = u / torch.linalg.vector_norm(u).clamp_min(1e-12)
+        hard_dir_err = float(
+            (torch.linalg.vector_norm(R @ u) / torch.linalg.vector_norm(u).clamp_min(1e-12)).item()
+        )
+    else:
+        hard_dir_err = float("nan")
+
     return QualityStats(
         residual_fro=float(residual_fro),
         residual_spec=residual_spec,
         sym_x=float(sym_x.item()),
         sym_w=float(sym_w.item()),
         mv_err=mv_err,
+        hard_dir_err=hard_dir_err,
     )

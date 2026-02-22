@@ -87,6 +87,8 @@ Legacy/slower variants are not exposed in the primary benchmark CLI.
 --precond {none,frob,aol}
 --ridge-rel
 --l-target
+--target-resid
+--target-metric {residual,hard_dir}
 --auto-policy {size_rho,interval,hybrid}
 --kappa-ns3-max
 --kappa-pe2-min
@@ -97,6 +99,7 @@ Legacy/slower variants are not exposed in the primary benchmark CLI.
 --metrics-mode {full,fast}
 --power-iters
 --mv-samples
+--hard-probe-iters
 ```
 
 ## Metrics Reported
@@ -109,6 +112,7 @@ Per method and case:
 - p95 residual
 - max residual
 - optional spectral residual proxy (`--power-iters`)
+- optional hard-direction residual probe (`--hard-probe-iters`)
 - symmetry diagnostics (`symX`, `symW`)
 - apply-to-vector proxy (`--mv-samples`)
 - bad count (NaN/Inf)

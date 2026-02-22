@@ -154,6 +154,7 @@ class BenchResult:
     sym_x: float
     sym_w: float
     mv_err: float
+    hard_dir: float
     relerr: float
     bad: int
 
@@ -204,6 +205,7 @@ def eval_method(
     compute_relerr: bool,
     power_iters: int,
     mv_samples: int,
+    hard_probe_iters: int,
 ) -> BenchResult:
     ms_iter_list: List[float] = []
     res_list: List[float] = []
@@ -211,6 +213,7 @@ def eval_method(
     symx_list: List[float] = []
     symw_list: List[float] = []
     mv_list: List[float] = []
+    hard_list: List[float] = []
     err_list: List[float] = []
     bad = 0
     ws: Optional[IsqrtWorkspace] = None
@@ -227,6 +230,7 @@ def eval_method(
             sym_x=float("nan"),
             sym_w=float("nan"),
             mv_err=float("nan"),
+            hard_dir=float("nan"),
             relerr=float("nan"),
             bad=0,
         )
@@ -315,6 +319,7 @@ def eval_method(
             symx_list.append(float("inf"))
             symw_list.append(float("inf"))
             mv_list.append(float("inf"))
+            hard_list.append(float("inf"))
             err_list.append(float("inf"))
             continue
 
@@ -323,6 +328,7 @@ def eval_method(
             A_norm,
             power_iters=power_iters,
             mv_samples=mv_samples,
+            hard_probe_iters=hard_probe_iters,
             eye_mat=eye_mat,
         )
         res_list.append(q.residual_fro)
@@ -330,6 +336,7 @@ def eval_method(
         symx_list.append(q.sym_x)
         symw_list.append(q.sym_w)
         mv_list.append(q.mv_err)
+        hard_list.append(q.hard_dir_err)
 
         if compute_relerr:
             err_list.append(float(isqrt_relative_error(Xn.float(), A_norm.float()).mean().item()))
@@ -349,6 +356,7 @@ def eval_method(
         sym_x=median(symx_list),
         sym_w=median(symw_list),
         mv_err=median(mv_list),
+        hard_dir=median(hard_list),
         relerr=median(err_list),
         bad=bad,
     )
@@ -390,6 +398,7 @@ def main():
     p.add_argument("--ridge-rel", type=float, default=1e-4)
     p.add_argument("--l-target", type=float, default=0.05)
     p.add_argument("--target-resid", type=float, default=0.01)
+    p.add_argument("--target-metric", type=str, default="residual", choices=["residual", "hard_dir"])
     p.add_argument("--n-switch", type=int, default=768)
     p.add_argument("--rho-switch", type=float, default=4.0)
     p.add_argument(
@@ -419,6 +428,7 @@ def main():
     )
     p.add_argument("--power-iters", type=int, default=0)
     p.add_argument("--mv-samples", type=int, default=0)
+    p.add_argument("--hard-probe-iters", type=int, default=0)
     args = p.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -470,7 +480,7 @@ def main():
     with torch.inference_mode():
         for n in sizes:
             print(
-                f"== SPD size {n}x{n} | dtype={dtype_compute} | compile={args.compile} | precond={args.precond} | l_target={args.l_target} | lmax=row_sum | terminal=True | timing_reps={max(1, args.timing_reps)} | symY={not args.no_symmetrize_y} | auto={args.auto_policy} | metrics={args.metrics_mode} | power_it={args.power_iters} | mv_k={args.mv_samples} =="
+                f"== SPD size {n}x{n} | dtype={dtype_compute} | compile={args.compile} | precond={args.precond} | l_target={args.l_target} | lmax=row_sum | terminal=True | timing_reps={max(1, args.timing_reps)} | symY={not args.no_symmetrize_y} | auto={args.auto_policy} | metrics={args.metrics_mode} | power_it={args.power_iters} | mv_k={args.mv_samples} | hard_it={args.hard_probe_iters} =="
             )
 
             warm = make_spd_cases(
@@ -519,24 +529,32 @@ def main():
                         compute_relerr=(args.metrics_mode == "full"),
                         power_iters=args.power_iters,
                         mv_samples=args.mv_samples,
+                        hard_probe_iters=args.hard_probe_iters,
                     )
                     rows.append((name, rr))
 
                 print(f"-- case {case} --")
                 for name, rr in rows:
                     print(
-                        f"{name:<10s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}) | resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e} | relerr {rr.relerr:.3e} | r2 {rr.residual_spec:.3e} | symX {rr.sym_x:.2e} symW {rr.sym_w:.2e} | mv {rr.mv_err:.3e} | bad {rr.bad}"
+                        f"{name:<10s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}) | resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e} | relerr {rr.relerr:.3e} | r2 {rr.residual_spec:.3e} | hard {rr.hard_dir:.3e} | symX {rr.sym_x:.2e} symW {rr.sym_w:.2e} | mv {rr.mv_err:.3e} | bad {rr.bad}"
                     )
 
-                feasible = [
-                    (nm, rr)
-                    for nm, rr in rows
-                    if rr.bad == 0 and rr.residual <= args.target_resid
-                ]
+                if args.target_metric == "hard_dir":
+                    feasible = [
+                        (nm, rr)
+                        for nm, rr in rows
+                        if rr.bad == 0 and rr.hard_dir <= args.target_resid
+                    ]
+                else:
+                    feasible = [
+                        (nm, rr)
+                        for nm, rr in rows
+                        if rr.bad == 0 and rr.residual <= args.target_resid
+                    ]
                 if feasible:
                     best_name, best_rr = min(feasible, key=lambda t: t[1].ms)
                     print(
-                        f"BEST<=target({args.target_resid:.3g}): {best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}"
+                        f"BEST<=target({args.target_metric}={args.target_resid:.3g}): {best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}, hard={best_rr.hard_dir:.3e}"
                     )
                 else:
                     best_name, best_rr = min(
@@ -544,7 +562,7 @@ def main():
                         key=lambda t: t[1].ms,
                     )
                     print(
-                        f"BEST overall: {best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}"
+                        f"BEST overall: {best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}, hard={best_rr.hard_dir:.3e}"
                     )
                 print()
 

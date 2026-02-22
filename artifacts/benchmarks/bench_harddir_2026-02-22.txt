@@ -1,0 +1,84 @@
+[coeff] using precomputed(l_target=0.05), safety=1.0, no_final_safety=False
+[auto] policy=hybrid n_switch=768 rho_switch=4.0 kappa_ns3_max=32.0 kappa_pe2_min=96.0
+== SPD size 256x256 | dtype=torch.bfloat16 | compile=False | precond=aol | l_target=0.05 | lmax=row_sum | terminal=True | timing_reps=12 | symY=True | auto=hybrid | metrics=full | power_it=8 | mv_k=8 | hard_it=8 ==
+-- case gaussian_spd --
+NS3           2.694 ms (pre 1.986 + iter 0.708) | resid 5.292e-03 p95 7.056e-03 max 7.467e-03 | relerr 2.626e-03 | r2 1.181e-02 | hard 5.671e-03 | symX 1.01e-04 symW 2.21e-04 | mv 5.289e-03 | bad 0
+NS4           2.891 ms (pre 1.986 + iter 0.905) | resid 5.278e-03 p95 7.041e-03 max 7.442e-03 | relerr 2.607e-03 | r2 1.182e-02 | hard 5.314e-03 | symX 1.02e-04 symW 2.22e-04 | mv 5.223e-03 | bad 0
+PE-NS3        2.611 ms (pre 1.986 + iter 0.625) | resid 7.608e-03 p95 8.288e-03 max 8.492e-03 | relerr 3.655e-03 | r2 1.636e-02 | hard 5.425e-03 | symX 2.00e-04 symW 2.70e-04 | mv 7.655e-03 | bad 0
+PE2           2.478 ms (pre 1.986 + iter 0.492) | resid 9.797e-03 p95 1.072e-02 max 1.088e-02 | relerr 4.877e-03 | r2 1.655e-02 | hard 9.753e-03 | symX 4.52e-04 symW 8.31e-04 | mv 9.771e-03 | bad 0
+AUTO          2.601 ms (pre 1.986 + iter 0.615) | resid 7.541e-03 p95 8.288e-03 max 8.492e-03 | relerr 3.629e-03 | r2 1.537e-02 | hard 5.492e-03 | symX 1.97e-04 symW 2.64e-04 | mv 7.461e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 2.478 ms, resid=9.797e-03, hard=9.753e-03
+
+-- case illcond_1e6 --
+NS3           2.042 ms (pre 1.427 + iter 0.615) | resid 5.847e-03 p95 1.149e-02 max 1.180e-02 | relerr 2.917e-03 | r2 1.338e-02 | hard 5.990e-03 | symX 9.46e-05 symW 2.17e-04 | mv 5.933e-03 | bad 0
+NS4           2.216 ms (pre 1.427 + iter 0.789) | resid 5.847e-03 p95 1.149e-02 max 1.180e-02 | relerr 2.915e-03 | r2 1.337e-02 | hard 6.402e-03 | symX 9.48e-05 symW 2.18e-04 | mv 5.611e-03 | bad 0
+PE-NS3        2.021 ms (pre 1.427 + iter 0.594) | resid 9.621e-03 p95 1.026e-02 max 1.049e-02 | relerr 4.847e-03 | r2 1.459e-02 | hard 9.671e-03 | symX 1.84e-04 symW 2.37e-04 | mv 9.604e-03 | bad 0
+PE2           1.926 ms (pre 1.427 + iter 0.499) | resid 9.147e-03 p95 9.424e-03 max 1.024e-02 | relerr 4.596e-03 | r2 1.255e-02 | hard 9.247e-03 | symX 3.61e-04 symW 6.04e-04 | mv 9.041e-03 | bad 0
+AUTO          2.057 ms (pre 1.427 + iter 0.630) | resid 9.621e-03 p95 1.026e-02 max 1.049e-02 | relerr 4.847e-03 | r2 1.452e-02 | hard 1.002e-02 | symX 1.84e-04 symW 2.37e-04 | mv 9.469e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 1.926 ms, resid=9.147e-03, hard=9.247e-03
+
+-- case illcond_1e12 --
+NS3           2.142 ms (pre 1.524 + iter 0.618) | resid 1.271e-02 p95 1.315e-02 max 1.323e-02 | relerr 6.306e-03 | r2 1.374e-02 | hard 1.278e-02 | symX 8.03e-05 symW 1.88e-04 | mv 1.274e-02 | bad 0
+NS4           2.363 ms (pre 1.524 + iter 0.839) | resid 1.270e-02 p95 1.315e-02 max 1.322e-02 | relerr 6.308e-03 | r2 1.367e-02 | hard 1.286e-02 | symX 8.06e-05 symW 1.89e-04 | mv 1.265e-02 | bad 0
+PE-NS3        2.147 ms (pre 1.524 + iter 0.622) | resid 9.160e-03 p95 9.447e-03 max 9.532e-03 | relerr 4.623e-03 | r2 1.351e-02 | hard 9.524e-03 | symX 1.67e-04 symW 1.81e-04 | mv 9.109e-03 | bad 0
+PE2           2.026 ms (pre 1.524 + iter 0.502) | resid 7.155e-03 p95 8.945e-03 max 9.268e-03 | relerr 3.581e-03 | r2 1.319e-02 | hard 7.429e-03 | symX 3.23e-04 symW 5.22e-04 | mv 7.178e-03 | bad 0
+AUTO          2.151 ms (pre 1.524 + iter 0.627) | resid 9.160e-03 p95 9.447e-03 max 9.532e-03 | relerr 4.623e-03 | r2 1.353e-02 | hard 9.528e-03 | symX 1.67e-04 symW 1.81e-04 | mv 9.082e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 2.026 ms, resid=7.155e-03, hard=7.429e-03
+
+-- case near_rank_def --
+NS3           2.801 ms (pre 2.173 + iter 0.628) | resid 5.762e-03 p95 1.250e-02 max 1.262e-02 | relerr 2.889e-03 | r2 1.394e-02 | hard 6.110e-03 | symX 7.71e-05 symW 1.80e-04 | mv 5.726e-03 | bad 0
+NS4           3.054 ms (pre 2.173 + iter 0.881) | resid 5.760e-03 p95 1.249e-02 max 1.262e-02 | relerr 2.889e-03 | r2 1.395e-02 | hard 5.412e-03 | symX 7.72e-05 symW 1.81e-04 | mv 5.777e-03 | bad 0
+PE-NS3        2.809 ms (pre 2.173 + iter 0.636) | resid 8.656e-03 p95 9.059e-03 max 9.340e-03 | relerr 4.336e-03 | r2 1.338e-02 | hard 8.360e-03 | symX 1.70e-04 symW 2.11e-04 | mv 8.418e-03 | bad 0
+PE2           2.682 ms (pre 2.173 + iter 0.509) | resid 7.695e-03 p95 8.544e-03 max 8.585e-03 | relerr 3.812e-03 | r2 1.055e-02 | hard 7.868e-03 | symX 3.61e-04 symW 6.38e-04 | mv 7.660e-03 | bad 0
+AUTO          2.814 ms (pre 2.173 + iter 0.642) | resid 8.656e-03 p95 9.059e-03 max 9.340e-03 | relerr 4.336e-03 | r2 1.340e-02 | hard 8.656e-03 | symX 1.70e-04 symW 2.11e-04 | mv 8.581e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 2.682 ms, resid=7.695e-03, hard=7.868e-03
+
+-- case spike --
+NS3           2.143 ms (pre 1.545 + iter 0.599) | resid 1.152e-02 p95 1.216e-02 max 1.233e-02 | relerr 5.790e-03 | r2 1.483e-02 | hard 1.194e-02 | symX 5.60e-05 symW 1.30e-04 | mv 1.133e-02 | bad 0
+NS4           2.356 ms (pre 1.545 + iter 0.811) | resid 1.152e-02 p95 1.216e-02 max 1.231e-02 | relerr 5.790e-03 | r2 1.483e-02 | hard 1.182e-02 | symX 5.60e-05 symW 1.30e-04 | mv 1.149e-02 | bad 0
+PE-NS3        2.159 ms (pre 1.545 + iter 0.615) | resid 6.678e-03 p95 7.252e-03 max 7.334e-03 | relerr 3.361e-03 | r2 1.541e-02 | hard 6.725e-03 | symX 1.11e-04 symW 1.48e-04 | mv 6.701e-03 | bad 0
+PE2           2.025 ms (pre 1.545 + iter 0.480) | resid 4.278e-03 p95 4.825e-03 max 5.045e-03 | relerr 2.121e-03 | r2 1.966e-02 | hard 4.000e-03 | symX 2.48e-04 symW 4.48e-04 | mv 4.124e-03 | bad 0
+AUTO          2.219 ms (pre 1.545 + iter 0.674) | resid 6.678e-03 p95 7.252e-03 max 7.334e-03 | relerr 3.361e-03 | r2 1.541e-02 | hard 6.758e-03 | symX 1.11e-04 symW 1.48e-04 | mv 6.735e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 2.025 ms, resid=4.278e-03, hard=4.000e-03
+
+== SPD size 512x512 | dtype=torch.bfloat16 | compile=False | precond=aol | l_target=0.05 | lmax=row_sum | terminal=True | timing_reps=12 | symY=True | auto=hybrid | metrics=full | power_it=8 | mv_k=8 | hard_it=8 ==
+-- case gaussian_spd --
+NS3           2.097 ms (pre 1.446 + iter 0.651) | resid 4.102e-03 p95 4.288e-03 max 4.298e-03 | relerr 2.114e-03 | r2 4.814e-03 | hard 4.212e-03 | symX 6.53e-05 symW 1.47e-04 | mv 4.078e-03 | bad 0
+NS4           2.323 ms (pre 1.446 + iter 0.877) | resid 4.083e-03 p95 4.269e-03 max 4.279e-03 | relerr 2.102e-03 | r2 4.552e-03 | hard 4.103e-03 | symX 6.55e-05 symW 1.47e-04 | mv 4.075e-03 | bad 0
+PE-NS3        2.097 ms (pre 1.446 + iter 0.651) | resid 6.481e-03 p95 6.978e-03 max 6.986e-03 | relerr 3.242e-03 | r2 1.320e-02 | hard 6.336e-03 | symX 1.37e-04 symW 1.79e-04 | mv 6.467e-03 | bad 0
+PE2           1.977 ms (pre 1.446 + iter 0.531) | resid 7.312e-03 p95 9.842e-03 max 1.003e-02 | relerr 3.674e-03 | r2 1.035e-02 | hard 7.460e-03 | symX 2.55e-04 symW 4.20e-04 | mv 7.303e-03 | bad 0
+AUTO          2.072 ms (pre 1.446 + iter 0.626) | resid 4.938e-03 p95 6.960e-03 max 6.978e-03 | relerr 2.453e-03 | r2 1.042e-02 | hard 4.808e-03 | symX 1.28e-04 symW 1.49e-04 | mv 4.922e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 1.977 ms, resid=7.312e-03, hard=7.460e-03
+
+-- case illcond_1e6 --
+NS3           2.172 ms (pre 1.466 + iter 0.706) | resid 1.031e-02 p95 1.168e-02 max 1.279e-02 | relerr 5.201e-03 | r2 1.396e-02 | hard 1.044e-02 | symX 8.99e-05 symW 1.95e-04 | mv 1.018e-02 | bad 0
+NS4           2.324 ms (pre 1.466 + iter 0.858) | resid 1.030e-02 p95 1.168e-02 max 1.279e-02 | relerr 5.201e-03 | r2 1.393e-02 | hard 1.032e-02 | symX 9.03e-05 symW 1.96e-04 | mv 1.022e-02 | bad 0
+PE-NS3        2.078 ms (pre 1.466 + iter 0.612) | resid 7.089e-03 p95 7.773e-03 max 8.257e-03 | relerr 3.516e-03 | r2 9.640e-03 | hard 7.373e-03 | symX 1.41e-04 symW 1.88e-04 | mv 7.150e-03 | bad 0
+PE2           1.963 ms (pre 1.466 + iter 0.497) | resid 3.362e-03 p95 4.785e-03 max 4.847e-03 | relerr 1.694e-03 | r2 1.040e-02 | hard 3.365e-03 | symX 3.22e-04 symW 5.84e-04 | mv 3.466e-03 | bad 0
+AUTO          2.069 ms (pre 1.466 + iter 0.603) | resid 7.089e-03 p95 7.773e-03 max 8.257e-03 | relerr 3.516e-03 | r2 9.650e-03 | hard 7.168e-03 | symX 1.41e-04 symW 1.88e-04 | mv 7.159e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 1.963 ms, resid=3.362e-03, hard=3.365e-03
+
+-- case illcond_1e12 --
+NS3           2.178 ms (pre 1.529 + iter 0.649) | resid 7.444e-03 p95 8.899e-03 max 1.144e-02 | relerr 3.673e-03 | r2 1.457e-02 | hard 7.680e-03 | symX 7.39e-05 symW 1.68e-04 | mv 7.402e-03 | bad 0
+NS4           2.393 ms (pre 1.529 + iter 0.864) | resid 7.435e-03 p95 8.894e-03 max 1.144e-02 | relerr 3.673e-03 | r2 1.457e-02 | hard 7.707e-03 | symX 7.42e-05 symW 1.68e-04 | mv 7.504e-03 | bad 0
+PE-NS3        2.154 ms (pre 1.529 + iter 0.625) | resid 5.021e-03 p95 5.650e-03 max 6.656e-03 | relerr 2.455e-03 | r2 1.160e-02 | hard 4.719e-03 | symX 1.31e-04 symW 1.66e-04 | mv 5.031e-03 | bad 0
+PE2           2.054 ms (pre 1.529 + iter 0.525) | resid 2.267e-03 p95 2.966e-03 max 5.872e-03 | relerr 1.099e-03 | r2 1.116e-02 | hard 1.927e-03 | symX 2.86e-04 symW 5.06e-04 | mv 2.220e-03 | bad 0
+AUTO          2.211 ms (pre 1.529 + iter 0.682) | resid 5.021e-03 p95 5.650e-03 max 6.656e-03 | relerr 2.455e-03 | r2 1.170e-02 | hard 4.774e-03 | symX 1.31e-04 symW 1.66e-04 | mv 5.014e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 2.054 ms, resid=2.267e-03, hard=1.927e-03
+
+-- case near_rank_def --
+NS3           2.073 ms (pre 1.444 + iter 0.629) | resid 1.330e-02 p95 1.393e-02 max 1.425e-02 | relerr 6.600e-03 | r2 1.454e-02 | hard 1.325e-02 | symX 6.53e-05 symW 1.50e-04 | mv 1.329e-02 | bad 0
+NS4           2.297 ms (pre 1.444 + iter 0.853) | resid 1.329e-02 p95 1.393e-02 max 1.424e-02 | relerr 6.601e-03 | r2 1.451e-02 | hard 1.341e-02 | symX 6.56e-05 symW 1.50e-04 | mv 1.321e-02 | bad 0
+PE-NS3        2.147 ms (pre 1.444 + iter 0.703) | resid 7.867e-03 p95 8.079e-03 max 8.144e-03 | relerr 3.903e-03 | r2 8.821e-03 | hard 8.067e-03 | symX 1.26e-04 symW 1.52e-04 | mv 7.823e-03 | bad 0
+PE2           1.938 ms (pre 1.444 + iter 0.494) | resid 3.302e-03 p95 3.468e-03 max 3.541e-03 | relerr 1.653e-03 | r2 1.305e-02 | hard 3.108e-03 | symX 2.66e-04 symW 4.61e-04 | mv 3.262e-03 | bad 0
+AUTO          2.082 ms (pre 1.444 + iter 0.638) | resid 7.867e-03 p95 8.079e-03 max 8.144e-03 | relerr 3.903e-03 | r2 8.818e-03 | hard 8.029e-03 | symX 1.26e-04 symW 1.52e-04 | mv 7.828e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 1.938 ms, resid=3.302e-03, hard=3.108e-03
+
+-- case spike --
+NS3           2.188 ms (pre 1.535 + iter 0.653) | resid 1.381e-02 p95 1.407e-02 max 1.417e-02 | relerr 6.924e-03 | r2 1.513e-02 | hard 1.399e-02 | symX 2.56e-05 symW 6.46e-05 | mv 1.373e-02 | bad 0
+NS4           2.418 ms (pre 1.535 + iter 0.883) | resid 1.381e-02 p95 1.406e-02 max 1.415e-02 | relerr 6.921e-03 | r2 1.510e-02 | hard 1.397e-02 | symX 2.56e-05 symW 6.46e-05 | mv 1.378e-02 | bad 0
+PE-NS3        2.191 ms (pre 1.535 + iter 0.656) | resid 6.842e-03 p95 6.919e-03 max 6.925e-03 | relerr 3.408e-03 | r2 1.534e-02 | hard 6.821e-03 | symX 6.56e-05 symW 7.21e-05 | mv 6.816e-03 | bad 0
+PE2           2.043 ms (pre 1.535 + iter 0.508) | resid 4.596e-03 p95 5.003e-03 max 5.383e-03 | relerr 2.312e-03 | r2 1.967e-02 | hard 4.418e-03 | symX 1.47e-04 symW 2.50e-04 | mv 4.533e-03 | bad 0
+AUTO          2.174 ms (pre 1.535 + iter 0.639) | resid 6.842e-03 p95 6.919e-03 max 6.925e-03 | relerr 3.408e-03 | r2 1.547e-02 | hard 6.874e-03 | symX 6.56e-05 symW 7.21e-05 | mv 6.836e-03 | bad 0
+BEST<=target(hard_dir=0.01): PE2 @ 2.043 ms, resid=4.596e-03, hard=4.418e-03
+

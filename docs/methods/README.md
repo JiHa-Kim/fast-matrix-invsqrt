@@ -14,11 +14,13 @@ This section documents each inverse-square-root method in the project, with the 
   - Polynomial-Express affine schedule (`PE-NS3`)
 - `docs/methods/pe2.md`
   - Polynomial-Express quadratic schedule (`PE2`)
+- `docs/methods/uncoupled_p_root.md`
+  - Uncoupled formulations supporting arbitrary $p$-th root iterations and memory minimization routines (`PE-Affine`, `PE-Quad`)
 - `docs/methods/auto.md`
   - AUTO selection policy and thresholds
 
 ## Source of Truth in Code
 
 - Core kernels and scheduling: `isqrt_core.py`
-- Benchmark harness and method comparison: `matrix_isqrt.py`
+- Benchmark harness and method comparison: `matrix_iroot.py` (and legacy `matrix_isqrt.py`)
 - Quality metrics and diagnostics: `isqrt_metrics.py`

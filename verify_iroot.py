@@ -1,7 +1,7 @@
 """
 verify_iroot.py — Correctness & stability verification for inverse p-th root.
 
-Tests all methods (uncoupled affine/quad, coupled affine/quad) across
+Tests quadratic methods (uncoupled and coupled) across
 p in {1, 2, 3, 4, 8} and n in {64, 256}.
 """
 
@@ -11,12 +11,9 @@ import sys
 import torch
 
 from fast_iroot import (
-    _affine_coeffs,
     _quad_coeffs,
     build_pe_schedules,
-    inverse_proot_pe_affine_uncoupled,
     inverse_proot_pe_quadratic_uncoupled,
-    inverse_proot_pe_affine_coupled,
     inverse_proot_pe_quadratic_coupled,
     precond_spd,
 )
@@ -63,8 +60,7 @@ def main():
     print("=" * 100)
 
     for p_val in p_values:
-        # Build coefficients WITH gradients enabled (tuner uses LBFGS internally)
-        pe_affine, pe_quad, desc = build_pe_schedules(
+        pe_quad, desc = build_pe_schedules(
             l_target=0.05,
             device=device,
             coeff_mode="tuned",
@@ -73,7 +69,6 @@ def main():
             coeff_no_final_safety=False,
             p_val=p_val,
         )
-        aff_coeffs = _affine_coeffs(pe_affine)
         quad_coeffs = _quad_coeffs(pe_quad)
 
         with torch.inference_mode():
@@ -85,18 +80,8 @@ def main():
                     )
 
                     methods = {
-                        "Uncoupled-Affine": lambda: inverse_proot_pe_affine_uncoupled(
-                            A_norm, ab_t=aff_coeffs, p_val=p_val, symmetrize_X=True
-                        ),
                         "Uncoupled-Quad": lambda: inverse_proot_pe_quadratic_uncoupled(
                             A_norm, abc_t=quad_coeffs, p_val=p_val, symmetrize_X=True
-                        ),
-                        "Coupled-Affine": lambda: inverse_proot_pe_affine_coupled(
-                            A_norm,
-                            ab_t=aff_coeffs,
-                            p_val=p_val,
-                            symmetrize_Y=True,
-                            terminal_last_step=True,
                         ),
                         "Coupled-Quad": lambda: inverse_proot_pe_quadratic_coupled(
                             A_norm,
@@ -111,7 +96,7 @@ def main():
                     for name, fn in methods.items():
                         Xn, _ = fn()
                         if not torch.isfinite(Xn).all():
-                            print(f"  ✗ {header:30s} {name:20s} FAIL (non-finite)")
+                            print(f"  X {header:30s} {name:20s} FAIL (non-finite)")
                             all_pass = False
                             continue
 
@@ -133,7 +118,7 @@ def main():
                         passed = (
                             q.residual_fro < resid_thresh and relerr < relerr_thresh
                         )
-                        mark = "✓" if passed else "✗"
+                        mark = "+" if passed else "X"
                         if not passed:
                             all_pass = False
                         print(

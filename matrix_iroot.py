@@ -2,8 +2,7 @@
 matrix_iroot.py
 
 Matmul-only inverse-p-th-root benchmark harness.
-Core iteration/preconditioning code lives in isqrt_core.py.
-Metrics code lives in isqrt_metrics.py.
+Core iteration/preconditioning code lives in fast_iroot/.
 """
 
 from __future__ import annotations
@@ -19,15 +18,9 @@ import torch
 from fast_iroot import (
     AutoPolicyConfig,
     PrecondStats,
-    _affine_coeffs,
     _quad_coeffs,
     build_pe_schedules,
-    inverse_sqrt_ns,
-    inverse_proot_pe_affine_uncoupled,
     inverse_proot_pe_quadratic_uncoupled,
-    inverse_sqrt_pe_affine,
-    inverse_sqrt_pe_quadratic,
-    inverse_proot_pe_affine_coupled,
     inverse_proot_pe_quadratic_coupled,
     precond_spd,
 )
@@ -220,46 +213,13 @@ def maybe_compile(fn, enabled: bool):
 
 def _build_runner(
     method: str,
-    n: int,
-    stats: PrecondStats,
-    auto_cfg: AutoPolicyConfig,
-    pe_affine_coeffs: Sequence[Tuple[float, float]],
     pe_quad_coeffs: Sequence[Tuple[float, float, float]],
     symmetrize_Y: bool,
     p_val: int = 2,
 ) -> Callable[[torch.Tensor, Optional[object]], Tuple[torch.Tensor, object]]:
-    """
-    Returns a function runner(A_norm, ws) -> (Xn, ws2) with method choice fixed
-    """
-    chosen = method
+    """Returns a function runner(A_norm, ws) -> (Xn, ws2) with method choice fixed."""
 
-    if chosen == "NS3":
-
-        def run(A_norm: torch.Tensor, ws: Optional[object]):
-            return inverse_sqrt_ns(
-                A_norm,
-                iters=3,
-                ws=ws,
-                symmetrize_Y=symmetrize_Y,
-                terminal_last_step=True,
-            )
-
-        return run
-
-    if chosen == "PE-Affine":
-
-        def run(A_norm: torch.Tensor, ws: Optional[object]):
-            return inverse_proot_pe_affine_uncoupled(
-                A_norm,
-                ab_t=pe_affine_coeffs,
-                p_val=p_val,
-                ws=ws,
-                symmetrize_X=symmetrize_Y,
-            )
-
-        return run
-
-    if chosen == "PE-Quad":
+    if method == "PE-Quad":
 
         def run(A_norm: torch.Tensor, ws: Optional[object]):
             return inverse_proot_pe_quadratic_uncoupled(
@@ -272,21 +232,7 @@ def _build_runner(
 
         return run
 
-    if chosen == "PE-Affine-Coupled":
-
-        def run(A_norm: torch.Tensor, ws: Optional[object]):
-            return inverse_proot_pe_affine_coupled(
-                A_norm,
-                ab_t=pe_affine_coeffs,
-                p_val=p_val,
-                ws=ws,
-                symmetrize_Y=symmetrize_Y,
-                terminal_last_step=True,
-            )
-
-        return run
-
-    if chosen == "PE-Quad-Coupled":
+    if method == "PE-Quad-Coupled":
 
         def run(A_norm: torch.Tensor, ws: Optional[object]):
             return inverse_proot_pe_quadratic_coupled(
@@ -300,7 +246,7 @@ def _build_runner(
 
         return run
 
-    raise ValueError(f"unknown method: {method} (resolved to {chosen})")
+    raise ValueError(f"unknown method: {method}")
 
 
 @torch.no_grad()
@@ -309,9 +255,7 @@ def eval_method(
     ms_precond_median: float,
     device: torch.device,
     method: str,
-    pe_affine_coeffs: Sequence[Tuple[float, float]],
     pe_quad_coeffs: Sequence[Tuple[float, float, float]],
-    auto_cfg: AutoPolicyConfig,
     timing_reps: int,
     symmetrize_Y: bool,
     compute_relerr: bool,
@@ -347,6 +291,8 @@ def eval_method(
             hard_dir=float("nan"),
             relerr=float("nan"),
             bad=0,
+            mem_alloc_mb=float("nan"),
+            mem_reserved_mb=float("nan"),
         )
 
     ws: Optional[object] = None
@@ -354,10 +300,8 @@ def eval_method(
 
     for prep in prepared_inputs:
         A_norm = prep.A_norm
-        stats = prep.stats
         n = A_norm.shape[-1]
 
-        # FIX: robust, avoids comparing against A_norm.shape and avoids rebuilding per trial.
         if (
             eye_mat is None
             or eye_mat.shape != (n, n)
@@ -367,10 +311,6 @@ def eval_method(
 
         runner = _build_runner(
             method=method,
-            n=n,
-            stats=stats,
-            auto_cfg=auto_cfg,
-            pe_affine_coeffs=pe_affine_coeffs,
             pe_quad_coeffs=pe_quad_coeffs,
             symmetrize_Y=symmetrize_Y,
             p_val=p_val,
@@ -381,7 +321,6 @@ def eval_method(
         # measure memory
         if device.type == "cuda":
             torch.cuda.reset_peak_memory_stats(device=device)
-            # burn one step to allocate ws
             _, ws_mem = runner(A_norm, ws)
             mem_alloc_list.append(
                 torch.cuda.max_memory_allocated(device=device) / (1024**2)
@@ -390,7 +329,7 @@ def eval_method(
                 torch.cuda.max_memory_reserved(device=device) / (1024**2)
             )
             del ws_mem
-            ws = None  # reset workspace to time cleanly
+            ws = None
 
         def run_once() -> torch.Tensor:
             nonlocal ws
@@ -403,13 +342,16 @@ def eval_method(
 
         if not torch.isfinite(Xn).all():
             bad += 1
-            res_list.append(float("inf"))
-            res2_list.append(float("inf"))
-            symx_list.append(float("inf"))
-            symw_list.append(float("inf"))
-            mv_list.append(float("inf"))
-            hard_list.append(float("inf"))
-            err_list.append(float("inf"))
+            for lst in [
+                res_list,
+                res2_list,
+                symx_list,
+                symw_list,
+                mv_list,
+                hard_list,
+                err_list,
+            ]:
+                lst.append(float("inf"))
             continue
 
         q = compute_quality_stats(
@@ -429,7 +371,6 @@ def eval_method(
         hard_list.append(q.hard_dir_err)
 
         if compute_relerr:
-            # iroot_relative_error returns per-batch (here scalar) tensor; take item safely.
             err_list.append(
                 float(
                     iroot_relative_error(Xn.float(), A_norm.float(), p_val=p_val)
@@ -464,7 +405,7 @@ def eval_method(
 
 def main():
     p = argparse.ArgumentParser(
-        description="Benchmark inverse-p-th-root iterations (PE schedules)"
+        description="Benchmark inverse-p-th-root iterations (PE-Quad schedules)"
     )
     p.add_argument(
         "--p", type=int, default=4, help="Root exponent (e.g. 4 for inverse 4th root)"
@@ -491,16 +432,6 @@ def main():
         default="residual",
         choices=["residual", "hard_dir"],
     )
-    p.add_argument("--n-switch", type=int, default=768)
-    p.add_argument("--rho-switch", type=float, default=4.0)
-    p.add_argument(
-        "--auto-policy",
-        type=str,
-        default="hybrid",
-        choices=["size_rho", "interval", "hybrid"],
-    )
-    p.add_argument("--kappa-ns3-max", type=float, default=32.0)
-    p.add_argument("--kappa-pe2-min", type=float, default=96.0)
     p.add_argument(
         "--coeff-mode",
         type=str,
@@ -535,7 +466,7 @@ def main():
 
     p_val = args.p
 
-    pe_ns3_005, pe2_005, coeff_desc = build_pe_schedules(
+    pe_quad_t, coeff_desc = build_pe_schedules(
         l_target=args.l_target,
         device=device,
         coeff_mode=args.coeff_mode,
@@ -545,35 +476,15 @@ def main():
         p_val=p_val,
     )
     print(f"[coeff] using {coeff_desc}")
-    pe_affine_coeffs = _affine_coeffs(pe_ns3_005)
-    pe_quad_coeffs = _quad_coeffs(pe2_005)
+    pe_quad_coeffs = _quad_coeffs(pe_quad_t)
 
-    auto_cfg = AutoPolicyConfig(
-        policy=args.auto_policy,
-        n_switch=args.n_switch,
-        rho_switch=args.rho_switch,
-        kappa_ns3_max=args.kappa_ns3_max,
-        kappa_pe2_min=args.kappa_pe2_min,
-    )
-    print(
-        f"[auto] policy={auto_cfg.policy} n_switch={auto_cfg.n_switch} "
-        f"rho_switch={auto_cfg.rho_switch} kappa_ns3_max={auto_cfg.kappa_ns3_max} "
-        f"kappa_pe2_min={auto_cfg.kappa_pe2_min}"
-    )
-
-    # Compile (store compiled fns back into module globals so _build_runner uses them).
+    # Compile
     if args.compile:
-        globals()["inverse_proot_pe_affine_uncoupled"] = maybe_compile(
-            inverse_proot_pe_affine_uncoupled, True
-        )
         globals()["inverse_proot_pe_quadratic_uncoupled"] = maybe_compile(
             inverse_proot_pe_quadratic_uncoupled, True
         )
-        globals()["inverse_sqrt_pe_affine"] = maybe_compile(
-            inverse_sqrt_pe_affine, True
-        )
-        globals()["inverse_sqrt_pe_quadratic"] = maybe_compile(
-            inverse_sqrt_pe_quadratic, True
+        globals()["inverse_proot_pe_quadratic_coupled"] = maybe_compile(
+            inverse_proot_pe_quadratic_coupled, True
         )
 
     g = torch.Generator(device=device)
@@ -585,7 +496,7 @@ def main():
                 f"== SPD size {n}x{n} | dtype={dtype_compute} | compile={args.compile} | "
                 f"precond={args.precond} | l_target={args.l_target} | lmax=row_sum | terminal=True | "
                 f"timing_reps={max(1, args.timing_reps)} | symY={not args.no_symmetrize_y} | "
-                f"auto={args.auto_policy} | metrics={args.metrics_mode} | power_it={args.power_iters} | "
+                f"metrics={args.metrics_mode} | power_it={args.power_iters} | "
                 f"mv_k={args.mv_samples} | hard_it={args.hard_probe_iters} =="
             )
 
@@ -602,9 +513,9 @@ def main():
                     ridge_rel=args.ridge_rel,
                     l_target=args.l_target,
                 )
-                _, ws = inverse_proot_pe_affine_uncoupled(
+                _, ws = inverse_proot_pe_quadratic_uncoupled(
                     A_norm,
-                    ab_t=pe_affine_coeffs,
+                    abc_t=pe_quad_coeffs,
                     p_val=p_val,
                     ws=ws,
                     symmetrize_X=not args.no_symmetrize_y,
@@ -622,12 +533,7 @@ def main():
                     l_target=args.l_target,
                 )
 
-                methods_to_run = [
-                    "PE-Affine",
-                    "PE-Quad",
-                    "PE-Affine-Coupled",
-                    "PE-Quad-Coupled",
-                ]
+                methods_to_run = ["PE-Quad", "PE-Quad-Coupled"]
 
                 rows: List[Tuple[str, BenchResult]] = []
                 for name in methods_to_run:
@@ -636,9 +542,7 @@ def main():
                         ms_precond_median=ms_precond_med,
                         device=device,
                         method=name,
-                        pe_affine_coeffs=pe_affine_coeffs,
                         pe_quad_coeffs=pe_quad_coeffs,
-                        auto_cfg=auto_cfg,
                         timing_reps=args.timing_reps,
                         symmetrize_Y=not args.no_symmetrize_y,
                         compute_relerr=(args.metrics_mode == "full"),
@@ -656,7 +560,7 @@ def main():
                     else:
                         mem_str = ""
                     print(
-                        f"{name:<18s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}){mem_str} | "
+                        f"{name:<22s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}){mem_str} | "
                         f"resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e} | "
                         f"relerr {rr.relerr:.3e} | r2 {rr.residual_spec:.3e} | hard {rr.hard_dir:.3e} | "
                         f"symX {rr.sym_x:.2e} symW {rr.sym_w:.2e} | mv {rr.mv_err:.3e} | bad {rr.bad}"
@@ -678,7 +582,7 @@ def main():
                 if feasible:
                     best_name, best_rr = min(feasible, key=lambda t: t[1].ms)
                     print(
-                        f"BEST<=target({args.target_metric}={args.target_resid:.3g}): "
+                        f"BEST<={args.target_metric}={args.target_resid:.3g}: "
                         f"{best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}, hard={best_rr.hard_dir:.3e}"
                     )
                 else:

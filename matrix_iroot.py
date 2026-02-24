@@ -16,7 +16,6 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import torch
 
 from fast_iroot import (
-    AutoPolicyConfig,
     PrecondStats,
     _quad_coeffs,
     build_pe_schedules,

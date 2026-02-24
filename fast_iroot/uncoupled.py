@@ -3,7 +3,7 @@ from typing import Optional, Sequence, Tuple
 
 import torch
 
-from .utils import _matmul_into, _symmetrize_inplace, _addmm_into
+from .utils import _matmul_into, _symmetrize_inplace
 from .coeffs import _quad_coeffs
 
 

@@ -9,6 +9,7 @@ Metrics code lives in isqrt_metrics.py.
 from __future__ import annotations
 
 import argparse
+import math
 import time
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Sequence, Tuple
@@ -17,7 +18,6 @@ import torch
 
 from isqrt_core import (
     AutoPolicyConfig,
-    IsqrtWorkspace,
     PrecondStats,
     _affine_coeffs,
     _quad_coeffs,
@@ -25,6 +25,8 @@ from isqrt_core import (
     inverse_sqrt_ns,
     inverse_proot_pe_affine_uncoupled,
     inverse_proot_pe_quadratic_uncoupled,
+    inverse_sqrt_pe_affine,
+    inverse_sqrt_pe_quadratic,
     precond_spd,
 )
 from isqrt_metrics import compute_quality_stats, iroot_relative_error
@@ -158,6 +160,8 @@ class BenchResult:
     hard_dir: float
     relerr: float
     bad: int
+    mem_alloc_mb: float
+    mem_reserved_mb: float
 
 
 @dataclass
@@ -221,9 +225,7 @@ def _build_runner(
     pe_quad_coeffs: Sequence[Tuple[float, float, float]],
     symmetrize_Y: bool,
     p_val: int = 2,
-) -> Callable[
-    [torch.Tensor, Optional[IsqrtWorkspace]], Tuple[torch.Tensor, IsqrtWorkspace]
-]:
+) -> Callable[[torch.Tensor, Optional[object]], Tuple[torch.Tensor, object]]:
     """
     Returns a function runner(A_norm, ws) -> (Xn, ws2) with method choice fixed
     """
@@ -231,7 +233,7 @@ def _build_runner(
 
     if chosen == "NS3":
 
-        def run(A_norm: torch.Tensor, ws: Optional[IsqrtWorkspace]):
+        def run(A_norm: torch.Tensor, ws: Optional[object]):
             return inverse_sqrt_ns(
                 A_norm,
                 iters=3,
@@ -244,7 +246,7 @@ def _build_runner(
 
     if chosen == "PE-Affine":
 
-        def run(A_norm: torch.Tensor, ws: Optional[IsqrtWorkspace]):
+        def run(A_norm: torch.Tensor, ws: Optional[object]):
             return inverse_proot_pe_affine_uncoupled(
                 A_norm,
                 ab_t=pe_affine_coeffs,
@@ -257,13 +259,39 @@ def _build_runner(
 
     if chosen == "PE-Quad":
 
-        def run(A_norm: torch.Tensor, ws: Optional[IsqrtWorkspace]):
+        def run(A_norm: torch.Tensor, ws: Optional[object]):
             return inverse_proot_pe_quadratic_uncoupled(
                 A_norm,
                 abc_t=pe_quad_coeffs,
                 p_val=p_val,
                 ws=ws,
                 symmetrize_X=symmetrize_Y,
+            )
+
+        return run
+
+    if chosen == "PE-Affine-Coupled" and p_val == 2:
+
+        def run(A_norm: torch.Tensor, ws: Optional[object]):
+            return inverse_sqrt_pe_affine(
+                A_norm,
+                ab_t=pe_affine_coeffs,
+                ws=ws,
+                symmetrize_Y=symmetrize_Y,
+                terminal_last_step=True,
+            )
+
+        return run
+
+    if chosen == "PE-Quad-Coupled" and p_val == 2:
+
+        def run(A_norm: torch.Tensor, ws: Optional[object]):
+            return inverse_sqrt_pe_quadratic(
+                A_norm,
+                abc_t=pe_quad_coeffs,
+                ws=ws,
+                symmetrize_Y=symmetrize_Y,
+                terminal_last_step=True,
             )
 
         return run
@@ -296,6 +324,8 @@ def eval_method(
     mv_list: List[float] = []
     hard_list: List[float] = []
     err_list: List[float] = []
+    mem_alloc_list: List[float] = []
+    mem_res_list: List[float] = []
     bad = 0
 
     if len(prepared_inputs) == 0:
@@ -315,7 +345,7 @@ def eval_method(
             bad=0,
         )
 
-    ws: Optional[IsqrtWorkspace] = None
+    ws: Optional[object] = None
     eye_mat: Optional[torch.Tensor] = None
 
     for prep in prepared_inputs:
@@ -341,6 +371,22 @@ def eval_method(
             symmetrize_Y=symmetrize_Y,
             p_val=p_val,
         )
+
+        ws: Optional[object] = None
+
+        # measure memory
+        if device.type == "cuda":
+            torch.cuda.reset_peak_memory_stats(device=device)
+            # burn one step to allocate ws
+            _, ws_mem = runner(A_norm, ws)
+            mem_alloc_list.append(
+                torch.cuda.max_memory_allocated(device=device) / (1024**2)
+            )
+            mem_res_list.append(
+                torch.cuda.max_memory_reserved(device=device) / (1024**2)
+            )
+            del ws_mem
+            ws = None  # reset workspace to time cleanly
 
         def run_once() -> torch.Tensor:
             nonlocal ws
@@ -407,6 +453,8 @@ def eval_method(
         hard_dir=median(hard_list),
         relerr=median(err_list),
         bad=bad,
+        mem_alloc_mb=median(mem_alloc_list) if mem_alloc_list else float("nan"),
+        mem_reserved_mb=median(mem_res_list) if mem_res_list else float("nan"),
     )
 
 
@@ -422,7 +470,11 @@ def main():
     p.add_argument("--warmup", type=int, default=2)
     p.add_argument("--seed", type=int, default=1234)
     p.add_argument("--dtype", type=str, default="bf16", choices=["fp32", "bf16"])
-    p.add_argument("--compile", action="store_true")
+    p.add_argument(
+        "--compile",
+        action="store_true",
+        help="Compile for maximum performance",
+    )
     p.add_argument(
         "--precond", type=str, default="aol", choices=["none", "frob", "aol"]
     )
@@ -513,6 +565,12 @@ def main():
         globals()["inverse_proot_pe_quadratic_uncoupled"] = maybe_compile(
             inverse_proot_pe_quadratic_uncoupled, True
         )
+        globals()["inverse_sqrt_pe_affine"] = maybe_compile(
+            inverse_sqrt_pe_affine, True
+        )
+        globals()["inverse_sqrt_pe_quadratic"] = maybe_compile(
+            inverse_sqrt_pe_quadratic, True
+        )
 
     g = torch.Generator(device=device)
     g.manual_seed(args.seed)
@@ -531,7 +589,7 @@ def main():
             warm = make_spd_cases(
                 "gaussian_spd", n, max(1, args.warmup), device, torch.float32, g
             )
-            ws: Optional[IsqrtWorkspace] = None
+            ws: Optional[object] = None
             for A in warm:
                 A = A.to(dtype_compute)
                 A_norm, _ = precond_spd(
@@ -560,8 +618,12 @@ def main():
                     l_target=args.l_target,
                 )
 
+                methods_to_run = ["PE-Affine", "PE-Quad"]
+                if p_val == 2:
+                    methods_to_run.extend(["PE-Affine-Coupled", "PE-Quad-Coupled"])
+
                 rows: List[Tuple[str, BenchResult]] = []
-                for name in ["PE-Affine", "PE-Quad"]:
+                for name in methods_to_run:
                     rr = eval_method(
                         prepared_inputs=prepared_inputs,
                         ms_precond_median=ms_precond_med,
@@ -582,8 +644,12 @@ def main():
 
                 print(f"-- case {case} --")
                 for name, rr in rows:
+                    if not math.isnan(rr.mem_alloc_mb):
+                        mem_str = f" | mem {rr.mem_alloc_mb:4.0f}MB"
+                    else:
+                        mem_str = ""
                     print(
-                        f"{name:<10s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}) | "
+                        f"{name:<18s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}){mem_str} | "
                         f"resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e} | "
                         f"relerr {rr.relerr:.3e} | r2 {rr.residual_spec:.3e} | hard {rr.hard_dir:.3e} | "
                         f"symX {rr.sym_x:.2e} symW {rr.sym_w:.2e} | mv {rr.mv_err:.3e} | bad {rr.bad}"

@@ -16,7 +16,7 @@ except ImportError:
 
 
 @dataclass
-class IsqrtWorkspace:
+class IsqrtWorkspaceCoupled:
     X: torch.Tensor
     Xbuf: torch.Tensor
     Y: torch.Tensor
@@ -24,6 +24,15 @@ class IsqrtWorkspace:
     Y2: torch.Tensor
     B: torch.Tensor
     B2: torch.Tensor
+    eye_mat: torch.Tensor
+
+
+@dataclass
+class IrootWorkspaceUncoupled:
+    X: torch.Tensor
+    Xbuf: torch.Tensor
+    T1: torch.Tensor
+    T2: torch.Tensor
     eye_mat: torch.Tensor
 
 
@@ -47,12 +56,12 @@ class AutoPolicyConfig:
     kappa_pe2_min: float
 
 
-def _alloc_ws(A: torch.Tensor) -> IsqrtWorkspace:
+def _alloc_ws_coupled(A: torch.Tensor) -> IsqrtWorkspaceCoupled:
     shape = A.shape
     n = shape[-1]
     # IMPORTANT: do NOT .contiguous() an expanded identity; that materializes a full batch of I.
     eye = torch.eye(n, device=A.device, dtype=A.dtype).expand_as(A)
-    return IsqrtWorkspace(
+    return IsqrtWorkspaceCoupled(
         X=A.new_empty(shape),
         Xbuf=A.new_empty(shape),
         Y=A.new_empty(shape),
@@ -64,7 +73,33 @@ def _alloc_ws(A: torch.Tensor) -> IsqrtWorkspace:
     )
 
 
-def _ws_ok(ws: Optional[IsqrtWorkspace], A: torch.Tensor) -> bool:
+def _alloc_ws_uncoupled(A: torch.Tensor) -> IrootWorkspaceUncoupled:
+    shape = A.shape
+    n = shape[-1]
+    eye = torch.eye(n, device=A.device, dtype=A.dtype).expand_as(A)
+    return IrootWorkspaceUncoupled(
+        X=A.new_empty(shape),
+        Xbuf=A.new_empty(shape),
+        T1=A.new_empty(shape),
+        T2=A.new_empty(shape),
+        eye_mat=eye,
+    )
+
+
+def _ws_ok_coupled(ws: Optional[IsqrtWorkspaceCoupled], A: torch.Tensor) -> bool:
+    if ws is None:
+        return False
+    return (
+        ws.X.device == A.device
+        and ws.X.dtype == A.dtype
+        and ws.X.shape == A.shape
+        and ws.eye_mat.device == A.device
+        and ws.eye_mat.dtype == A.dtype
+        and ws.eye_mat.shape == A.shape
+    )
+
+
+def _ws_ok_uncoupled(ws: Optional[IrootWorkspaceUncoupled], A: torch.Tensor) -> bool:
     if ws is None:
         return False
     return (
@@ -245,12 +280,12 @@ def choose_auto_method(n: int, stats: PrecondStats, cfg: AutoPolicyConfig) -> st
 def inverse_sqrt_ns(
     A_norm: torch.Tensor,
     iters: int,
-    ws: Optional[IsqrtWorkspace] = None,
+    ws: Optional[IsqrtWorkspaceCoupled] = None,
     symmetrize_Y: bool = True,
     terminal_last_step: bool = True,
-) -> Tuple[torch.Tensor, IsqrtWorkspace]:
-    if not _ws_ok(ws, A_norm):
-        ws = _alloc_ws(A_norm)
+) -> Tuple[torch.Tensor, IsqrtWorkspaceCoupled]:
+    if not _ws_ok_coupled(ws, A_norm):
+        ws = _alloc_ws_coupled(A_norm)
     assert ws is not None
 
     ws.X.copy_(ws.eye_mat)
@@ -281,12 +316,12 @@ def inverse_sqrt_ns(
 def inverse_sqrt_pe_affine(
     A_norm: torch.Tensor,
     ab_t: Sequence[Tuple[float, float]] | torch.Tensor,
-    ws: Optional[IsqrtWorkspace] = None,
+    ws: Optional[IsqrtWorkspaceCoupled] = None,
     symmetrize_Y: bool = True,
     terminal_last_step: bool = True,
-) -> Tuple[torch.Tensor, IsqrtWorkspace]:
-    if not _ws_ok(ws, A_norm):
-        ws = _alloc_ws(A_norm)
+) -> Tuple[torch.Tensor, IsqrtWorkspaceCoupled]:
+    if not _ws_ok_coupled(ws, A_norm):
+        ws = _alloc_ws_coupled(A_norm)
     assert ws is not None
 
     ws.X.copy_(ws.eye_mat)
@@ -318,12 +353,12 @@ def inverse_sqrt_pe_affine(
 def inverse_sqrt_pe_quadratic(
     A_norm: torch.Tensor,
     abc_t: Sequence[Tuple[float, float, float]] | torch.Tensor,
-    ws: Optional[IsqrtWorkspace] = None,
+    ws: Optional[IsqrtWorkspaceCoupled] = None,
     symmetrize_Y: bool = True,
     terminal_last_step: bool = True,
-) -> Tuple[torch.Tensor, IsqrtWorkspace]:
-    if not _ws_ok(ws, A_norm):
-        ws = _alloc_ws(A_norm)
+) -> Tuple[torch.Tensor, IsqrtWorkspaceCoupled]:
+    if not _ws_ok_coupled(ws, A_norm):
+        ws = _alloc_ws_coupled(A_norm)
     assert ws is not None
 
     ws.X.copy_(ws.eye_mat)
@@ -358,11 +393,11 @@ def inverse_proot_pe_affine_uncoupled(
     A_norm: torch.Tensor,
     ab_t: Sequence[Tuple[float, float]] | torch.Tensor,
     p_val: int = 2,
-    ws: Optional[IsqrtWorkspace] = None,
+    ws: Optional[IrootWorkspaceUncoupled] = None,
     symmetrize_X: bool = True,
-) -> Tuple[torch.Tensor, IsqrtWorkspace]:
-    if not _ws_ok(ws, A_norm):
-        ws = _alloc_ws(A_norm)
+) -> Tuple[torch.Tensor, IrootWorkspaceUncoupled]:
+    if not _ws_ok_uncoupled(ws, A_norm):
+        ws = _alloc_ws_uncoupled(A_norm)
     assert ws is not None
 
     ws.X.copy_(ws.eye_mat)
@@ -370,26 +405,38 @@ def inverse_proot_pe_affine_uncoupled(
 
     for a, b in coeffs:
         if p_val == 2:
-            _matmul_into(ws.X, A_norm, ws.B)
-            _matmul_into(ws.X, ws.B, ws.Y)
-        elif p_val == 3:
-            _matmul_into(ws.X, ws.X, ws.B)
-            _matmul_into(ws.B, ws.X, ws.B2)
-            _matmul_into(ws.B2, A_norm, ws.Y)
-        elif p_val == 4:
-            _matmul_into(ws.X, ws.X, ws.B)  # X^2
-            _matmul_into(ws.B, ws.B, ws.B2)  # X^4
-            _matmul_into(ws.B2, A_norm, ws.Y)
-        else:
-            ws.B.copy_(ws.X)
-            for _ in range(p_val - 1):
-                _matmul_into(ws.B, ws.X, ws.B2)
-                ws.B.copy_(ws.B2)  # simpler to copy for generic
-            _matmul_into(ws.B, A_norm, ws.Y)
+            _matmul_into(ws.X, ws.X, ws.T1)
+            _matmul_into(ws.T1, A_norm, ws.T2)
+            _matmul_into(ws.X, ws.T2, ws.T1)
 
-        _matmul_into(ws.X, ws.Y, ws.Xbuf)
-        ws.Xbuf.mul_(b)
-        ws.Xbuf.add_(ws.X, alpha=a)
+            ws.Xbuf.copy_(ws.T1).mul_(b)
+            ws.Xbuf.add_(ws.X, alpha=a)
+        elif p_val == 3:
+            _matmul_into(ws.X, ws.X, ws.T1)
+            _matmul_into(ws.T1, ws.X, ws.T2)
+            _matmul_into(ws.T2, A_norm, ws.T1)
+            _matmul_into(ws.X, ws.T1, ws.T2)
+
+            ws.Xbuf.copy_(ws.T2).mul_(b)
+            ws.Xbuf.add_(ws.X, alpha=a)
+        elif p_val == 4:
+            _matmul_into(ws.X, ws.X, ws.T1)  # X^2
+            _matmul_into(ws.T1, ws.T1, ws.T2)  # X^4
+            _matmul_into(ws.T2, A_norm, ws.T1)  # Y
+            _matmul_into(ws.X, ws.T1, ws.T2)  # X Y
+
+            ws.Xbuf.copy_(ws.T2).mul_(b)
+            ws.Xbuf.add_(ws.X, alpha=a)
+        else:
+            ws.T1.copy_(ws.X)
+            for _ in range(p_val - 1):
+                _matmul_into(ws.T1, ws.X, ws.T2)
+                ws.T1.copy_(ws.T2)
+            _matmul_into(ws.T1, A_norm, ws.T2)
+            _matmul_into(ws.X, ws.T2, ws.T1)
+
+            ws.Xbuf.copy_(ws.T1).mul_(b)
+            ws.Xbuf.add_(ws.X, alpha=a)
 
         ws.X, ws.Xbuf = ws.Xbuf, ws.X
 
@@ -404,11 +451,11 @@ def inverse_proot_pe_quadratic_uncoupled(
     A_norm: torch.Tensor,
     abc_t: Sequence[Tuple[float, float, float]] | torch.Tensor,
     p_val: int = 2,
-    ws: Optional[IsqrtWorkspace] = None,
+    ws: Optional[IrootWorkspaceUncoupled] = None,
     symmetrize_X: bool = True,
-) -> Tuple[torch.Tensor, IsqrtWorkspace]:
-    if not _ws_ok(ws, A_norm):
-        ws = _alloc_ws(A_norm)
+) -> Tuple[torch.Tensor, IrootWorkspaceUncoupled]:
+    if not _ws_ok_uncoupled(ws, A_norm):
+        ws = _alloc_ws_uncoupled(A_norm)
     assert ws is not None
 
     ws.X.copy_(ws.eye_mat)
@@ -416,29 +463,31 @@ def inverse_proot_pe_quadratic_uncoupled(
 
     for a, b, c in coeffs:
         if p_val == 2:
-            _matmul_into(ws.X, A_norm, ws.B)
-            _matmul_into(ws.X, ws.B, ws.Y)
+            _matmul_into(ws.X, ws.X, ws.T1)
+            _matmul_into(ws.T1, A_norm, ws.T2)
         elif p_val == 3:
-            _matmul_into(ws.X, ws.X, ws.B)
-            _matmul_into(ws.B, ws.X, ws.B2)
-            _matmul_into(ws.B2, A_norm, ws.Y)
+            _matmul_into(ws.X, ws.X, ws.T1)
+            _matmul_into(ws.T1, ws.X, ws.T2)
+            _matmul_into(ws.T2, A_norm, ws.T1)
+            ws.T2.copy_(ws.T1)
         elif p_val == 4:
-            _matmul_into(ws.X, ws.X, ws.B)  # X^2
-            _matmul_into(ws.B, ws.B, ws.B2)  # X^4
-            _matmul_into(ws.B2, A_norm, ws.Y)
+            _matmul_into(ws.X, ws.X, ws.T1)  # X^2
+            _matmul_into(ws.T1, ws.T1, ws.T2)  # X^4
+            _matmul_into(ws.T2, A_norm, ws.T1)
+            ws.T2.copy_(ws.T1)
         else:
-            ws.B.copy_(ws.X)
+            ws.T1.copy_(ws.X)
             for _ in range(p_val - 1):
-                _matmul_into(ws.B, ws.X, ws.B2)
-                ws.B.copy_(ws.B2)
-            _matmul_into(ws.B, A_norm, ws.Y)
+                _matmul_into(ws.T1, ws.X, ws.T2)
+                ws.T1.copy_(ws.T2)
+            _matmul_into(ws.T1, A_norm, ws.T2)  # Y in T2
 
-        _matmul_into(ws.Y, ws.Y, ws.Y2)
-        ws.B.copy_(ws.Y2).mul_(c)
-        ws.B.add_(ws.Y, alpha=b)
-        ws.B.diagonal(dim1=-2, dim2=-1).add_(a)
+        _matmul_into(ws.T2, ws.T2, ws.T1)  # Y^2 in T1
+        ws.T1.mul_(c)
+        ws.T1.add_(ws.T2, alpha=b)
+        ws.T1.diagonal(dim1=-2, dim2=-1).add_(a)  # B in T1
 
-        _matmul_into(ws.X, ws.B, ws.Xbuf)
+        _matmul_into(ws.X, ws.T1, ws.Xbuf)
         ws.X, ws.Xbuf = ws.Xbuf, ws.X
 
         if symmetrize_X:

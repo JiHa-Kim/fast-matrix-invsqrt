@@ -46,7 +46,6 @@ def _ws_ok_uncoupled(ws: Optional[IrootWorkspaceUncoupled], A: torch.Tensor) -> 
 def inverse_proot_pe_affine_uncoupled(
     A_norm: torch.Tensor,
     ab_t: Sequence[Tuple[float, float]] | torch.Tensor,
-    p_val: int = 2,
     ws: Optional[IrootWorkspaceUncoupled] = None,
     symmetrize_X: bool = True,
 ) -> Tuple[torch.Tensor, IrootWorkspaceUncoupled]:
@@ -58,39 +57,11 @@ def inverse_proot_pe_affine_uncoupled(
     coeffs = _affine_coeffs(ab_t)
 
     for a, b in coeffs:
-        if p_val == 2:
-            _matmul_into(ws.X, ws.X, ws.T1)
-            _matmul_into(ws.T1, A_norm, ws.T2)
-            _matmul_into(ws.X, ws.T2, ws.T1)
+        _matmul_into(A_norm, ws.X, ws.T1)
+        _matmul_into(ws.X, ws.T1, ws.T2)
 
-            ws.Xbuf.copy_(ws.T1).mul_(b)
-            ws.Xbuf.add_(ws.X, alpha=a)
-        elif p_val == 3:
-            _matmul_into(ws.X, ws.X, ws.T1)
-            _matmul_into(ws.T1, ws.X, ws.T2)
-            _matmul_into(ws.T2, A_norm, ws.T1)
-            _matmul_into(ws.X, ws.T1, ws.T2)
-
-            ws.Xbuf.copy_(ws.T2).mul_(b)
-            ws.Xbuf.add_(ws.X, alpha=a)
-        elif p_val == 4:
-            _matmul_into(ws.X, ws.X, ws.T1)  # X^2
-            _matmul_into(ws.T1, ws.T1, ws.T2)  # X^4
-            _matmul_into(ws.T2, A_norm, ws.T1)  # Y
-            _matmul_into(ws.X, ws.T1, ws.T2)  # X Y
-
-            ws.Xbuf.copy_(ws.T2).mul_(b)
-            ws.Xbuf.add_(ws.X, alpha=a)
-        else:
-            ws.T1.copy_(ws.X)
-            for _ in range(p_val - 1):
-                _matmul_into(ws.T1, ws.X, ws.T2)
-                ws.T1.copy_(ws.T2)
-            _matmul_into(ws.T1, A_norm, ws.T2)
-            _matmul_into(ws.X, ws.T2, ws.T1)
-
-            ws.Xbuf.copy_(ws.T1).mul_(b)
-            ws.Xbuf.add_(ws.X, alpha=a)
+        ws.Xbuf.copy_(ws.T2).mul_(b)
+        ws.Xbuf.add_(ws.X, alpha=a)
 
         ws.X, ws.Xbuf = ws.Xbuf, ws.X
 
@@ -104,7 +75,6 @@ def inverse_proot_pe_affine_uncoupled(
 def inverse_proot_pe_quadratic_uncoupled(
     A_norm: torch.Tensor,
     abc_t: Sequence[Tuple[float, float, float]] | torch.Tensor,
-    p_val: int = 2,
     ws: Optional[IrootWorkspaceUncoupled] = None,
     symmetrize_X: bool = True,
 ) -> Tuple[torch.Tensor, IrootWorkspaceUncoupled]:
@@ -116,29 +86,12 @@ def inverse_proot_pe_quadratic_uncoupled(
     coeffs = _quad_coeffs(abc_t)
 
     for a, b, c in coeffs:
-        if p_val == 2:
-            _matmul_into(ws.X, ws.X, ws.T1)
-            _matmul_into(ws.T1, A_norm, ws.T2)
-        elif p_val == 3:
-            _matmul_into(ws.X, ws.X, ws.T1)
-            _matmul_into(ws.T1, ws.X, ws.T2)
-            _matmul_into(ws.T2, A_norm, ws.T1)
-            ws.T2.copy_(ws.T1)
-        elif p_val == 4:
-            _matmul_into(ws.X, ws.X, ws.T1)  # X^2
-            _matmul_into(ws.T1, ws.T1, ws.T2)  # X^4
-            _matmul_into(ws.T2, A_norm, ws.T1)
-            ws.T2.copy_(ws.T1)
-        else:
-            ws.T1.copy_(ws.X)
-            for _ in range(p_val - 1):
-                _matmul_into(ws.T1, ws.X, ws.T2)
-                ws.T1.copy_(ws.T2)
-            _matmul_into(ws.T1, A_norm, ws.T2)  # Y in T2
+        _matmul_into(A_norm, ws.X, ws.T1)
+        _matmul_into(ws.T1, ws.T1, ws.T2)
 
-        _matmul_into(ws.T2, ws.T2, ws.T1)  # Y^2 in T1
-        ws.T1.mul_(c)
-        ws.T1.add_(ws.T2, alpha=b)
+        ws.T1.mul_(b)
+        ws.T2.mul_(c)
+        ws.T1.add_(ws.T2)
         ws.T1.diagonal(dim1=-2, dim2=-1).add_(a)  # B in T1
 
         _matmul_into(ws.X, ws.T1, ws.Xbuf)
@@ -148,3 +101,19 @@ def inverse_proot_pe_quadratic_uncoupled(
             _symmetrize_inplace(ws.X, ws.Xbuf)
 
     return ws.X, ws
+
+
+@torch.no_grad()
+def inverse_proot_ns_uncoupled(
+    A_norm: torch.Tensor,
+    iters: int,
+    ws: Optional[IrootWorkspaceUncoupled] = None,
+    symmetrize_X: bool = True,
+) -> Tuple[torch.Tensor, IrootWorkspaceUncoupled]:
+    ab_t = [(2.0, -1.0)] * iters
+    return inverse_proot_pe_affine_uncoupled(
+        A_norm=A_norm,
+        ab_t=ab_t,
+        ws=ws,
+        symmetrize_X=symmetrize_X,
+    )

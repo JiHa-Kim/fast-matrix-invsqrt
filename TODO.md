@@ -2,17 +2,17 @@
 
 ## Immediate Action Items (Bug Fixes & Hardening)
 Refer to [BUGS.md](file:///d:/GitHub/JiHa-Kim/fast-matrix-inverse-roots/BUGS.md) for details.
-- [ ] Harden $p=2$ scalar scheduler.
-- [ ] Implement exact positivity and interval certification for $p=2$.
-- [ ] Add fallback to inverse Newton if certification fails.
+- [x] Harden $p=2$ scalar scheduler.
+- [x] Implement exact positivity and interval certification for $p=2$.
+- [x] Add fallback to inverse Newton if certification fails.
 
 ## Roadmap
 
 ### Phase 1: flagship $p=2$ Scalar Scheduler
-- [ ] Add local-basis parameterization around $y=1$.
-- [ ] Implement exact positivity certification.
-- [ ] Replace sampled interval update with critical-point extrema.
-- [ ] Separate `true_interval` from `fit_interval`.
+- [x] Add local-basis parameterization around $y=1$.
+- [x] Implement exact positivity certification.
+- [x] Replace sampled interval update with critical-point extrema.
+- [x] Separate `true_interval` from `fit_interval`.
 
 ### Phase 2: $p=2$ Matrix Runtime
 - [ ] Implement `fast` mode (storing $X$ and $Y$).

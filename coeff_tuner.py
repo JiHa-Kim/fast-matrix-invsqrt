@@ -278,6 +278,22 @@ def fit_quadratic_local(
     rng = np.random.default_rng(seed)
     inv_p = 1.0 / p_val
 
+    # To strictly guarantee q(y) > q_min on [lo, hi]:
+    # q(y) = 1 - (1/p)(y-1) + alpha(y-1)^2 > q_min
+    # => alpha > (q_min - (1 - (1/p)(y-1))) / (y-1)^2  for y != 1
+    # We only need to check the endpoints lo and hi because the bounding curve
+    # is monotonic on (0, 1) and (1, infinity).
+    q_min = 1e-4
+    alpha_lb_lo = -1e9
+    if abs(lo - 1.0) > 1e-9:
+        alpha_lb_lo = (q_min - (1.0 - inv_p * (lo - 1.0))) / ((lo - 1.0) ** 2)
+
+    alpha_lb_hi = -1e9
+    if abs(hi - 1.0) > 1e-9:
+        alpha_lb_hi = (q_min - (1.0 - inv_p * (hi - 1.0))) / ((hi - 1.0) ** 2)
+
+    alpha_min = max(alpha_lb_lo, alpha_lb_hi)
+
     best_alpha, best_val = None, None
 
     for r in range(restarts):
@@ -285,6 +301,8 @@ def fit_quadratic_local(
             a0 = (p_val + 1.0) / (2.0 * p_val * p_val)  # from φ''(1)=0 condition
         else:
             a0 = (p_val + 1.0) / (2.0 * p_val * p_val) + 0.3 * rng.standard_normal()
+
+        a0 = max(a0, alpha_min + 1e-5)
         param = torch.nn.Parameter(torch.tensor([a0], dtype=torch.float64))
 
         opt = torch.optim.LBFGS(
@@ -293,7 +311,8 @@ def fit_quadratic_local(
 
         def closure():
             opt.zero_grad(set_to_none=True)
-            alpha = param[0]
+            # Project alpha to feasible region strictly
+            alpha = torch.clamp(param[0], min=alpha_min + 1e-6)
             dy = ys - 1.0
             q = 1.0 - inv_p * dy + alpha * dy * dy
             err = torch.abs(1.0 - ys * (q**p_val))
@@ -303,7 +322,7 @@ def fit_quadratic_local(
 
         opt.step(closure)
         with torch.no_grad():
-            alpha = float(param[0])
+            alpha = float(torch.clamp(param[0], min=alpha_min + 1e-6))
             dy = ys - 1.0
             q = 1.0 - inv_p * dy + alpha * dy * dy
             err = torch.abs(1.0 - ys * (q**p_val))
@@ -368,7 +387,6 @@ def make_schedule(
                 c = c / (safety * safety)
 
             # Certification gate (quadratic only)
-            used_fallback = False
             if certified:
                 pos_ok = certify_positivity_quadratic(a, b, c, lo_true, hi_true)
                 if not pos_ok:
@@ -376,7 +394,6 @@ def make_schedule(
                         f"Step {t}: quadratic positivity certification failed, "
                         f"attempting adaptive affine fallback."
                     )
-                    used_fallback = True
 
                     # Try unconstrained quadratic fallback before affine
                     abc_unconstrained = fit_quadratic(

@@ -353,6 +353,100 @@ def inverse_sqrt_pe_quadratic(
     return ws.X, ws
 
 
+@torch.no_grad()
+def inverse_proot_pe_affine_uncoupled(
+    A_norm: torch.Tensor,
+    ab_t: Sequence[Tuple[float, float]] | torch.Tensor,
+    p_val: int = 2,
+    ws: Optional[IsqrtWorkspace] = None,
+    symmetrize_X: bool = True,
+) -> Tuple[torch.Tensor, IsqrtWorkspace]:
+    if not _ws_ok(ws, A_norm):
+        ws = _alloc_ws(A_norm)
+    assert ws is not None
+
+    ws.X.copy_(ws.eye_mat)
+    coeffs = _affine_coeffs(ab_t)
+
+    for a, b in coeffs:
+        if p_val == 2:
+            _matmul_into(ws.X, A_norm, ws.B)
+            _matmul_into(ws.X, ws.B, ws.Y)
+        elif p_val == 3:
+            _matmul_into(ws.X, ws.X, ws.B)
+            _matmul_into(ws.B, ws.X, ws.B2)
+            _matmul_into(ws.B2, A_norm, ws.Y)
+        elif p_val == 4:
+            _matmul_into(ws.X, ws.X, ws.B)  # X^2
+            _matmul_into(ws.B, ws.B, ws.B2)  # X^4
+            _matmul_into(ws.B2, A_norm, ws.Y)
+        else:
+            ws.B.copy_(ws.X)
+            for _ in range(p_val - 1):
+                _matmul_into(ws.B, ws.X, ws.B2)
+                ws.B.copy_(ws.B2)  # simpler to copy for generic
+            _matmul_into(ws.B, A_norm, ws.Y)
+
+        _matmul_into(ws.X, ws.Y, ws.Xbuf)
+        ws.Xbuf.mul_(b)
+        ws.Xbuf.add_(ws.X, alpha=a)
+
+        ws.X, ws.Xbuf = ws.Xbuf, ws.X
+
+        if symmetrize_X:
+            _symmetrize_inplace(ws.X, ws.Xbuf)
+
+    return ws.X, ws
+
+
+@torch.no_grad()
+def inverse_proot_pe_quadratic_uncoupled(
+    A_norm: torch.Tensor,
+    abc_t: Sequence[Tuple[float, float, float]] | torch.Tensor,
+    p_val: int = 2,
+    ws: Optional[IsqrtWorkspace] = None,
+    symmetrize_X: bool = True,
+) -> Tuple[torch.Tensor, IsqrtWorkspace]:
+    if not _ws_ok(ws, A_norm):
+        ws = _alloc_ws(A_norm)
+    assert ws is not None
+
+    ws.X.copy_(ws.eye_mat)
+    coeffs = _quad_coeffs(abc_t)
+
+    for a, b, c in coeffs:
+        if p_val == 2:
+            _matmul_into(ws.X, A_norm, ws.B)
+            _matmul_into(ws.X, ws.B, ws.Y)
+        elif p_val == 3:
+            _matmul_into(ws.X, ws.X, ws.B)
+            _matmul_into(ws.B, ws.X, ws.B2)
+            _matmul_into(ws.B2, A_norm, ws.Y)
+        elif p_val == 4:
+            _matmul_into(ws.X, ws.X, ws.B)  # X^2
+            _matmul_into(ws.B, ws.B, ws.B2)  # X^4
+            _matmul_into(ws.B2, A_norm, ws.Y)
+        else:
+            ws.B.copy_(ws.X)
+            for _ in range(p_val - 1):
+                _matmul_into(ws.B, ws.X, ws.B2)
+                ws.B.copy_(ws.B2)
+            _matmul_into(ws.B, A_norm, ws.Y)
+
+        _matmul_into(ws.Y, ws.Y, ws.Y2)
+        ws.B.copy_(ws.Y2).mul_(c)
+        ws.B.add_(ws.Y, alpha=b)
+        ws.B.diagonal(dim1=-2, dim2=-1).add_(a)
+
+        _matmul_into(ws.X, ws.B, ws.Xbuf)
+        ws.X, ws.Xbuf = ws.Xbuf, ws.X
+
+        if symmetrize_X:
+            _symmetrize_inplace(ws.X, ws.Xbuf)
+
+    return ws.X, ws
+
+
 def build_pe_schedules(
     l_target: float,
     device: torch.device,
@@ -360,6 +454,7 @@ def build_pe_schedules(
     coeff_seed: int,
     coeff_safety: float,
     coeff_no_final_safety: bool,
+    p_val: int = 2,
 ) -> Tuple[torch.Tensor, torch.Tensor, str]:
     pe4_005 = torch.tensor(
         [
@@ -381,9 +476,12 @@ def build_pe_schedules(
         dtype=torch.float32,
     )
 
-    use_precomputed = coeff_mode == "precomputed" or (
-        coeff_mode == "auto"
-        and math.isclose(float(l_target), 0.05, rel_tol=0.0, abs_tol=1e-12)
+    use_precomputed = (p_val == 2) and (
+        coeff_mode == "precomputed"
+        or (
+            coeff_mode == "auto"
+            and math.isclose(float(l_target), 0.05, rel_tol=0.0, abs_tol=1e-12)
+        )
     )
     if use_precomputed:
         pe_affine = pe_ns3_005.clone()
@@ -396,8 +494,12 @@ def build_pe_schedules(
                 "coeff_mode='precomputed'/'auto' with l_target=0.05."
             )
         l0 = max(float(l_target), 1e-6)
-        aff = make_schedule("affine", T=3, l0=l0, l_cushion=l0, seed=int(coeff_seed))
-        quad = make_schedule("quad", T=4, l0=l0, l_cushion=l0, seed=int(coeff_seed))
+        aff = make_schedule(
+            "affine", T=3, l0=l0, l_cushion=l0, seed=int(coeff_seed), p_val=p_val
+        )
+        quad = make_schedule(
+            "quad", T=4, l0=l0, l_cushion=l0, seed=int(coeff_seed), p_val=p_val
+        )
         pe_affine = torch.tensor(
             [[float(row[0]), float(row[1])] for row in aff],
             device=device,

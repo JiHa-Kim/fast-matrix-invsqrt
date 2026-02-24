@@ -58,22 +58,36 @@ def _agg_nan_if_empty(v: torch.Tensor) -> float:
 
 
 @torch.no_grad()
-def exact_inverse_sqrt(A: torch.Tensor, eps: float = 1e-20) -> torch.Tensor:
+def exact_inverse_proot(
+    A: torch.Tensor, p_val: int = 2, eps: float = 1e-20
+) -> torch.Tensor:
     # Supports batching: A shape (..., n, n)
     eigvals, V = torch.linalg.eigh(A.double())
     eigvals = eigvals.clamp_min(eps)
-    D = torch.diag_embed(torch.rsqrt(eigvals))
+    D = torch.diag_embed(eigvals ** (-1.0 / p_val))
     X = V @ D @ V.mT
     return X.to(dtype=A.dtype)
 
 
 @torch.no_grad()
-def isqrt_relative_error(Xhat: torch.Tensor, A: torch.Tensor) -> torch.Tensor:
+def exact_inverse_sqrt(A: torch.Tensor, eps: float = 1e-20) -> torch.Tensor:
+    return exact_inverse_proot(A, p_val=2, eps=eps)
+
+
+@torch.no_grad()
+def iroot_relative_error(
+    Xhat: torch.Tensor, A: torch.Tensor, p_val: int = 2
+) -> torch.Tensor:
     # Returns per-batch relative Fro error (shape: batch)
-    Xref = exact_inverse_sqrt(A)
+    Xref = exact_inverse_proot(A, p_val=p_val)
     denom = torch.linalg.matrix_norm(Xref, ord="fro").clamp_min(1e-12)
     num = torch.linalg.matrix_norm(Xhat - Xref, ord="fro")
     return num / denom
+
+
+@torch.no_grad()
+def isqrt_relative_error(Xhat: torch.Tensor, A: torch.Tensor) -> torch.Tensor:
+    return iroot_relative_error(Xhat, A, p_val=2)
 
 
 @torch.no_grad()
@@ -84,6 +98,7 @@ def compute_quality_stats(
     mv_samples: int,
     hard_probe_iters: int = 0,
     eye_mat: Optional[torch.Tensor] = None,
+    p_val: int = 2,
 ) -> QualityStats:
     """
     Computes conservative (worst-case over batch) quality stats.
@@ -99,8 +114,20 @@ def compute_quality_stats(
     Af = A.float()
     eye = _ensure_eye(Af, eye_mat)
 
-    # Core residual: R = I - XAX
-    W = Xf @ Af @ Xf  # (..., n, n)
+    # Core residual: R = I - X^p A
+    if p_val == 2:
+        W = Xf @ Af @ Xf
+    elif p_val == 3:
+        W = Xf @ Xf @ Xf @ Af
+    elif p_val == 4:
+        X2 = Xf @ Xf
+        W = X2 @ X2 @ Af
+    else:
+        W = Xf
+        for _ in range(p_val - 1):
+            W = W @ Xf
+        W = W @ Af
+
     R = eye - W  # broadcast works if eye is (n,n)
 
     # Residual Fro per matrix, normalized by sqrt(n)

@@ -55,4 +55,4 @@ $$
 |----------|-------------|
 | p ≥ 2, n ≥ 512 | **PE-Quad-Coupled** (10-14% faster via terminal savings) |
 | p = 1, n ≤ 512 | **PE-Quad** (lower workspace overhead) |
-| Memory constrained | **PE-Quad** (5 vs 8 workspace tensors) |
+| Memory constrained | **PE-Quad** (4 vs 6 workspace tensors) |

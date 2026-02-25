@@ -15,7 +15,7 @@ where `P_k` is a quadratic polynomial with tuned coefficients.
 
 ## Advantages Over Coupled
 
-1. **Lower memory**: 5 workspace tensors (`X, Xbuf, T1, T2, eye`) vs 8
+1. **Lower memory**: 4 workspace tensors (`X, Xbuf, T1, T2`) vs 6
 2. **Simpler logic**: No Y-tracking or buffer management
 3. **Natural p-generalization**: `X^p` computed via specialized fast paths (p=1,2,3,4) or generic loop
 

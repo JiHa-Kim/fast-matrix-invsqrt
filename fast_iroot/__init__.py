@@ -22,6 +22,11 @@ from .metrics import (
     iroot_relative_error,
     isqrt_relative_error,
 )
+from .chebyshev import (
+    apply_inverse_chebyshev,
+    apply_inverse_proot_chebyshev,
+    ChebyshevApplyWorkspace,
+)
 
 __all__ = [
     "AutoPolicyConfig",
@@ -46,4 +51,7 @@ __all__ = [
     "isqrt_relative_error",
     "apply_inverse",
     "apply_inverse_root",
+    "apply_inverse_chebyshev",
+    "apply_inverse_proot_chebyshev",
+    "ChebyshevApplyWorkspace",
 ]

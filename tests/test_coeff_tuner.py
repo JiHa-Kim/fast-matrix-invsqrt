@@ -1,7 +1,4 @@
 import math
-import numpy as np
-import pytest
-import torch
 
 from coeff_tuner import (
     certify_positivity_quadratic,

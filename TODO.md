@@ -27,7 +27,7 @@ Refer to [BUGS.md](file:///d:/GitHub/JiHa-Kim/fast-matrix-inverse-roots/BUGS.md)
 - [ ] Implement conservative interval certification (sampling + padding).
 
 ### Phase 4: Advanced Features
-- [ ] Specialized $p=4$ branch.
+- [ ] Specialized $p=1$ and $p=4$ branches.
 - [ ] Support for higher-degree polynomial families.
 - [ ] Online schedule selection.
 - [ ] Mixed precision support (bf16/fp16/fp32/fp64).

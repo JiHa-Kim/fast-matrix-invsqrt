@@ -156,6 +156,7 @@ class BenchResult:
     bad: int
     mem_alloc_mb: float
     mem_reserved_mb: float
+    coupled_y_resid: float
 
 
 @dataclass
@@ -218,6 +219,24 @@ def _build_runner(
 ) -> Callable[[torch.Tensor, Optional[object]], Tuple[torch.Tensor, object]]:
     """Returns a function runner(A_norm, ws) -> (Xn, ws2) with method choice fixed."""
 
+    if method == "Inverse-Newton":
+        a = (p_val + 1.0) / p_val
+        b = -1.0 / p_val
+        c = 0.0
+        inv_newton_coeffs = [(a, b, c)] * len(pe_quad_coeffs)
+
+        def run(A_norm: torch.Tensor, ws: Optional[object]):
+            return inverse_proot_pe_quadratic_coupled(
+                A_norm,
+                abc_t=inv_newton_coeffs,
+                p_val=p_val,
+                ws=ws,
+                symmetrize_Y=symmetrize_Y,
+                terminal_last_step=True,
+            )
+
+        return run
+
     if method == "PE-Quad":
 
         def run(A_norm: torch.Tensor, ws: Optional[object]):
@@ -273,6 +292,7 @@ def eval_method(
     err_list: List[float] = []
     mem_alloc_list: List[float] = []
     mem_res_list: List[float] = []
+    y_res_list: List[float] = []
     bad = 0
 
     if len(prepared_inputs) == 0:
@@ -349,9 +369,16 @@ def eval_method(
                 mv_list,
                 hard_list,
                 err_list,
+                y_res_list,
             ]:
                 lst.append(float("inf"))
             continue
+
+        if ws is not None and hasattr(ws, "Y"):
+            y_res = float(torch.linalg.matrix_norm(ws.Y - eye_mat, ord="fro").mean())
+            y_res_list.append(y_res)
+        else:
+            y_res_list.append(float("nan"))
 
         q = compute_quality_stats(
             Xn,
@@ -399,6 +426,7 @@ def eval_method(
         bad=bad,
         mem_alloc_mb=median(mem_alloc_list) if mem_alloc_list else float("nan"),
         mem_reserved_mb=median(mem_res_list) if mem_res_list else float("nan"),
+        coupled_y_resid=median(y_res_list) if y_res_list else float("nan"),
     )
 
 
@@ -442,7 +470,7 @@ def main():
     p.add_argument("--coeff-no-final-safety", action="store_true")
     p.add_argument("--timing-reps", type=int, default=1)
     p.add_argument("--no-symmetrize-y", action="store_true")
-    p.add_argument("--metrics-mode", type=str, default="full", choices=["full", "fast"])
+    p.add_argument("--metrics-mode", type=str, default="full", choices=["full", "coupled"])
     p.add_argument("--power-iters", type=int, default=0)
     p.add_argument("--mv-samples", type=int, default=0)
     p.add_argument("--hard-probe-iters", type=int, default=0)
@@ -532,7 +560,7 @@ def main():
                     l_target=args.l_target,
                 )
 
-                methods_to_run = ["PE-Quad", "PE-Quad-Coupled"]
+                methods_to_run = ["Inverse-Newton", "PE-Quad", "PE-Quad-Coupled"]
 
                 rows: List[Tuple[str, BenchResult]] = []
                 for name in methods_to_run:
@@ -558,9 +586,14 @@ def main():
                         mem_str = f" | mem {rr.mem_alloc_mb:4.0f}MB"
                     else:
                         mem_str = ""
+                    y_str = (
+                        f" | Y_res {rr.coupled_y_resid:.3e}"
+                        if not math.isnan(rr.coupled_y_resid)
+                        else ""
+                    )
                     print(
                         f"{name:<22s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}){mem_str} | "
-                        f"resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e} | "
+                        f"resid {rr.residual:.3e} p95 {rr.residual_p95:.3e} max {rr.residual_max:.3e}{y_str} | "
                         f"relerr {rr.relerr:.3e} | r2 {rr.residual_spec:.3e} | hard {rr.hard_dir:.3e} | "
                         f"symX {rr.sym_x:.2e} symW {rr.sym_w:.2e} | mv {rr.mv_err:.3e} | bad {rr.bad}"
                     )

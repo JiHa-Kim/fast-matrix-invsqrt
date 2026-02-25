@@ -10,6 +10,8 @@ This section documents the inverse p-th root methods used in the project.
   - Quadratic PE iteration (PE-Quad) — the primary method
 - `docs/methods/uncoupled_p_root.md`
   - Uncoupled formulation for general p-th roots
+- `docs/methods/chebyshev.md`
+  - Direct Clenshaw evaluation for $X = A^{-1/p} B$ without dense inversions
 
 ## Archived (Deprecated)
 

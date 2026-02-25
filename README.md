@@ -122,7 +122,7 @@ Tracks only `X ≈ A^{-1/p}`, recomputing `Y = X^p · A` each step.
 Tracks both `X ≈ A^{-1/p}` and `Y ≈ A · X^p`.
 - Terminal-step optimization: skips Y-update on last iteration (saves 2-3 matmuls)
 - 10-14% faster iteration time for p≥2 at larger sizes
-- Works for any p via binary exponentiation (`_bpow_times_y`)
+- Works for any p via binary exponentiation and similarity transforms (`_bpow`)
 
 ### Deprecated Methods (archived)
 Affine methods (PE-Affine, Newton-Schulz NS3/NS4, PE-NS3) are archived in `archive/affine_iterations.py`. They consistently underperform quadratic methods in both speed and residual quality.

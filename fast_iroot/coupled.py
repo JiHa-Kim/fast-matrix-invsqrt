@@ -32,6 +32,7 @@ class InverseSolveWorkspaceCoupled:
     Ybuf: torch.Tensor
     B: torch.Tensor
     B2: torch.Tensor
+    tmp: torch.Tensor
 
 
 IsqrtWorkspaceCoupled = IrootWorkspaceCoupled
@@ -78,6 +79,7 @@ def _alloc_ws_inverse_solve(
         Ybuf=A.new_empty(shape_A),
         B=A.new_empty(shape_A),
         B2=A.new_empty(shape_A),
+        tmp=A.new_empty(shape_A),
     )
 
 
@@ -100,6 +102,7 @@ def _ws_ok_inverse_solve(
         and _ok_a(ws.Ybuf)
         and _ok_a(ws.B)
         and _ok_a(ws.B2)
+        and _ok_a(ws.tmp)
     )
 
 
@@ -198,6 +201,7 @@ def inverse_solve_pe_quadratic_coupled(
     A_norm: torch.Tensor,
     M_norm: torch.Tensor,
     abc_t: Sequence[Tuple[float, float, float]] | torch.Tensor,
+    p_val: int = 2,
     ws: Optional[InverseSolveWorkspaceCoupled] = None,
     symmetrize_Y: bool = True,
     terminal_last_step: bool = True,
@@ -207,10 +211,8 @@ def inverse_solve_pe_quadratic_coupled(
     This function continuously applies the generated coupled polynomial preconditioners
     as Z_{k+1} = B_k Z_k. Note that because B_k are dynamically generated left-to-right
     and applied iteratively, the final output corresponds to Z_T = B_{T-1}...B_1 B_0 M_norm.
-    This is NOT generally equivalent to (B_0 B_1...B_{T-1}) M_norm approx A_norm^{-1} M_norm
-    unless the sequential B_k matrices commute. This non-commutativity is expected because
-    each B_k depends on the evolving Y_k, so they generally do not commute across steps.
     """
+    _validate_p_val(p_val)
     _check_square(A_norm)
     if M_norm.shape[-2] != A_norm.shape[-1]:
         raise ValueError(
@@ -239,7 +241,17 @@ def inverse_solve_pe_quadratic_coupled(
         if terminal_last_step and (t == T - 1):
             break
 
-        _matmul_into(ws.B, ws.Y, ws.Ybuf)
+        if p_val == 1:
+            _matmul_into(ws.B, ws.Y, ws.Ybuf)
+        elif p_val == 2:
+            _matmul_into(ws.Y, ws.B, ws.B2)
+            _matmul_into(ws.B, ws.B2, ws.Ybuf)
+        elif p_val == 4:
+            _matmul_into(ws.B, ws.B, ws.B2)
+            _matmul_into(ws.B2, ws.Y, ws.tmp)
+            _matmul_into(ws.B2, ws.tmp, ws.Ybuf)
+        else:
+            _bpow_times_y(ws.B, ws.Y, p_val, out=ws.Ybuf, tmp1=ws.B2, tmp2=ws.tmp)
 
         if symmetrize_Y:
             _symmetrize_inplace(ws.Ybuf, ws.B)

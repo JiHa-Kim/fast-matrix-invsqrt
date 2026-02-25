@@ -13,6 +13,7 @@ from .uncoupled import (
     IrootWorkspaceUncoupled,
     inverse_proot_pe_quadratic_uncoupled,
 )
+from .apply import apply_inverse, apply_inverse_root
 from .metrics import (
     QualityStats,
     compute_quality_stats,
@@ -43,4 +44,6 @@ __all__ = [
     "exact_inverse_sqrt",
     "iroot_relative_error",
     "isqrt_relative_error",
+    "apply_inverse",
+    "apply_inverse_root",
 ]

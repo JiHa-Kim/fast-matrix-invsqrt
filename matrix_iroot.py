@@ -206,7 +206,12 @@ def maybe_compile(fn, enabled: bool):
     if not enabled:
         return fn
     try:
-        return torch.compile(fn, mode="max-autotune", fullgraph=False)
+        return torch.compile(
+            fn,
+            mode="max-autotune",
+            fullgraph=False,
+            options={"triton.cudagraphs": False},
+        )
     except Exception:
         return fn
 
@@ -352,6 +357,8 @@ def eval_method(
 
         def run_once() -> torch.Tensor:
             nonlocal ws
+            torch.compiler.cudagraph_mark_step_begin()
+            ws = None
             Xn, ws2 = runner(A_norm, ws)
             ws = ws2
             return Xn
@@ -470,7 +477,9 @@ def main():
     p.add_argument("--coeff-no-final-safety", action="store_true")
     p.add_argument("--timing-reps", type=int, default=1)
     p.add_argument("--no-symmetrize-y", action="store_true")
-    p.add_argument("--metrics-mode", type=str, default="full", choices=["full", "coupled"])
+    p.add_argument(
+        "--metrics-mode", type=str, default="full", choices=["full", "coupled"]
+    )
     p.add_argument("--power-iters", type=int, default=0)
     p.add_argument("--mv-samples", type=int, default=0)
     p.add_argument("--hard-probe-iters", type=int, default=0)

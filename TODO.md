@@ -21,10 +21,10 @@ Refer to [BUGS.md](file:///d:/GitHub/JiHa-Kim/fast-matrix-inverse-roots/BUGS.md)
 - [x] Benchmark against inverse Newton.
 
 ### Phase 3: Generic $p$ Support
-- [ ] Generalize scalar objective and polynomial parameterization.
-- [ ] Split odd/even $p$ branches.
-- [ ] Add parity-specific positivity rules.
-- [ ] Implement conservative interval certification (sampling + padding).
+- [x] Generalize scalar objective and polynomial parameterization.
+- [x] Split odd/even $p$ branches.
+- [x] Add parity-specific positivity rules.
+- [x] Implement conservative interval certification (sampling + padding).
 
 ### Phase 4: Advanced Features
 - [ ] Specialized $p=1$ and $p=4$ branches (for p=1, also implement an algorithm for direct matmat/matvec products solving $AX=B$ beyond just $A^{-1}$ then $A^{-1}B$ for numerical stability)

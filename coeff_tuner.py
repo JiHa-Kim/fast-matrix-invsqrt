@@ -233,9 +233,15 @@ def _interval_update_grid(abc, lo, hi, n=32768, p_val=2):
     q = a + b * ys + c * ys * ys
     phi = ys * (q**p_val)
     lo_new, hi_new = float(phi.min()), float(phi.max())
+
+    if p_val % 2 == 1 and lo_new <= 0:
+        lo_new = 1e-15  # force positivity if odd p gives negative phi (should be blocked by pos_ok)
+
     # conservative padding for non-exact case
     span = max(hi_new - lo_new, 1e-12)
-    return lo_new - 0.001 * span, hi_new + 0.001 * span
+    # Be more conservative for odd p to strictly ensure we don't overestimate contraction
+    padding = 0.005 if p_val % 2 == 1 else 0.001
+    return max(1e-15, lo_new - padding * span), hi_new + padding * span
 
 
 def interval_update_affine(ab, lo, hi, n=16384, p_val=2):
@@ -390,8 +396,13 @@ def make_schedule(
             if certified:
                 pos_ok = certify_positivity_quadratic(a, b, c, lo_true, hi_true)
                 if not pos_ok:
+                    parity_str = (
+                        "mandatory (odd p)"
+                        if p_val % 2 == 1
+                        else "strongly recommended (even p)"
+                    )
                     warnings.warn(
-                        f"Step {t}: quadratic positivity certification failed, "
+                        f"Step {t}: quadratic positivity certification failed [{parity_str}], "
                         f"attempting adaptive affine fallback."
                     )
 
@@ -415,7 +426,7 @@ def make_schedule(
                             a, b, c = a_aff, b_aff, 0.0
                         else:
                             warnings.warn(
-                                f"Step {t}: adaptive affine fallback failed positivity, "
+                                f"Step {t}: adaptive affine fallback failed positivity [{parity_str}], "
                                 f"falling back to inverse Newton."
                             )
                             a, b, c = inverse_newton_coeffs(p_val)

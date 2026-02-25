@@ -3,8 +3,10 @@ from .coeffs import _quad_coeffs, build_pe_schedules
 from .coupled import (
     IrootWorkspaceCoupled,
     IsqrtWorkspaceCoupled,
+    InverseSolveWorkspaceCoupled,
     inverse_sqrt_pe_quadratic,
     inverse_proot_pe_quadratic_coupled,
+    inverse_solve_pe_quadratic_coupled,
 )
 from .precond import PrecondStats, precond_spd
 from .uncoupled import (
@@ -19,8 +21,10 @@ __all__ = [
     "build_pe_schedules",
     "IrootWorkspaceCoupled",
     "IsqrtWorkspaceCoupled",
+    "InverseSolveWorkspaceCoupled",
     "inverse_sqrt_pe_quadratic",
     "inverse_proot_pe_quadratic_coupled",
+    "inverse_solve_pe_quadratic_coupled",
     "PrecondStats",
     "precond_spd",
     "IrootWorkspaceUncoupled",

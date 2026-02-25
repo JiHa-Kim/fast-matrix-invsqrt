@@ -15,6 +15,7 @@ from fast_iroot import (
     build_pe_schedules,
     inverse_proot_pe_quadratic_uncoupled,
     inverse_proot_pe_quadratic_coupled,
+    inverse_solve_pe_quadratic_coupled,
     precond_spd,
 )
 from fast_iroot.metrics import compute_quality_stats, iroot_relative_error
@@ -124,6 +125,52 @@ def main():
                         print(
                             f"  {mark} {header:30s} {name:20s} "
                             f"resid={q.residual_fro:.3e} relerr={relerr:.3e}"
+                        )
+
+            # Test inverse solve (AX = M) directly only when p=1
+            if p_val == 1:
+                for n in sizes:
+                    for case in cases:
+                        A = make_spd(n, case, device, dtype, g)
+                        torch.randn(
+                            n, n // 2, device=device, dtype=dtype, generator=g
+                        )
+
+                        A_norm, stats = precond_spd(
+                            A, mode="aol", ridge_rel=1e-4, l_target=0.05
+                        )
+
+                        M_norm = torch.randn(
+                            n, n // 2, device=device, dtype=dtype, generator=g
+                        )
+
+                        Z_norm, _ = inverse_solve_pe_quadratic_coupled(
+                            A_norm,
+                            M_norm,
+                            abc_t=quad_coeffs,
+                            symmetrize_Y=True,
+                            terminal_last_step=True,
+                        )
+
+                        # Compare to ground truth in the A_norm domain
+                        Z_true = torch.linalg.solve(A_norm.float(), M_norm.float()).to(
+                            dtype
+                        )
+
+                        # compute relative error
+                        err = torch.linalg.norm(Z_norm - Z_true) / torch.linalg.norm(
+                            Z_true
+                        )
+
+                        header = f"p={p_val} n={n} case={case}"
+                        passed = bool(err < relerr_thresh)
+                        mark = "+" if passed else "X"
+                        if not passed:
+                            all_pass = False
+
+                        print(
+                            f"  {mark} {header:30s} Coupled-Solve        "
+                            f"relerr={err:.3e}"
                         )
 
     print("=" * 100)

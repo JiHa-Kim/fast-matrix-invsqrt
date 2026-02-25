@@ -19,6 +19,17 @@ class IrootWorkspaceCoupled:
     eye_mat: torch.Tensor
 
 
+@dataclass
+class InverseSolveWorkspaceCoupled:
+    Z: torch.Tensor
+    Zbuf: torch.Tensor
+    Y: torch.Tensor
+    Ybuf: torch.Tensor
+    Y2: torch.Tensor
+    B: torch.Tensor
+    B2: torch.Tensor
+
+
 IsqrtWorkspaceCoupled = IrootWorkspaceCoupled
 
 
@@ -49,6 +60,37 @@ def _ws_ok_coupled(ws: Optional[IrootWorkspaceCoupled], A: torch.Tensor) -> bool
         and ws.eye_mat.device == A.device
         and ws.eye_mat.dtype == A.dtype
         and ws.eye_mat.shape == A.shape
+    )
+
+
+def _alloc_ws_inverse_solve(
+    A: torch.Tensor, M: torch.Tensor
+) -> InverseSolveWorkspaceCoupled:
+    shape_A = A.shape
+    shape_M = M.shape
+    return InverseSolveWorkspaceCoupled(
+        Z=M.new_empty(shape_M),
+        Zbuf=M.new_empty(shape_M),
+        Y=A.new_empty(shape_A),
+        Ybuf=A.new_empty(shape_A),
+        Y2=A.new_empty(shape_A),
+        B=A.new_empty(shape_A),
+        B2=A.new_empty(shape_A),
+    )
+
+
+def _ws_ok_inverse_solve(
+    ws: Optional[InverseSolveWorkspaceCoupled], A: torch.Tensor, M: torch.Tensor
+) -> bool:
+    if ws is None:
+        return False
+    return (
+        ws.Z.device == M.device
+        and ws.Z.dtype == M.dtype
+        and ws.Z.shape == M.shape
+        and ws.Y.device == A.device
+        and ws.Y.dtype == A.dtype
+        and ws.Y.shape == A.shape
     )
 
 
@@ -122,9 +164,15 @@ def inverse_proot_pe_quadratic_coupled(
         if terminal_last_step and (t == T - 1):
             break
 
-        if p_val == 2:
+        if p_val == 1:
+            _matmul_into(ws.B, ws.Y, ws.Ybuf)
+        elif p_val == 2:
             _matmul_into(ws.Y, ws.B, ws.B2)
             _matmul_into(ws.B, ws.B2, ws.Ybuf)
+        elif p_val == 4:
+            _matmul_into(ws.B, ws.B, ws.B2)
+            _matmul_into(ws.B2, ws.Y, ws.Xbuf)
+            _matmul_into(ws.B2, ws.Xbuf, ws.Ybuf)
         else:
             _bpow_times_y(ws.B, ws.Y, p_val, out=ws.Ybuf, tmp1=ws.B2, tmp2=ws.Xbuf)
 
@@ -133,3 +181,48 @@ def inverse_proot_pe_quadratic_coupled(
         ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
 
     return ws.X, ws
+
+
+@torch.no_grad()
+def inverse_solve_pe_quadratic_coupled(
+    A_norm: torch.Tensor,
+    M_norm: torch.Tensor,
+    abc_t: Sequence[Tuple[float, float, float]] | torch.Tensor,
+    ws: Optional[InverseSolveWorkspaceCoupled] = None,
+    symmetrize_Y: bool = True,
+    terminal_last_step: bool = True,
+) -> Tuple[torch.Tensor, InverseSolveWorkspaceCoupled]:
+    """Coupled quadratic PE iteration for computing A^{-1} M (inverse solving).
+
+    This functionally equivalent to solving X * A_norm = I to get X = A_norm^{-1}
+    and returning X * M_norm, but doing it directly via Z_{k+1} = Z_k B_k
+    without materializing X.
+    """
+    if not _ws_ok_inverse_solve(ws, A_norm, M_norm):
+        ws = _alloc_ws_inverse_solve(A_norm, M_norm)
+    assert ws is not None
+
+    ws.Z.copy_(M_norm)
+    ws.Y.copy_(A_norm)
+    coeffs = _quad_coeffs(abc_t)
+
+    T = len(coeffs)
+    for t, (a, b, c) in enumerate(coeffs):
+        _matmul_into(ws.Y, ws.Y, ws.Y2)
+        ws.B.copy_(ws.Y2).mul_(c)
+        ws.B.add_(ws.Y, alpha=b)
+        ws.B.diagonal(dim1=-2, dim2=-1).add_(a)
+
+        _matmul_into(ws.B, ws.Z, ws.Zbuf)
+        ws.Z, ws.Zbuf = ws.Zbuf, ws.Z
+
+        if terminal_last_step and (t == T - 1):
+            break
+
+        _matmul_into(ws.B, ws.Y, ws.Ybuf)
+
+        if symmetrize_Y:
+            _symmetrize_inplace(ws.Ybuf, ws.B)
+        ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
+
+    return ws.Z, ws

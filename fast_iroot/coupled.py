@@ -33,6 +33,11 @@ class InverseSolveWorkspaceCoupled:
 IsqrtWorkspaceCoupled = IrootWorkspaceCoupled
 
 
+def _validate_p_val(p_val: int) -> None:
+    if not isinstance(p_val, int) or p_val <= 0:
+        raise ValueError("p_val must be a positive integer")
+
+
 def _alloc_ws_coupled(A: torch.Tensor) -> IrootWorkspaceCoupled:
     shape = A.shape
     n = shape[-1]
@@ -53,13 +58,19 @@ def _alloc_ws_coupled(A: torch.Tensor) -> IrootWorkspaceCoupled:
 def _ws_ok_coupled(ws: Optional[IrootWorkspaceCoupled], A: torch.Tensor) -> bool:
     if ws is None:
         return False
+
+    def _ok(t: torch.Tensor) -> bool:
+        return t.device == A.device and t.dtype == A.dtype and t.shape == A.shape
+
     return (
-        ws.X.device == A.device
-        and ws.X.dtype == A.dtype
-        and ws.X.shape == A.shape
-        and ws.eye_mat.device == A.device
-        and ws.eye_mat.dtype == A.dtype
-        and ws.eye_mat.shape == A.shape
+        _ok(ws.X)
+        and _ok(ws.Xbuf)
+        and _ok(ws.Y)
+        and _ok(ws.Ybuf)
+        and _ok(ws.Y2)
+        and _ok(ws.B)
+        and _ok(ws.B2)
+        and _ok(ws.eye_mat)
     )
 
 
@@ -84,13 +95,21 @@ def _ws_ok_inverse_solve(
 ) -> bool:
     if ws is None:
         return False
+
+    def _ok_a(t: torch.Tensor) -> bool:
+        return t.device == A.device and t.dtype == A.dtype and t.shape == A.shape
+
+    def _ok_m(t: torch.Tensor) -> bool:
+        return t.device == M.device and t.dtype == M.dtype and t.shape == M.shape
+
     return (
-        ws.Z.device == M.device
-        and ws.Z.dtype == M.dtype
-        and ws.Z.shape == M.shape
-        and ws.Y.device == A.device
-        and ws.Y.dtype == A.dtype
-        and ws.Y.shape == A.shape
+        _ok_m(ws.Z)
+        and _ok_m(ws.Zbuf)
+        and _ok_a(ws.Y)
+        and _ok_a(ws.Ybuf)
+        and _ok_a(ws.Y2)
+        and _ok_a(ws.B)
+        and _ok_a(ws.B2)
     )
 
 
@@ -143,6 +162,7 @@ def inverse_proot_pe_quadratic_coupled(
     terminal_last_step: bool = True,
 ) -> Tuple[torch.Tensor, IrootWorkspaceCoupled]:
     """Coupled quadratic PE iteration for general p (inverse p-th root)."""
+    _validate_p_val(p_val)
     if not _ws_ok_coupled(ws, A_norm):
         ws = _alloc_ws_coupled(A_norm)
     assert ws is not None

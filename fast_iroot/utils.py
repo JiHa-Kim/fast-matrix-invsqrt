@@ -47,7 +47,7 @@ def _bpow_times_y(
     """Compute B^p * Y into `out` using O(log p) matmuls (binary exponentiation).
 
     B, Y are inputs. tmp1, tmp2 are scratch buffers (same shape).
-    B and Y contents may be destroyed.
+    `out`, `tmp1`, and `tmp2` must not alias `B` or `Y`.
     """
     if p <= 0:
         out.copy_(Y)
@@ -60,10 +60,10 @@ def _bpow_times_y(
         torch.matmul(B, tmp1, out=out)
         return
     if p == 4:
-        # B^2 -> tmp1, B^2*Y -> tmp2, (B^2*Y)*B^2 -> out  (3 matmuls)
+        # B^2 -> tmp1, B^2*Y -> tmp2, B^2*(B^2*Y) -> out  (3 matmuls)
         torch.matmul(B, B, out=tmp1)
         torch.matmul(tmp1, Y, out=tmp2)
-        torch.matmul(tmp2, tmp1, out=out)
+        torch.matmul(tmp1, tmp2, out=out)
         return
 
     # General binary exponentiation for p >= 3

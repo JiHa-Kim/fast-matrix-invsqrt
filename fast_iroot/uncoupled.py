@@ -7,6 +7,11 @@ from .utils import _matmul_into, _symmetrize_inplace
 from .coeffs import _quad_coeffs
 
 
+def _validate_p_val(p_val: int) -> None:
+    if not isinstance(p_val, int) or p_val <= 0:
+        raise ValueError("p_val must be a positive integer")
+
+
 @dataclass
 class IrootWorkspaceUncoupled:
     X: torch.Tensor
@@ -32,13 +37,16 @@ def _alloc_ws_uncoupled(A: torch.Tensor) -> IrootWorkspaceUncoupled:
 def _ws_ok_uncoupled(ws: Optional[IrootWorkspaceUncoupled], A: torch.Tensor) -> bool:
     if ws is None:
         return False
+
+    def _ok(t: torch.Tensor) -> bool:
+        return t.device == A.device and t.dtype == A.dtype and t.shape == A.shape
+
     return (
-        ws.X.device == A.device
-        and ws.X.dtype == A.dtype
-        and ws.X.shape == A.shape
-        and ws.eye_mat.device == A.device
-        and ws.eye_mat.dtype == A.dtype
-        and ws.eye_mat.shape == A.shape
+        _ok(ws.X)
+        and _ok(ws.Xbuf)
+        and _ok(ws.T1)
+        and _ok(ws.T2)
+        and _ok(ws.eye_mat)
     )
 
 
@@ -50,6 +58,7 @@ def inverse_proot_pe_quadratic_uncoupled(
     ws: Optional[IrootWorkspaceUncoupled] = None,
     symmetrize_X: bool = True,
 ) -> Tuple[torch.Tensor, IrootWorkspaceUncoupled]:
+    _validate_p_val(p_val)
     if not _ws_ok_uncoupled(ws, A_norm):
         ws = _alloc_ws_uncoupled(A_norm)
     assert ws is not None

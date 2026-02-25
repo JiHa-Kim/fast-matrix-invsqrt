@@ -22,6 +22,11 @@ def _bnorm(x: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
     return torch.linalg.vector_norm(x, dim=(-2, -1), keepdim=True).clamp_min(eps)
 
 
+def _validate_p_val(p_val: int) -> None:
+    if not isinstance(p_val, int) or p_val <= 0:
+        raise ValueError("p_val must be a positive integer")
+
+
 def _ensure_eye(Af: torch.Tensor, eye_mat: Optional[torch.Tensor]) -> torch.Tensor:
     """
     Returns an eye tensor that is broadcast-compatible with Af (shape (..., n, n)).
@@ -42,8 +47,10 @@ def _ensure_eye(Af: torch.Tensor, eye_mat: Optional[torch.Tensor]) -> torch.Tens
     if eye_mat.shape == Af.shape:
         return eye_mat
 
-    # Fallback: ignore incompatible shapes
-    return torch.eye(n, device=Af.device, dtype=Af.dtype)
+    raise ValueError(
+        f"eye_mat has incompatible shape {tuple(eye_mat.shape)} for A shape "
+        f"{tuple(Af.shape)}; expected {(n, n)} or {tuple(Af.shape)}"
+    )
 
 
 def _agg_max(x: torch.Tensor) -> float:
@@ -61,6 +68,7 @@ def _agg_nan_if_empty(v: torch.Tensor) -> float:
 def exact_inverse_proot(
     A: torch.Tensor, p_val: int = 2, eps: float = 1e-20
 ) -> torch.Tensor:
+    _validate_p_val(p_val)
     # Supports batching: A shape (..., n, n)
     eigvals, V = torch.linalg.eigh(A.double())
     eigvals = eigvals.clamp_min(eps)
@@ -78,6 +86,7 @@ def exact_inverse_sqrt(A: torch.Tensor, eps: float = 1e-20) -> torch.Tensor:
 def iroot_relative_error(
     Xhat: torch.Tensor, A: torch.Tensor, p_val: int = 2
 ) -> torch.Tensor:
+    _validate_p_val(p_val)
     # Returns per-batch relative Fro error (shape: batch)
     Xref = exact_inverse_proot(A, p_val=p_val)
     denom = torch.linalg.matrix_norm(Xref, ord="fro").clamp_min(1e-12)
@@ -107,6 +116,7 @@ def compute_quality_stats(
       - A is SPD-ish (at least for "exact" reference and solve-based probes).
       - X is an approximate A^{-1/2}.
     """
+    _validate_p_val(p_val)
     n = A.shape[-1]
     batch = A.shape[:-2]
 
@@ -114,7 +124,9 @@ def compute_quality_stats(
     Af = A.float()
     eye = _ensure_eye(Af, eye_mat)
 
-    # Core residual: R = I - X^p A
+    # Core residual.
+    # For p=2 this uses the SPD/isqrt diagnostic R = I - X A X.
+    # For p!=2 this uses the general p-root diagnostic R = I - X^p A.
     if p_val == 2:
         W = Xf @ Af @ Xf
     elif p_val == 3:
@@ -158,18 +170,19 @@ def compute_quality_stats(
     else:
         mv_err = float("nan")
 
-    # Spectral-ish residual norm estimate via power iteration on R
-    # Returns worst-case over batch of ||R||_2 estimate.
+    # Power iteration on R (dominant eigenvalue-magnitude style estimate, not
+    # generally a true spectral norm for non-normal R).
     if power_iters > 0:
         it = int(power_iters)
         v = torch.randn(*batch, n, 1, device=Af.device, dtype=Af.dtype)
         v = v / _bnorm(v)
 
+        Rt = R.mT
         for _ in range(it):
-            v = R @ v
+            v = Rt @ (R @ v)
             v = v / _bnorm(v)
 
-        # Estimate ||R|| via ||R v|| / ||v||
+        # Estimate ||R|| via ||R v|| / ||v|| (which converges to sqrt(eigmax(R^T R)))
         Rv = R @ v
         spec_per = torch.linalg.vector_norm(
             Rv, dim=(-2, -1)
@@ -182,14 +195,16 @@ def compute_quality_stats(
     # then measure ||R u|| / ||u||. Use per-batch norms, then max over batch.
     if hard_probe_iters > 0:
         it = int(hard_probe_iters)
-        u = torch.randn(*batch, n, 1, device=Af.device, dtype=Af.dtype)
+        Ad = A.double()
+        Rd = R.double()
+        u = torch.randn(*batch, n, 1, device=Ad.device, dtype=Ad.dtype)
         u = u / _bnorm(u)
 
         for _ in range(it):
-            u = torch.linalg.solve(Af, u)  # batched solve
+            u = torch.linalg.solve(Ad, u)  # batched solve
             u = u / _bnorm(u)
 
-        Ru = R @ u
+        Ru = Rd @ u
         hard_per = torch.linalg.vector_norm(
             Ru, dim=(-2, -1)
         ) / torch.linalg.vector_norm(u, dim=(-2, -1)).clamp_min(1e-12)

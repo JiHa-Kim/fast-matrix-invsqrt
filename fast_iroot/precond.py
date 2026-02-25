@@ -78,7 +78,9 @@ def precond_spd(
 
     A_norm = A_pre / u.unsqueeze(-1).unsqueeze(-1)
 
-    # -------- optional diagonal shift to enforce Gershgorin lower bound >= l_target --------
+    # -------- optional diagonal shift to improve Gershgorin lower bound --------
+    # Note: a final row-sum normalization may scale the lower bound back down, so
+    # this is an improvement heuristic, not a strict post-normalization guarantee.
     if l_target > 0.0:
         abs_row_sum2 = A_norm.abs().sum(dim=-1)
         diag = A_norm.diagonal(dim1=-2, dim2=-1)
@@ -108,6 +110,7 @@ def precond_spd(
     # If you pick ONE method for the whole batch, use worst-case stats.
     g_lo_scalar = float(g_lo_final.float().min().item())
     rho_proxy = float(rho.float().max().item())
+    # Note: kappa_proxy is a heuristic for method selection, not a true \kappa(A).
     kappa_proxy = 1.0 / max(g_lo_scalar, 1e-6)
 
     return A_norm, PrecondStats(

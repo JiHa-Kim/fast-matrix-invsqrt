@@ -16,7 +16,7 @@ def _quad_coeffs(
     abc_t: Sequence[Tuple[float, float, float]] | torch.Tensor,
 ) -> List[Tuple[float, float, float]]:
     if isinstance(abc_t, torch.Tensor):
-        abc_cpu = abc_t.detach().to(device="cpu", dtype=torch.float32)
+        abc_cpu = abc_t.detach().to(device="cpu", dtype=torch.float64)
         return [
             (float(abc_cpu[t, 0]), float(abc_cpu[t, 1]), float(abc_cpu[t, 2]))
             for t in range(int(abc_cpu.shape[0]))

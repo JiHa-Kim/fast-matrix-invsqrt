@@ -128,3 +128,17 @@ def make_spd_cases(
             raise ValueError(f"unknown case: {case}")
         mats.append(A)
     return mats
+
+
+def maybe_compile(fn, enabled: bool):
+    if not enabled:
+        return fn
+    try:
+        return torch.compile(
+            fn,
+            mode="max-autotune",
+            fullgraph=False,
+            options={"triton.cudagraphs": False},
+        )
+    except Exception:
+        return fn

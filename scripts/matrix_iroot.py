@@ -10,9 +10,8 @@ from __future__ import annotations
 import argparse
 import math
 import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 
@@ -22,326 +21,33 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from fast_iroot import (
-    PrecondStats,
     _quad_coeffs,
     build_pe_schedules,
     inverse_proot_pe_quadratic_uncoupled,
     inverse_proot_pe_quadratic_coupled,
     precond_spd,
 )
-from fast_iroot.metrics import compute_quality_stats, iroot_relative_error
 
 try:
-    from .bench_common import (
-        median,
-        pctl,
-        time_ms,
-        time_ms_any,
-        time_ms_repeat,
-        parse_shapes,
-        _spd_from_eigs,
-        make_spd_cases,
+    from .bench_common import parse_shapes, make_spd_cases, maybe_compile, _spd_from_eigs
+    from .bench_iroot_core import (
+        BenchResult,
+        MATRIX_IROOT_METHODS,
+        prepare_preconditioned_inputs,
+        eval_method,
     )
 except ImportError:
     from scripts.bench_common import (
-        median,
-        pctl,
-        time_ms,
-        time_ms_any,
-        time_ms_repeat,
         parse_shapes,
-        _spd_from_eigs,
         make_spd_cases,
+        maybe_compile,
+        _spd_from_eigs,
     )
-
-@dataclass
-class BenchResult:
-    ms: float
-    ms_iter: float
-    ms_precond: float
-    residual: float
-    residual_p95: float
-    residual_max: float
-    residual_spec: float
-    sym_x: float
-    sym_w: float
-    mv_err: float
-    hard_dir: float
-    relerr: float
-    bad: int
-    mem_alloc_mb: float
-    mem_reserved_mb: float
-    coupled_y_resid: float
-
-
-@dataclass
-class PreparedInput:
-    A_norm: torch.Tensor
-    stats: PrecondStats
-
-
-@torch.no_grad()
-def prepare_preconditioned_inputs(
-    mats: List[torch.Tensor],
-    device: torch.device,
-    precond: str,
-    ridge_rel: float,
-    l_target: float,
-) -> Tuple[List[PreparedInput], float]:
-    prepared: List[PreparedInput] = []
-    ms_pre_list: List[float] = []
-    for A in mats:
-        t_pre, out = time_ms_any(
-            lambda: precond_spd(
-                A,
-                mode=precond,
-                ridge_rel=ridge_rel,
-                l_target=l_target,
-            ),
-            device,
-        )
-        A_norm, stats = out
-        ms_pre_list.append(t_pre)
-        prepared.append(PreparedInput(A_norm=A_norm, stats=stats))
-    return prepared, (median(ms_pre_list) if ms_pre_list else float("nan"))
-
-
-def maybe_compile(fn, enabled: bool):
-    if not enabled:
-        return fn
-    try:
-        return torch.compile(
-            fn,
-            mode="max-autotune",
-            fullgraph=False,
-            options={"triton.cudagraphs": False},
-        )
-    except Exception:
-        return fn
-
-
-def _build_runner(
-    method: str,
-    pe_quad_coeffs: Sequence[Tuple[float, float, float]],
-    symmetrize_Y: bool,
-    symmetrize_every: int,
-    p_val: int = 2,
-) -> Callable[[torch.Tensor, Optional[object]], Tuple[torch.Tensor, object]]:
-    """Returns a function runner(A_norm, ws) -> (Xn, ws2) with method choice fixed."""
-
-    if method == "Inverse-Newton":
-        a = (p_val + 1.0) / p_val
-        b = -1.0 / p_val
-        c = 0.0
-        inv_newton_coeffs = [(a, b, c)] * len(pe_quad_coeffs)
-
-        def run(A_norm: torch.Tensor, ws: Optional[object]):
-            return inverse_proot_pe_quadratic_coupled(
-                A_norm,
-                abc_t=inv_newton_coeffs,
-                p_val=p_val,
-                ws=ws,
-                symmetrize_Y=symmetrize_Y,
-                symmetrize_every=symmetrize_every,
-                terminal_last_step=True,
-            )
-
-        return run
-
-    if method == "PE-Quad":
-
-        def run(A_norm: torch.Tensor, ws: Optional[object]):
-            return inverse_proot_pe_quadratic_uncoupled(
-                A_norm,
-                abc_t=pe_quad_coeffs,
-                p_val=p_val,
-                ws=ws,
-                symmetrize_X=symmetrize_Y,
-            )
-
-        return run
-
-    if method == "PE-Quad-Coupled":
-
-        def run(A_norm: torch.Tensor, ws: Optional[object]):
-            return inverse_proot_pe_quadratic_coupled(
-                A_norm,
-                abc_t=pe_quad_coeffs,
-                p_val=p_val,
-                ws=ws,
-                symmetrize_Y=symmetrize_Y,
-                symmetrize_every=symmetrize_every,
-                terminal_last_step=True,
-            )
-
-        return run
-
-    raise ValueError(f"unknown method: {method}")
-
-
-@torch.no_grad()
-def eval_method(
-    prepared_inputs: List[PreparedInput],
-    ms_precond_median: float,
-    device: torch.device,
-    method: str,
-    pe_quad_coeffs: Sequence[Tuple[float, float, float]],
-    timing_reps: int,
-    symmetrize_Y: bool,
-    symmetrize_every: int,
-    compute_relerr: bool,
-    power_iters: int,
-    mv_samples: int,
-    hard_probe_iters: int,
-    p_val: int = 2,
-) -> BenchResult:
-    ms_iter_list: List[float] = []
-    res_list: List[float] = []
-    res2_list: List[float] = []
-    symx_list: List[float] = []
-    symw_list: List[float] = []
-    mv_list: List[float] = []
-    hard_list: List[float] = []
-    err_list: List[float] = []
-    mem_alloc_list: List[float] = []
-    mem_res_list: List[float] = []
-    y_res_list: List[float] = []
-    bad = 0
-
-    if len(prepared_inputs) == 0:
-        return BenchResult(
-            ms=float("nan"),
-            ms_iter=float("nan"),
-            ms_precond=float("nan"),
-            residual=float("nan"),
-            residual_p95=float("nan"),
-            residual_max=float("nan"),
-            residual_spec=float("nan"),
-            sym_x=float("nan"),
-            sym_w=float("nan"),
-            mv_err=float("nan"),
-            hard_dir=float("nan"),
-            relerr=float("nan"),
-            bad=0,
-            mem_alloc_mb=float("nan"),
-            mem_reserved_mb=float("nan"),
-            coupled_y_resid=float("nan"),
-        )
-
-    ws: Optional[object] = None
-    eye_mat: Optional[torch.Tensor] = None
-
-    for prep in prepared_inputs:
-        A_norm = prep.A_norm
-        n = A_norm.shape[-1]
-
-        if (
-            eye_mat is None
-            or eye_mat.shape != (n, n)
-            or eye_mat.device != A_norm.device
-        ):
-            eye_mat = torch.eye(n, device=A_norm.device, dtype=torch.float32)
-
-        runner = _build_runner(
-            method=method,
-            pe_quad_coeffs=pe_quad_coeffs,
-            symmetrize_Y=symmetrize_Y,
-            symmetrize_every=symmetrize_every,
-            p_val=p_val,
-        )
-
-        ws: Optional[object] = None
-
-        # measure memory
-        if device.type == "cuda":
-            torch.cuda.reset_peak_memory_stats(device=device)
-            _, ws_mem = runner(A_norm, ws)
-            mem_alloc_list.append(
-                torch.cuda.max_memory_allocated(device=device) / (1024**2)
-            )
-            mem_res_list.append(
-                torch.cuda.max_memory_reserved(device=device) / (1024**2)
-            )
-            del ws_mem
-            ws = None
-
-        def run_once() -> torch.Tensor:
-            nonlocal ws
-            torch.compiler.cudagraph_mark_step_begin()
-            Xn, ws = runner(A_norm, ws)
-            return Xn
-
-        ms_iter, Xn = time_ms_repeat(run_once, device, reps=timing_reps)
-        ms_iter_list.append(ms_iter)
-
-        if not torch.isfinite(Xn).all():
-            bad += 1
-            for lst in [
-                res_list,
-                res2_list,
-                symx_list,
-                symw_list,
-                mv_list,
-                hard_list,
-                err_list,
-                y_res_list,
-            ]:
-                lst.append(float("inf"))
-            continue
-
-        if ws is not None and hasattr(ws, "Y"):
-            y_res = float(torch.linalg.matrix_norm(ws.Y - eye_mat, ord="fro").mean())
-            y_res_list.append(y_res)
-        else:
-            y_res_list.append(float("nan"))
-
-        q = compute_quality_stats(
-            Xn,
-            A_norm,
-            power_iters=power_iters,
-            mv_samples=mv_samples,
-            hard_probe_iters=hard_probe_iters,
-            eye_mat=eye_mat,
-            p_val=p_val,
-        )
-        res_list.append(q.residual_fro)
-        res2_list.append(q.residual_spec)
-        symx_list.append(q.sym_x)
-        symw_list.append(q.sym_w)
-        mv_list.append(q.mv_err)
-        hard_list.append(q.hard_dir_err)
-
-        if compute_relerr:
-            err_list.append(
-                float(
-                    iroot_relative_error(Xn.float(), A_norm.float(), p_val=p_val)
-                    .mean()
-                    .item()
-                )
-            )
-        else:
-            err_list.append(float("nan"))
-
-    ms_iter_med = median(ms_iter_list)
-    ms_pre_med = ms_precond_median
-
-    return BenchResult(
-        ms=ms_pre_med + ms_iter_med,
-        ms_iter=ms_iter_med,
-        ms_precond=ms_pre_med,
-        residual=median(res_list),
-        residual_p95=pctl(res_list, 0.95),
-        residual_max=max(float(x) for x in res_list) if res_list else float("nan"),
-        residual_spec=median(res2_list),
-        sym_x=median(symx_list),
-        sym_w=median(symw_list),
-        mv_err=median(mv_list),
-        hard_dir=median(hard_list),
-        relerr=median(err_list),
-        bad=bad,
-        mem_alloc_mb=median(mem_alloc_list) if mem_alloc_list else float("nan"),
-        mem_reserved_mb=median(mem_res_list) if mem_res_list else float("nan"),
-        coupled_y_resid=median(y_res_list) if y_res_list else float("nan"),
+    from scripts.bench_iroot_core import (
+        BenchResult,
+        MATRIX_IROOT_METHODS,
+        prepare_preconditioned_inputs,
+        eval_method,
     )
 
 
@@ -415,7 +121,6 @@ def main():
 
     sizes = parse_shapes(args.sizes)
     cases = ["gaussian_spd", "illcond_1e6", "illcond_1e12", "near_rank_def", "spike"]
-
     p_val = args.p
 
     pe_quad_t, coeff_desc = build_pe_schedules(
@@ -430,14 +135,8 @@ def main():
     print(f"[coeff] using {coeff_desc}")
     pe_quad_coeffs = _quad_coeffs(pe_quad_t)
 
-    # Compile
-    if args.compile:
-        globals()["inverse_proot_pe_quadratic_uncoupled"] = maybe_compile(
-            inverse_proot_pe_quadratic_uncoupled, True
-        )
-        globals()["inverse_proot_pe_quadratic_coupled"] = maybe_compile(
-            inverse_proot_pe_quadratic_coupled, True
-        )
+    uncoupled_fn = maybe_compile(inverse_proot_pe_quadratic_uncoupled, args.compile)
+    coupled_fn = maybe_compile(inverse_proot_pe_quadratic_coupled, args.compile)
 
     g = torch.Generator(device=device)
     g.manual_seed(args.seed)
@@ -450,10 +149,9 @@ def main():
                 f"timing_reps={max(1, args.timing_reps)} | symY={not args.no_symmetrize_y} | "
                 f"symEvery={args.symmetrize_every} | "
                 f"metrics={args.metrics_mode} | power_it={args.power_iters} | "
-                f"mv_k={args.mv_samples} | hard_it={args.hard_probe_iters} ==" 
+                f"mv_k={args.mv_samples} | hard_it={args.hard_probe_iters} =="
             )
 
-            # Warmup
             warm = make_spd_cases(
                 "gaussian_spd", n, max(1, args.warmup), device, torch.float32, g
             )
@@ -466,7 +164,7 @@ def main():
                     ridge_rel=args.ridge_rel,
                     l_target=args.l_target,
                 )
-                _, ws = inverse_proot_pe_quadratic_uncoupled(
+                _, ws = uncoupled_fn(
                     A_norm,
                     abc_t=pe_quad_coeffs,
                     p_val=p_val,
@@ -486,10 +184,8 @@ def main():
                     l_target=args.l_target,
                 )
 
-                methods_to_run = ["Inverse-Newton", "PE-Quad", "PE-Quad-Coupled"]
-
                 rows: List[Tuple[str, BenchResult]] = []
-                for name in methods_to_run:
+                for name in MATRIX_IROOT_METHODS:
                     rr = eval_method(
                         prepared_inputs=prepared_inputs,
                         ms_precond_median=ms_precond_med,
@@ -504,6 +200,8 @@ def main():
                         mv_samples=args.mv_samples,
                         hard_probe_iters=args.hard_probe_iters,
                         p_val=p_val,
+                        uncoupled_fn=uncoupled_fn,
+                        coupled_fn=coupled_fn,
                     )
                     rows.append((name, rr))
 
@@ -552,9 +250,7 @@ def main():
                             f"BEST overall: {best_name} @ {best_rr.ms:.3f} ms, resid={best_rr.residual:.3e}, hard={best_rr.hard_dir:.3e}"
                         )
                     else:
-                        print(
-                            "BEST overall: none (all runs produced non-finite output)"
-                        )
+                        print("BEST overall: none (all runs produced non-finite output)")
                 print()
 
 

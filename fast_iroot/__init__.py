@@ -55,6 +55,11 @@ from .chebyshev_iterative import (
     ChebyshevIterWorkspace,
     chebyshev_iterative_solve,
 )
+from .lu_ir import (
+    LUIRWorkspace,
+    lu_ir_solve,
+    lu_solve_direct,
+)
 
 __all__ = [
     "_quad_coeffs",

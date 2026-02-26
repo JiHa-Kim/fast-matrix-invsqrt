@@ -28,6 +28,10 @@ from fast_iroot import (
     inverse_proot_pe_quadratic_uncoupled,
     inverse_solve_pe_quadratic_coupled,
 )
+from fast_iroot.nsrc import nsrc_solve, hybrid_pe_nsrc_solve
+from fast_iroot.block_cg import block_cg_solve
+from fast_iroot.chebyshev_iterative import chebyshev_iterative_solve
+from fast_iroot.lu_ir import lu_ir_solve, lu_solve_direct
 from scripts.bench_common import (
     make_nonspd_cases,
     median,
@@ -43,6 +47,13 @@ METHODS: List[str] = [
     "PE-Quad-Coupled-Apply-Safe",
     "PE-Quad-Coupled-Apply-Adaptive",
     "Torch-Solve",
+    "NSRC-Scalar-10",
+    "Hybrid-PE2-NSRC3",
+    "Hybrid-PE2-NSRC5",
+    "Block-CG-10",
+    "Cheb-Iter-20",
+    "LU-Direct",
+    "LU-IR-1",
 ]
 NONSPD_PRECOND_MODES: Tuple[str, ...] = ("row-norm", "frob", "ruiz")
 
@@ -259,6 +270,71 @@ def _build_runner(
 
         def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
             return torch.linalg.solve(A_norm, B)
+
+        return run
+
+    if method == "NSRC-Scalar-10":
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            alpha = 2.0 / (1.0 + 0.05)  # use l_target=0.05 as estimate
+            Z, _ = nsrc_solve(A_norm, B, alpha=alpha, max_iter=10)
+            return Z
+
+        return run
+
+    if method == "Hybrid-PE2-NSRC3":
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            Z, _ = hybrid_pe_nsrc_solve(
+                A_norm, B, abc_t=pe_coeffs, pe_steps=2, ref_steps=3
+            )
+            return Z
+
+        return run
+
+    if method == "Hybrid-PE2-NSRC5":
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            Z, _ = hybrid_pe_nsrc_solve(
+                A_norm, B, abc_t=pe_coeffs, pe_steps=2, ref_steps=5
+            )
+            return Z
+
+        return run
+
+    if method == "Block-CG-10":
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            diag_inv = 1.0 / A_norm.diagonal(dim1=-2, dim2=-1).clamp_min(1e-12)
+            Z, _, _ = block_cg_solve(
+                A_norm, B, max_iter=10, tol=1e-3, diag_precond=diag_inv
+            )
+            return Z
+
+        return run
+
+    if method == "Cheb-Iter-20":
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            Z, _, _ = chebyshev_iterative_solve(
+                A_norm, B, l_min=0.05, l_max=1.0, max_iter=20
+            )
+            return Z
+
+        return run
+
+    if method == "LU-Direct":
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            return lu_solve_direct(A_norm, B)
+
+        return run
+
+    if method == "LU-IR-1":
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            Z, _ = lu_ir_solve(A_norm, B, max_refine=1)
+            return Z
 
         return run
 

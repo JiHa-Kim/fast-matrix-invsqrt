@@ -83,6 +83,7 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 
 
 - Inverse-root report: `reports/2025_02_25_benchmark_p1thru5.md`.
 - Solve online-coefficient ablation (`20` trials): `reports/2026_02_25_solve_online_coeff_ablation_t20.md`.
+- Square-RHS direct-vs-materialize validation (`ideas/3`): `reports/2026_02_25_idea3_square_rhs_apply_vs_materialize.md`.
 - Raw logs:
   - `benchmark_results/2026_02_25/solve_ablation_t20/`
   - `benchmark_results/2026_02_25/solve_exploratory/`

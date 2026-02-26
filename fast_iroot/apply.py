@@ -16,6 +16,8 @@ def apply_inverse(
     """
     Apply an iterative inverse to M_norm using a coupled quadratic PE scheme.
     This effectively computes Z ≈ A_norm^{-1} M_norm by evolving an operator.
+
+    Note: When terminal_last_step=True, ws.Y is not advanced on the final step.
     """
     return inverse_solve_pe_quadratic_coupled(
         A_norm=A_norm,
@@ -41,6 +43,8 @@ def apply_inverse_root(
     """
     Apply an iterative inverse p-th root to M_norm using a coupled quadratic PE scheme.
     This effectively computes Z ≈ A_norm^{-1/p} M_norm.
+
+    Note: When terminal_last_step=True, ws.Y is not advanced on the final step.
     """
     return inverse_solve_pe_quadratic_coupled(
         A_norm=A_norm,

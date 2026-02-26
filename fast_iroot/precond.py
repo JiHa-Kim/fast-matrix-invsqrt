@@ -35,6 +35,10 @@ def precond_spd(
     Note: The diagonal shift logic assumes that the absolute value of the diagonal
     increases exactly by the shift, i.e., `|a_ii + s| = |a_ii| + s`. This holds
     true for matrices with non-negative diagonals, such as SPD matrices.
+
+    For `mode="aol"`, note that it uses symmetric scaling `D A D`. While this
+    preserves definiteness, if `A` has unusual sign patterns, the strict Gershgorin
+    diagonal dominance bounds may be less tight.
     """
     if A.is_complex():
         raise ValueError("precond_spd does not support complex tensors")

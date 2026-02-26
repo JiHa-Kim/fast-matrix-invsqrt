@@ -127,6 +127,9 @@ def compute_quality_stats(
     Assumptions:
       - A is SPD-ish (at least for "exact" reference and solve-based probes).
       - X is an approximate A^{-1/2} for p_val=2, or A^{-1/p} for general p_val.
+
+    Note: For p_val=2, the residual is computed as R = I - X A X, which is the
+    standard SPD inverse-root diagnostic. For general p_val, it is R = I - X^p A.
     """
     if A.is_complex() or X.is_complex():
         raise ValueError("compute_quality_stats does not support complex tensors.")

@@ -5,7 +5,8 @@ benchmarks/run_benchmarks.py
 Runs the maintained solver benchmark matrix.
 
 Modes:
-- default: writes per-run .txt logs under benchmark_results/latest_*_solve_logs/
+- default: writes per-run .txt logs under
+  benchmark_results/runs/<timestamp>_solver_benchmarks/*_solve_logs/
 - --markdown: writes one organized markdown report file (--out)
 """
 
@@ -26,9 +27,6 @@ from datetime import datetime
 from typing import Any, Iterable
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RESULTS_DIR = os.path.join(REPO_ROOT, "benchmark_results")
-SPD_DIR = os.path.join(RESULTS_DIR, "latest_spd_solve_logs")
-NONSPD_DIR = os.path.join(RESULTS_DIR, "latest_nonspd_solve_logs")
 
 
 @dataclass(frozen=True)
@@ -39,9 +37,9 @@ class RunSpec:
     txt_out: str
 
 
-def _ensure_dirs() -> None:
-    os.makedirs(SPD_DIR, exist_ok=True)
-    os.makedirs(NONSPD_DIR, exist_ok=True)
+def _ensure_dirs(*dirs: str) -> None:
+    for d in dirs:
+        os.makedirs(d, exist_ok=True)
 
 
 def _run_and_capture(cmd: list[str]) -> str:
@@ -261,8 +259,16 @@ def _filter_specs(specs: Iterable[RunSpec], only_tokens: list[str]) -> list[RunS
     return out
 
 
-def _build_specs(trials: int, dtype: str, timing_reps: int, warmup_reps: int) -> list[RunSpec]:
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+def _build_specs(
+    trials: int,
+    dtype: str,
+    timing_reps: int,
+    warmup_reps: int,
+    *,
+    spd_dir: str,
+    nonspd_dir: str,
+    ts: str,
+) -> list[RunSpec]:
     specs: list[RunSpec] = []
 
     # SPD, p in {1,2,4}, k<n (n={1024,2048}, k={1,16,64})
@@ -294,8 +300,8 @@ def _build_specs(trials: int, dtype: str, timing_reps: int, warmup_reps: int) ->
                 kind="spd",
                 cmd=cmd,
                 txt_out=os.path.join(
-                    SPD_DIR,
-                    f"spd_p{p_val}_klt_n_sizes1024_2048_k1_16_64_{ts}.txt",
+                    spd_dir,
+                    f"{ts}_spd_p{p_val}_klt_n_sizes1024_2048_k1_16_64.txt",
                 ),
             )
         )
@@ -330,8 +336,8 @@ def _build_specs(trials: int, dtype: str, timing_reps: int, warmup_reps: int) ->
                     kind="spd",
                     cmd=cmd,
                     txt_out=os.path.join(
-                        SPD_DIR,
-                        f"spd_p{p_val}_keq_n_n{n_val}_k{n_val}_{ts}.txt",
+                        spd_dir,
+                        f"{ts}_spd_p{p_val}_keq_n_n{n_val}_k{n_val}.txt",
                     ),
                 )
             )
@@ -364,8 +370,8 @@ def _build_specs(trials: int, dtype: str, timing_reps: int, warmup_reps: int) ->
             kind="nonspd",
             cmd=cmd,
             txt_out=os.path.join(
-                NONSPD_DIR,
-                f"nonspd_p1_klt_n_sizes1024_2048_k1_16_64_{ts}.txt",
+                nonspd_dir,
+                f"{ts}_nonspd_p1_klt_n_sizes1024_2048_k1_16_64.txt",
             ),
         )
     )
@@ -399,8 +405,8 @@ def _build_specs(trials: int, dtype: str, timing_reps: int, warmup_reps: int) ->
                 kind="nonspd",
                 cmd=cmd,
                 txt_out=os.path.join(
-                    NONSPD_DIR,
-                    f"nonspd_p1_keq_n_n{n_val}_k{n_val}_{ts}.txt",
+                    nonspd_dir,
+                    f"{ts}_nonspd_p1_keq_n_n{n_val}_k{n_val}.txt",
                 ),
             )
         )
@@ -556,7 +562,7 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=str,
-        default=os.path.join("benchmark_results", "latest_solver_benchmarks.md"),
+        default="",
         help="Output markdown path used with --markdown",
     )
     parser.add_argument(
@@ -586,13 +592,13 @@ def main() -> None:
     parser.add_argument(
         "--ab-out",
         type=str,
-        default=os.path.join("benchmark_results", "latest_solver_benchmarks_ab.md"),
+        default="",
         help="Output markdown path used for A/B compare mode.",
     )
     parser.add_argument(
         "--manifest-out",
         type=str,
-        default=os.path.join("benchmark_results", "latest_solver_run_manifest.json"),
+        default="",
         help="Output JSON manifest path (run metadata + reproducibility fingerprint).",
     )
     parser.add_argument(
@@ -613,12 +619,30 @@ def main() -> None:
     if int(args.timing_warmup_reps) < 0:
         raise ValueError("--timing-warmup-reps must be >= 0")
 
-    _ensure_dirs()
+    run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir_rel = os.path.join(
+        "benchmark_results", "runs", f"{run_ts}_solver_benchmarks"
+    )
+    run_dir_abs = os.path.join(REPO_ROOT, run_dir_rel)
+    spd_dir_abs = os.path.join(run_dir_abs, "spd_solve_logs")
+    nonspd_dir_abs = os.path.join(run_dir_abs, "nonspd_solve_logs")
+    _ensure_dirs(spd_dir_abs, nonspd_dir_abs)
+
+    if not str(args.out).strip():
+        args.out = os.path.join(run_dir_rel, "solver_benchmarks.md")
+    if not str(args.ab_out).strip():
+        args.ab_out = os.path.join(run_dir_rel, "solver_benchmarks_ab.md")
+    if not str(args.manifest_out).strip():
+        args.manifest_out = os.path.join(run_dir_rel, "run_manifest.json")
+
     specs_all = _build_specs(
         trials=int(args.trials),
         dtype=str(args.dtype),
         timing_reps=int(args.timing_reps),
         warmup_reps=int(args.timing_warmup_reps),
+        spd_dir=spd_dir_abs,
+        nonspd_dir=nonspd_dir_abs,
+        ts=run_ts,
     )
     specs = _filter_specs(specs_all, _parse_csv_tokens(args.only))
     if len(specs) == 0:

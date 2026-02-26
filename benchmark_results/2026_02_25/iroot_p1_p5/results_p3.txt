@@ -1,0 +1,125 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False
+== SPD size 256x256 | dtype=torch.bfloat16 | compile=False | precond=aol | l_target=0.05 | lmax=row_sum | terminal=True | timing_reps=1 | symY=True | symEvery=1 | metrics=full | power_it=0 | mv_k=0 | hard_it=0 ==
+-- case gaussian_spd --
+Inverse-Newton            3.805 ms (pre 1.786 + iter 2.019) | mem   13MB | resid 1.427e-02 p95 1.592e-02 max 1.592e-02 | Y_res 4.450e-02 | relerr 4.814e-03 | r2 nan | hard nan | symX 6.23e-05 symW 4.01e-04 | mv nan | bad 0
+PE-Quad                   3.022 ms (pre 1.786 + iter 1.236) | mem   12MB | resid 5.142e-03 p95 6.449e-03 max 6.449e-03 | relerr 1.724e-03 | r2 nan | hard nan | symX 0.00e+00 symW 4.57e-04 | mv nan | bad 0
+PE-Quad-Coupled           2.966 ms (pre 1.786 + iter 1.180) | mem   13MB | resid 5.538e-03 p95 6.488e-03 max 6.488e-03 | Y_res 6.921e-02 | relerr 1.831e-03 | r2 nan | hard nan | symX 1.39e-04 symW 6.58e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 2.966 ms, resid=5.538e-03, hard=nan
+
+-- case illcond_1e6 --
+Inverse-Newton            2.982 ms (pre 1.791 + iter 1.190) | mem   13MB | resid 1.540e-02 p95 1.606e-02 max 1.606e-02 | Y_res 5.179e-02 | relerr 5.218e-03 | r2 nan | hard nan | symX 4.45e-05 symW 2.97e-04 | mv nan | bad 0
+PE-Quad                   3.118 ms (pre 1.791 + iter 1.327) | mem   12MB | resid 5.019e-03 p95 5.365e-03 max 5.365e-03 | relerr 1.634e-03 | r2 nan | hard nan | symX 0.00e+00 symW 3.49e-04 | mv nan | bad 0
+PE-Quad-Coupled           2.956 ms (pre 1.791 + iter 1.165) | mem   13MB | resid 5.024e-03 p95 5.367e-03 max 5.367e-03 | Y_res 6.287e-02 | relerr 1.633e-03 | r2 nan | hard nan | symX 1.26e-04 symW 4.64e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 2.956 ms, resid=5.024e-03, hard=nan
+
+-- case illcond_1e12 --
+Inverse-Newton            2.854 ms (pre 1.529 + iter 1.325) | mem   13MB | resid 1.614e-02 p95 1.630e-02 max 1.630e-02 | Y_res 5.927e-02 | relerr 5.522e-03 | r2 nan | hard nan | symX 4.10e-05 symW 2.13e-04 | mv nan | bad 0
+PE-Quad                   2.837 ms (pre 1.529 + iter 1.307) | mem   12MB | resid 3.182e-03 p95 3.510e-03 max 3.510e-03 | relerr 1.071e-03 | r2 nan | hard nan | symX 0.00e+00 symW 2.73e-04 | mv nan | bad 0
+PE-Quad-Coupled           2.754 ms (pre 1.529 + iter 1.225) | mem   13MB | resid 3.172e-03 p95 3.497e-03 max 3.497e-03 | Y_res 6.341e-02 | relerr 1.068e-03 | r2 nan | hard nan | symX 1.12e-04 symW 3.13e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 2.754 ms, resid=3.172e-03, hard=nan
+
+-- case near_rank_def --
+Inverse-Newton            2.705 ms (pre 1.510 + iter 1.195) | mem   13MB | resid 1.540e-02 p95 1.609e-02 max 1.609e-02 | Y_res 5.769e-02 | relerr 5.251e-03 | r2 nan | hard nan | symX 5.00e-05 symW 2.30e-04 | mv nan | bad 0
+PE-Quad                   2.879 ms (pre 1.510 + iter 1.369) | mem   12MB | resid 2.895e-03 p95 8.427e-03 max 8.427e-03 | relerr 9.644e-04 | r2 nan | hard nan | symX 0.00e+00 symW 2.68e-04 | mv nan | bad 0
+PE-Quad-Coupled           2.856 ms (pre 1.510 + iter 1.345) | mem   13MB | resid 2.888e-03 p95 8.349e-03 max 8.349e-03 | Y_res 7.635e-02 | relerr 9.645e-04 | r2 nan | hard nan | symX 1.04e-04 symW 2.45e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 2.856 ms, resid=2.888e-03, hard=nan
+
+-- case spike --
+Inverse-Newton            3.141 ms (pre 1.744 + iter 1.397) | mem   13MB | resid 2.064e-02 p95 2.157e-02 max 2.157e-02 | Y_res 1.049e-01 | relerr 6.900e-03 | r2 nan | hard nan | symX 4.82e-05 symW 2.90e-04 | mv nan | bad 0
+PE-Quad                   3.032 ms (pre 1.744 + iter 1.288) | mem   12MB | resid 4.205e-03 p95 4.372e-03 max 4.372e-03 | relerr 1.401e-03 | r2 nan | hard nan | symX 0.00e+00 symW 1.96e-04 | mv nan | bad 0
+PE-Quad-Coupled           3.059 ms (pre 1.744 + iter 1.314) | mem   13MB | resid 4.176e-03 p95 4.514e-03 max 4.514e-03 | Y_res 1.065e-01 | relerr 1.397e-03 | r2 nan | hard nan | symX 6.64e-05 symW 1.57e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad @ 3.032 ms, resid=4.205e-03, hard=nan
+
+== SPD size 512x512 | dtype=torch.bfloat16 | compile=False | precond=aol | l_target=0.05 | lmax=row_sum | terminal=True | timing_reps=1 | symY=True | symEvery=1 | metrics=full | power_it=0 | mv_k=0 | hard_it=0 ==
+-- case gaussian_spd --
+Inverse-Newton            2.734 ms (pre 1.551 + iter 1.183) | mem   26MB | resid 8.001e-03 p95 1.553e-02 max 1.553e-02 | Y_res 4.286e-03 | relerr 2.793e-03 | r2 nan | hard nan | symX 3.37e-05 symW 2.40e-04 | mv nan | bad 0
+PE-Quad                   3.204 ms (pre 1.551 + iter 1.652) | mem   25MB | resid 7.674e-03 p95 8.115e-03 max 8.115e-03 | relerr 2.684e-03 | r2 nan | hard nan | symX 0.00e+00 symW 2.70e-04 | mv nan | bad 0
+PE-Quad-Coupled           2.781 ms (pre 1.551 + iter 1.229) | mem   26MB | resid 7.721e-03 p95 8.178e-03 max 8.178e-03 | Y_res 1.171e-01 | relerr 2.603e-03 | r2 nan | hard nan | symX 9.47e-05 symW 4.43e-04 | mv nan | bad 0
+BEST<=residual=0.01: Inverse-Newton @ 2.734 ms, resid=8.001e-03, hard=nan
+
+-- case illcond_1e6 --
+Inverse-Newton            5.978 ms (pre 4.441 + iter 1.538) | mem   26MB | resid 1.380e-02 p95 1.413e-02 max 1.413e-02 | Y_res 6.725e-02 | relerr 4.681e-03 | r2 nan | hard nan | symX 3.23e-05 symW 2.43e-04 | mv nan | bad 0
+PE-Quad                   5.856 ms (pre 4.441 + iter 1.415) | mem   25MB | resid 5.957e-03 p95 6.255e-03 max 6.255e-03 | relerr 2.081e-03 | r2 nan | hard nan | symX 0.00e+00 symW 3.43e-04 | mv nan | bad 0
+PE-Quad-Coupled           5.699 ms (pre 4.441 + iter 1.258) | mem   26MB | resid 6.064e-03 p95 6.364e-03 max 6.364e-03 | Y_res 8.839e-02 | relerr 2.118e-03 | r2 nan | hard nan | symX 9.38e-05 symW 3.65e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 5.699 ms, resid=6.064e-03, hard=nan
+
+-- case illcond_1e12 --
+Inverse-Newton            2.767 ms (pre 1.515 + iter 1.252) | mem   26MB | resid 1.138e-02 p95 1.234e-02 max 1.234e-02 | Y_res 4.138e-02 | relerr 3.740e-03 | r2 nan | hard nan | symX 3.05e-05 symW 1.89e-04 | mv nan | bad 0
+PE-Quad                   3.004 ms (pre 1.515 + iter 1.489) | mem   25MB | resid 8.330e-03 p95 8.502e-03 max 8.502e-03 | relerr 2.739e-03 | r2 nan | hard nan | symX 0.00e+00 symW 2.83e-04 | mv nan | bad 0
+PE-Quad-Coupled           2.867 ms (pre 1.515 + iter 1.353) | mem   26MB | resid 8.401e-03 p95 8.555e-03 max 8.555e-03 | Y_res 8.839e-02 | relerr 2.887e-03 | r2 nan | hard nan | symX 8.64e-05 symW 2.80e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 2.867 ms, resid=8.401e-03, hard=nan
+
+-- case near_rank_def --
+Inverse-Newton            3.099 ms (pre 1.806 + iter 1.294) | mem   26MB | resid 1.571e-02 p95 1.624e-02 max 1.624e-02 | Y_res 8.069e-02 | relerr 5.167e-03 | r2 nan | hard nan | symX 2.96e-05 symW 1.79e-04 | mv nan | bad 0
+PE-Quad                   3.318 ms (pre 1.806 + iter 1.512) | mem   25MB | resid 4.307e-03 p95 4.578e-03 max 4.578e-03 | relerr 1.454e-03 | r2 nan | hard nan | symX 0.00e+00 symW 2.69e-04 | mv nan | bad 0
+PE-Quad-Coupled           3.017 ms (pre 1.806 + iter 1.211) | mem   26MB | resid 4.336e-03 p95 4.600e-03 max 4.600e-03 | Y_res 8.839e-02 | relerr 1.512e-03 | r2 nan | hard nan | symX 8.35e-05 symW 2.65e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 3.017 ms, resid=4.336e-03, hard=nan
+
+-- case spike --
+Inverse-Newton            3.297 ms (pre 1.750 + iter 1.547) | mem   26MB | resid 1.517e-02 p95 1.532e-02 max 1.532e-02 | Y_res 8.752e-02 | relerr 5.067e-03 | r2 nan | hard nan | symX 1.53e-05 symW 6.36e-05 | mv nan | bad 0
+PE-Quad                   3.267 ms (pre 1.750 + iter 1.517) | mem   25MB | resid 4.076e-03 p95 4.123e-03 max 4.123e-03 | relerr 1.350e-03 | r2 nan | hard nan | symX 0.00e+00 symW 9.93e-05 | mv nan | bad 0
+PE-Quad-Coupled           3.024 ms (pre 1.750 + iter 1.274) | mem   26MB | resid 4.076e-03 p95 4.264e-03 max 4.264e-03 | Y_res 1.031e-01 | relerr 1.352e-03 | r2 nan | hard nan | symX 4.23e-05 symW 8.44e-05 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 3.024 ms, resid=4.076e-03, hard=nan
+
+== SPD size 1024x1024 | dtype=torch.bfloat16 | compile=False | precond=aol | l_target=0.05 | lmax=row_sum | terminal=True | timing_reps=1 | symY=True | symEvery=1 | metrics=full | power_it=0 | mv_k=0 | hard_it=0 ==
+-- case gaussian_spd --
+Inverse-Newton            4.762 ms (pre 1.503 + iter 3.259) | mem   80MB | resid 1.137e-02 p95 1.250e-02 max 1.250e-02 | Y_res 6.037e-02 | relerr 3.704e-03 | r2 nan | hard nan | symX 3.37e-05 symW 1.82e-04 | mv nan | bad 0
+PE-Quad                   5.239 ms (pre 1.503 + iter 3.736) | mem   76MB | resid 8.162e-03 p95 8.398e-03 max 8.398e-03 | relerr 2.639e-03 | r2 nan | hard nan | symX 0.00e+00 symW 2.52e-04 | mv nan | bad 0
+PE-Quad-Coupled           4.769 ms (pre 1.503 + iter 3.266) | mem   80MB | resid 8.164e-03 p95 8.400e-03 max 8.400e-03 | Y_res 2.236e-01 | relerr 2.640e-03 | r2 nan | hard nan | symX 7.37e-05 symW 3.17e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 4.769 ms, resid=8.164e-03, hard=nan
+
+-- case illcond_1e6 --
+Inverse-Newton            4.793 ms (pre 1.451 + iter 3.341) | mem   80MB | resid 9.040e-03 p95 9.047e-03 max 9.047e-03 | Y_res 2.688e-03 | relerr 2.938e-03 | r2 nan | hard nan | symX 3.24e-05 symW 1.04e-04 | mv nan | bad 0
+PE-Quad                   5.232 ms (pre 1.451 + iter 3.781) | mem   76MB | resid 9.030e-03 p95 9.041e-03 max 9.041e-03 | relerr 2.937e-03 | r2 nan | hard nan | symX 0.00e+00 symW 1.16e-04 | mv nan | bad 0
+PE-Quad-Coupled           4.714 ms (pre 1.451 + iter 3.263) | mem   80MB | resid 9.031e-03 p95 9.042e-03 max 9.042e-03 | Y_res 2.500e-01 | relerr 2.937e-03 | r2 nan | hard nan | symX 7.11e-05 symW 1.46e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 4.714 ms, resid=9.031e-03, hard=nan
+
+-- case illcond_1e12 --
+Inverse-Newton            5.029 ms (pre 1.789 + iter 3.240) | mem   80MB | resid 1.627e-02 p95 1.630e-02 max 1.630e-02 | Y_res 1.250e-01 | relerr 5.381e-03 | r2 nan | hard nan | symX 3.09e-05 symW 9.89e-05 | mv nan | bad 0
+PE-Quad                   5.502 ms (pre 1.789 + iter 3.714) | mem   76MB | resid 2.642e-03 p95 8.921e-03 max 8.921e-03 | relerr 9.152e-04 | r2 nan | hard nan | symX 0.00e+00 symW 1.10e-04 | mv nan | bad 0
+PE-Quad-Coupled           5.071 ms (pre 1.789 + iter 3.282) | mem   80MB | resid 2.644e-03 p95 8.921e-03 max 8.921e-03 | Y_res 8.839e-02 | relerr 9.156e-04 | r2 nan | hard nan | symX 6.87e-05 symW 1.46e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 5.071 ms, resid=2.644e-03, hard=nan
+
+-- case near_rank_def --
+Inverse-Newton            5.591 ms (pre 2.346 + iter 3.246) | mem   80MB | resid 1.620e-02 p95 1.624e-02 max 1.624e-02 | Y_res 1.250e-01 | relerr 5.367e-03 | r2 nan | hard nan | symX 3.01e-05 symW 9.63e-05 | mv nan | bad 0
+PE-Quad                   6.099 ms (pre 2.346 + iter 3.753) | mem   76MB | resid 2.705e-03 p95 2.755e-03 max 2.755e-03 | relerr 9.289e-04 | r2 nan | hard nan | symX 0.00e+00 symW 1.09e-04 | mv nan | bad 0
+PE-Quad-Coupled           5.645 ms (pre 2.346 + iter 3.299) | mem   80MB | resid 2.706e-03 p95 2.757e-03 max 2.757e-03 | Y_res 8.839e-02 | relerr 9.293e-04 | r2 nan | hard nan | symX 6.75e-05 symW 1.41e-04 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 5.645 ms, resid=2.706e-03, hard=nan
+
+-- case spike --
+Inverse-Newton            4.659 ms (pre 1.386 + iter 3.273) | mem   80MB | resid 1.514e-02 p95 1.520e-02 max 1.520e-02 | Y_res 1.255e-01 | relerr 5.075e-03 | r2 nan | hard nan | symX 1.45e-05 symW 4.97e-05 | mv nan | bad 0
+PE-Quad                   5.118 ms (pre 1.386 + iter 3.731) | mem   76MB | resid 4.132e-03 p95 4.230e-03 max 4.230e-03 | relerr 1.357e-03 | r2 nan | hard nan | symX 0.00e+00 symW 5.99e-05 | mv nan | bad 0
+PE-Quad-Coupled           4.636 ms (pre 1.386 + iter 3.249) | mem   80MB | resid 4.084e-03 p95 4.196e-03 max 4.196e-03 | Y_res 1.193e-01 | relerr 1.338e-03 | r2 nan | hard nan | symX 3.22e-05 symW 6.89e-05 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 4.636 ms, resid=4.084e-03, hard=nan
+
+== SPD size 2048x2048 | dtype=torch.bfloat16 | compile=False | precond=aol | l_target=0.05 | lmax=row_sum | terminal=True | timing_reps=1 | symY=True | symEvery=1 | metrics=full | power_it=0 | mv_k=0 | hard_it=0 ==
+-- case gaussian_spd --
+Inverse-Newton           23.600 ms (pre 2.664 + iter 20.936) | mem  296MB | resid 1.596e-02 p95 1.600e-02 max 1.600e-02 | Y_res 1.756e-01 | relerr 5.300e-03 | r2 nan | hard nan | symX 1.63e-05 symW 5.90e-05 | mv nan | bad 0
+PE-Quad                  27.427 ms (pre 2.664 + iter 24.763) | mem  280MB | resid 3.035e-03 p95 8.674e-03 max 8.674e-03 | relerr 1.020e-03 | r2 nan | hard nan | symX 0.00e+00 symW 8.28e-05 | mv nan | bad 0
+PE-Quad-Coupled          23.562 ms (pre 2.664 + iter 20.898) | mem  296MB | resid 3.036e-03 p95 8.674e-03 max 8.674e-03 | Y_res 1.805e-01 | relerr 1.020e-03 | r2 nan | hard nan | symX 3.91e-05 symW 7.90e-05 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 23.562 ms, resid=3.036e-03, hard=nan
+
+-- case illcond_1e6 --
+Inverse-Newton           23.486 ms (pre 2.388 + iter 21.098) | mem  296MB | resid 1.597e-02 p95 1.598e-02 max 1.598e-02 | Y_res 1.768e-01 | relerr 5.312e-03 | r2 nan | hard nan | symX 1.77e-05 symW 5.85e-05 | mv nan | bad 0
+PE-Quad                  27.123 ms (pre 2.388 + iter 24.735) | mem  280MB | resid 2.949e-03 p95 2.962e-03 max 2.962e-03 | relerr 9.845e-04 | r2 nan | hard nan | symX 0.00e+00 symW 8.32e-05 | mv nan | bad 0
+PE-Quad-Coupled          23.505 ms (pre 2.388 + iter 21.117) | mem  296MB | resid 2.949e-03 p95 2.962e-03 max 2.962e-03 | Y_res 1.768e-01 | relerr 9.845e-04 | r2 nan | hard nan | symX 4.26e-05 symW 6.26e-05 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 23.505 ms, resid=2.949e-03, hard=nan
+
+-- case illcond_1e12 --
+Inverse-Newton           23.348 ms (pre 2.443 + iter 20.905) | mem  296MB | resid 1.592e-02 p95 1.593e-02 max 1.593e-02 | Y_res 1.768e-01 | relerr 5.301e-03 | r2 nan | hard nan | symX 1.68e-05 symW 5.73e-05 | mv nan | bad 0
+PE-Quad                  27.275 ms (pre 2.443 + iter 24.832) | mem  280MB | resid 2.997e-03 p95 8.581e-03 max 8.581e-03 | relerr 9.947e-04 | r2 nan | hard nan | symX 0.00e+00 symW 8.28e-05 | mv nan | bad 0
+PE-Quad-Coupled          23.235 ms (pre 2.443 + iter 20.793) | mem  296MB | resid 2.997e-03 p95 8.581e-03 max 8.581e-03 | Y_res 1.768e-01 | relerr 9.947e-04 | r2 nan | hard nan | symX 4.20e-05 symW 6.04e-05 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 23.235 ms, resid=2.997e-03, hard=nan
+
+-- case near_rank_def --
+Inverse-Newton           23.148 ms (pre 2.317 + iter 20.831) | mem  296MB | resid 1.589e-02 p95 1.590e-02 max 1.590e-02 | Y_res 1.768e-01 | relerr 5.296e-03 | r2 nan | hard nan | symX 1.43e-05 symW 4.88e-05 | mv nan | bad 0
+PE-Quad                  26.859 ms (pre 2.317 + iter 24.542) | mem  280MB | resid 3.023e-03 p95 8.551e-03 max 8.551e-03 | relerr 1.000e-03 | r2 nan | hard nan | symX 0.00e+00 symW 7.10e-05 | mv nan | bad 0
+PE-Quad-Coupled          23.165 ms (pre 2.317 + iter 20.849) | mem  296MB | resid 3.023e-03 p95 8.552e-03 max 8.552e-03 | Y_res 1.768e-01 | relerr 1.000e-03 | r2 nan | hard nan | symX 3.61e-05 symW 5.17e-05 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 23.165 ms, resid=3.023e-03, hard=nan
+
+-- case spike --
+Inverse-Newton           23.103 ms (pre 2.328 + iter 20.775) | mem  296MB | resid 9.926e-03 p95 1.015e-02 max 1.015e-02 | Y_res 1.163e-01 | relerr 3.340e-03 | r2 nan | hard nan | symX 7.28e-06 symW 3.19e-05 | mv nan | bad 0
+PE-Quad                  26.941 ms (pre 2.328 + iter 24.613) | mem  280MB | resid 7.865e-03 p95 7.906e-03 max 7.906e-03 | relerr 2.638e-03 | r2 nan | hard nan | symX 0.00e+00 symW 3.76e-05 | mv nan | bad 0
+PE-Quad-Coupled          23.078 ms (pre 2.328 + iter 20.750) | mem  296MB | resid 7.764e-03 p95 7.810e-03 max 7.810e-03 | Y_res 3.495e-01 | relerr 2.603e-03 | r2 nan | hard nan | symX 1.93e-05 symW 3.21e-05 | mv nan | bad 0
+BEST<=residual=0.01: PE-Quad-Coupled @ 23.078 ms, resid=7.764e-03, hard=nan
+

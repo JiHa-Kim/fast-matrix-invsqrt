@@ -105,11 +105,10 @@ def main():
     p.add_argument(
         "--online-coeff-mode",
         type=str,
-        default="auto",
-        choices=["auto", "off", "greedy-newton", "greedy-minimax"],
+        default="greedy-newton",
+        choices=["off", "greedy-newton", "greedy-minimax"],
         help=(
             "Optional coupled PE coefficient schedule adaptation. "
-            "'auto' keeps p=1 unchanged (off) and uses greedy-minimax for p>=2; "
             "'greedy-newton' picks per-step between base quadratic and inverse-Newton "
             "affine coefficients using a scalar interval cost model; "
             "'greedy-minimax' also includes a local-basis minimax-alpha candidate "
@@ -194,8 +193,6 @@ def main():
     sizes = parse_shapes(args.sizes)
     p_val = args.p
     online_coeff_mode = str(args.online_coeff_mode)
-    if online_coeff_mode == "auto":
-        online_coeff_mode = "off" if int(p_val) == 1 else "greedy-minimax"
 
     pe_quad_t, coeff_desc = build_pe_schedules(
         l_target=args.l_target,
@@ -226,7 +223,7 @@ def main():
                 f"precond={args.precond} | l_target={args.l_target} | p={p_val} | "
                 f"cheb_deg={args.cheb_degree} | cheb_mode={args.cheb_mode} | "
                 f"symEvery={args.symmetrize_every} | "
-                f"online_coeff_mode={args.online_coeff_mode}->{online_coeff_mode} | "
+                f"online_coeff_mode={online_coeff_mode} | "
                 f"online_stop_tol={args.online_stop_tol}"
             )
 

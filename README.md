@@ -72,7 +72,7 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 
 - `--compile`: enable `torch.compile`.
 - `--timing-reps`: average repeated runs per trial.
 - `--symmetrize-every`: symmetrize cadence for coupled `Y`.
-- `--online-coeff-mode {auto,off,greedy-newton,greedy-minimax}`: optional cost-aware per-step PE schedule adaptation for coupled apply (`auto`: `p=1 -> off`, `p>=2 -> greedy-minimax`).
+- `--online-coeff-mode {off,greedy-newton,greedy-minimax}`: optional cost-aware per-step PE schedule adaptation for coupled apply (`greedy-newton` is default).
 - `--online-coeff-min-rel-improve`: switch threshold for `--online-coeff-mode=greedy-newton`.
 - `--online-coeff-min-ns-logwidth-rel-improve`: minimax-vs-NS dominance margin for `--online-coeff-mode=greedy-minimax`.
 - `--online-stop-tol`, `--online-min-steps`: low-overhead coupled early-stop controls.
@@ -80,11 +80,12 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 
 
 ## Latest Benchmark Artifacts
 
-- Inverse-root report: `results/benchmark_report.md` (generated 2026-02-25).
-- Solve/apply narrative: `reports/2025_02_25_comprehensive_p1_p4_benchmark.md`.
-- Solve raw logs:
-  - `artifacts/benchmarks/solve_p2_k16_2026-02-25.txt`
-  - `artifacts/benchmarks/solve_p2_k64_2026-02-25.txt`
+- Inverse-root report: `reports/2025_02_25_benchmark_p1thru5.md`.
+- Solve online-coefficient ablation (`20` trials): `reports/2026_02_25_solve_online_coeff_ablation_t20.md`.
+- Raw logs:
+  - `benchmark_results/2026_02_25/solve_ablation_t20/`
+  - `benchmark_results/2026_02_25/solve_exploratory/`
+  - `benchmark_results/2026_02_25/iroot_p1_p5/`
 
 ## References
 

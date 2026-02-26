@@ -1,0 +1,126 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x1 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=1 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        4.908 ms (pre 1.935 + iter 2.972) | mem   96MB | relerr vs true: 8.606e-03
+PE-Quad-Coupled-Apply           3.552 ms (pre 1.935 + iter 1.616) | mem   98MB | relerr vs true: 4.013e-03 | newton_steps 0 | minimax_steps 2
+Chebyshev-Apply                 5.588 ms (pre 1.935 + iter 3.652) | mem   88MB | relerr vs true: 7.874e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        4.582 ms (pre 1.573 + iter 3.009) | mem   96MB | relerr vs true: 5.661e-03
+PE-Quad-Coupled-Apply           3.151 ms (pre 1.573 + iter 1.578) | mem   98MB | relerr vs true: 4.242e-03 | newton_steps 1 | minimax_steps 2
+Chebyshev-Apply                 5.144 ms (pre 1.573 + iter 3.571) | mem   88MB | relerr vs true: 8.362e-03 | cheb_deg 32
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x16 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=1 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        4.828 ms (pre 1.671 + iter 3.157) | mem   97MB | relerr vs true: 8.575e-03
+PE-Quad-Coupled-Apply           3.425 ms (pre 1.671 + iter 1.754) | mem   99MB | relerr vs true: 4.028e-03 | newton_steps 0 | minimax_steps 2
+Chebyshev-Apply                 5.190 ms (pre 1.671 + iter 3.519) | mem   90MB | relerr vs true: 7.767e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        5.428 ms (pre 1.612 + iter 3.815) | mem   97MB | relerr vs true: 5.539e-03
+PE-Quad-Coupled-Apply           3.309 ms (pre 1.612 + iter 1.697) | mem   99MB | relerr vs true: 4.166e-03 | newton_steps 1 | minimax_steps 2
+Chebyshev-Apply                 5.409 ms (pre 1.612 + iter 3.796) | mem   90MB | relerr vs true: 8.514e-03 | cheb_deg 32
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x64 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=1 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        7.071 ms (pre 4.067 + iter 3.004) | mem  102MB | relerr vs true: 8.606e-03
+PE-Quad-Coupled-Apply           5.724 ms (pre 4.067 + iter 1.658) | mem  104MB | relerr vs true: 4.044e-03 | newton_steps 0 | minimax_steps 2
+Chebyshev-Apply                 7.644 ms (pre 4.067 + iter 3.577) | mem   94MB | relerr vs true: 7.690e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        5.071 ms (pre 2.060 + iter 3.011) | mem  102MB | relerr vs true: 5.554e-03
+PE-Quad-Coupled-Apply           3.682 ms (pre 2.060 + iter 1.623) | mem  104MB | relerr vs true: 4.120e-03 | newton_steps 1 | minimax_steps 2
+Chebyshev-Apply                 5.698 ms (pre 2.060 + iter 3.638) | mem   94MB | relerr vs true: 8.484e-03 | cheb_deg 32
+[coeff] using precomputed(l_target=0.05), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x1 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=2 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        4.906 ms (pre 1.713 + iter 3.192) | mem   96MB | relerr vs true: 1.617e-03
+PE-Quad-Coupled-Apply           3.976 ms (pre 1.713 + iter 2.263) | mem   98MB | relerr vs true: 4.440e-03 | newton_steps 0 | minimax_steps 2
+Chebyshev-Apply                 5.299 ms (pre 1.713 + iter 3.586) | mem   88MB | relerr vs true: 3.258e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        5.547 ms (pre 2.082 + iter 3.465) | mem   96MB | relerr vs true: 2.640e-03
+PE-Quad-Coupled-Apply           4.330 ms (pre 2.082 + iter 2.248) | mem   98MB | relerr vs true: 4.852e-03 | newton_steps 0 | minimax_steps 1
+Chebyshev-Apply                 5.767 ms (pre 2.082 + iter 3.684) | mem   88MB | relerr vs true: 3.044e-03 | cheb_deg 32
+[coeff] using precomputed(l_target=0.05), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x16 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=2 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        4.942 ms (pre 1.592 + iter 3.350) | mem   97MB | relerr vs true: 1.705e-03
+PE-Quad-Coupled-Apply           3.713 ms (pre 1.592 + iter 2.121) | mem   99MB | relerr vs true: 4.517e-03 | newton_steps 0 | minimax_steps 2
+Chebyshev-Apply                 5.084 ms (pre 1.592 + iter 3.492) | mem   90MB | relerr vs true: 3.304e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        5.306 ms (pre 1.673 + iter 3.632) | mem   97MB | relerr vs true: 2.701e-03
+PE-Quad-Coupled-Apply           3.905 ms (pre 1.673 + iter 2.232) | mem   99MB | relerr vs true: 4.974e-03 | newton_steps 0 | minimax_steps 1
+Chebyshev-Apply                 5.175 ms (pre 1.673 + iter 3.501) | mem   90MB | relerr vs true: 3.067e-03 | cheb_deg 32
+[coeff] using precomputed(l_target=0.05), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x64 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=2 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        5.994 ms (pre 2.655 + iter 3.338) | mem  102MB | relerr vs true: 1.686e-03
+PE-Quad-Coupled-Apply           4.786 ms (pre 2.655 + iter 2.131) | mem  104MB | relerr vs true: 4.517e-03 | newton_steps 0 | minimax_steps 2
+Chebyshev-Apply                 6.254 ms (pre 2.655 + iter 3.599) | mem   94MB | relerr vs true: 3.326e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        5.301 ms (pre 1.594 + iter 3.706) | mem  102MB | relerr vs true: 2.708e-03
+PE-Quad-Coupled-Apply           3.850 ms (pre 1.594 + iter 2.256) | mem  104MB | relerr vs true: 4.959e-03 | newton_steps 0 | minimax_steps 1
+Chebyshev-Apply                 5.715 ms (pre 1.594 + iter 4.120) | mem   94MB | relerr vs true: 3.067e-03 | cheb_deg 32
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x1 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=4 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        5.714 ms (pre 1.746 + iter 3.967) | mem   96MB | relerr vs true: 4.044e-03
+PE-Quad-Coupled-Apply           4.245 ms (pre 1.746 + iter 2.499) | mem   98MB | relerr vs true: 3.983e-03 | newton_steps 1 | minimax_steps 3
+Chebyshev-Apply                 5.342 ms (pre 1.746 + iter 3.596) | mem   88MB | relerr vs true: 2.022e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        5.904 ms (pre 1.817 + iter 4.086) | mem   96MB | relerr vs true: 3.456e-03
+PE-Quad-Coupled-Apply           4.412 ms (pre 1.817 + iter 2.595) | mem   98MB | relerr vs true: 3.426e-03 | newton_steps 1 | minimax_steps 3
+Chebyshev-Apply                 5.420 ms (pre 1.817 + iter 3.603) | mem   88MB | relerr vs true: 2.007e-03 | cheb_deg 32
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x16 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=4 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        5.825 ms (pre 1.986 + iter 3.839) | mem   97MB | relerr vs true: 4.089e-03
+PE-Quad-Coupled-Apply           4.429 ms (pre 1.986 + iter 2.442) | mem   99MB | relerr vs true: 3.922e-03 | newton_steps 1 | minimax_steps 3
+Chebyshev-Apply                 5.524 ms (pre 1.986 + iter 3.538) | mem   90MB | relerr vs true: 1.999e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        6.251 ms (pre 1.701 + iter 4.551) | mem   97MB | relerr vs true: 3.372e-03
+PE-Quad-Coupled-Apply           4.287 ms (pre 1.701 + iter 2.587) | mem   99MB | relerr vs true: 3.387e-03 | newton_steps 1 | minimax_steps 3
+Chebyshev-Apply                 5.348 ms (pre 1.701 + iter 3.647) | mem   90MB | relerr vs true: 2.045e-03 | cheb_deg 32
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x64 | dtype=torch.bfloat16 ==
+precond=frob | l_target=0.05 | p=4 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-minimax->greedy-minimax | online_stop_tol=0.0
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        5.870 ms (pre 1.971 + iter 3.899) | mem  102MB | relerr vs true: 4.074e-03
+PE-Quad-Coupled-Apply           4.453 ms (pre 1.971 + iter 2.481) | mem  104MB | relerr vs true: 3.952e-03 | newton_steps 1 | minimax_steps 3
+Chebyshev-Apply                 5.428 ms (pre 1.971 + iter 3.457) | mem   94MB | relerr vs true: 1.999e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        5.948 ms (pre 1.639 + iter 4.309) | mem  102MB | relerr vs true: 3.403e-03
+PE-Quad-Coupled-Apply           4.253 ms (pre 1.639 + iter 2.614) | mem  104MB | relerr vs true: 3.426e-03 | newton_steps 1 | minimax_steps 3
+Chebyshev-Apply                 5.553 ms (pre 1.639 + iter 3.914) | mem   94MB | relerr vs true: 2.029e-03 | cheb_deg 32

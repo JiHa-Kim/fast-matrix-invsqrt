@@ -66,8 +66,8 @@ Returned stats: `rho_proxy`, `gersh_lo`, `kappa_proxy`.
 `scripts/matrix_solve.py` supports online coefficient scheduling for the
 coupled PE apply method:
 
-- `auto` (default): keeps `p=1` unchanged (`off`) and uses `greedy-minimax` for `p>=2`.
-- `greedy-newton`: choose between baseline quadratic and inverse-Newton affine.
+- `greedy-newton` (default): choose between baseline quadratic and inverse-Newton affine.
+- `off`: disable online coefficient adaptation.
 - `greedy-minimax`: also evaluates a local-basis minimax-alpha candidate
   `q(y)=1-(1/p)(y-1)+alpha(y-1)^2`, with dominance gating vs inverse-Newton in
   mapped interval log-width.

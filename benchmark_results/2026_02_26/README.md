@@ -32,3 +32,9 @@
   - Aggregated summary: `summary_coupled_apply.md`.
   - Balanced paired validation: `paired_balanced_primed.md`.
   - Profile evidence: `profile/off_vs_on_profile.txt`, `profile/summary.md`.
+
+- `nonspd_p1_suite/`
+  - Dedicated non-SPD solve suite (`p=1`) at `n=1024`, `k in {1,16,64}`, `10` trials.
+  - Canonical logs: `t10_fp32/`.
+  - Summary: `summary_t10_fp32.md`.
+  - Exploratory runs: `exploratory/`.

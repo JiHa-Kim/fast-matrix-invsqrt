@@ -23,6 +23,7 @@ Practical inverse p-th-root kernels for SPD matrices, optimized for fixed-iterat
 - `scripts/`
   - `matrix_iroot.py`: inverse-root benchmark CLI.
   - `matrix_solve.py`: solve/apply benchmark CLI.
+  - `matrix_solve_nonspd.py`: dedicated non-SPD solve benchmark CLI (`p=1`).
   - `verify_iroot.py`: correctness/stability sweep.
   - `generate_benchmark_report.py`: regenerates `results/benchmark_report.md`.
 - `scripts/bench_common.py`, `scripts/bench_iroot_core.py`, `scripts/bench_solve_core.py`
@@ -64,6 +65,14 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 16 --trials 3 
 uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 --timing-reps 5 --dtype bf16 --precond jacobi --l-target 0.05 > artifacts/benchmarks/solve_p2_k64_2026-02-25.txt
 ```
 
+Run dedicated non-SPD `p=1` solve sweep (`10` trials):
+
+```bash
+uv run python scripts/matrix_solve_nonspd.py --p 1 --sizes 1024 --k 1 --trials 10 --timing-reps 5 --timing-warmup-reps 2 --dtype fp32
+uv run python scripts/matrix_solve_nonspd.py --p 1 --sizes 1024 --k 16 --trials 10 --timing-reps 5 --timing-warmup-reps 2 --dtype fp32
+uv run python scripts/matrix_solve_nonspd.py --p 1 --sizes 1024 --k 64 --trials 10 --timing-reps 5 --timing-warmup-reps 2 --dtype fp32
+```
+
 ## Key CLI Flags
 
 - `--p`: root exponent.
@@ -93,6 +102,7 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 
 - CUDA-graph coupled-apply ablation (`20` trials): `reports/2026_02_26_cuda_graph_ablation_t20.md`.
 - Square-RHS direct-vs-materialize validation (`ideas/3`): `reports/2026_02_25_idea3_square_rhs_apply_vs_materialize.md`.
 - Preconditioner ablation + Gram path checks (`ideas/4`): `reports/2026_02_26_precond_and_gram_path_ablation.md`.
+- Non-SPD `p=1` solve suite (`10` trials): `reports/2026_02_26_nonspd_p1_solve_suite_t10.md`.
 - Raw logs:
   - `benchmark_results/2026_02_25/solve_ablation_t20/`
   - `benchmark_results/2026_02_25/solve_exploratory/`
@@ -103,6 +113,7 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 
   - `benchmark_results/2026_02_26/idea_affine_online_t20/`
   - `benchmark_results/2026_02_26/perf_coupled_affine_fastpath_t20/`
   - `benchmark_results/2026_02_26/idea_cuda_graph_t20_warmup2/`
+  - `benchmark_results/2026_02_26/nonspd_p1_suite/`
 
 ## References
 

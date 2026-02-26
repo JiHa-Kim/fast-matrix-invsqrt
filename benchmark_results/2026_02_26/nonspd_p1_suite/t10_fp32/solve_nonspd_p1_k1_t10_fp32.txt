@@ -1,0 +1,32 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== Non-SPD Size 1024x1024 | RHS 1024x1 | dtype=torch.float32 ==
+p=1 | compile=False | timing_reps=5 | timing_warmup_reps=2 | adapt(resid_tol=1.0, growth_tol=1.02, check_every=1, safe_fallback_tol=0.01)
+
+-- case gaussian_shifted --
+PE-Quad-Inverse-Multiply        4.187 ms (pre 0.302 + iter 3.885) | mem  104MB | relerr vs solve: 6.044e-04 | bad 0
+PE-Quad-Coupled-Apply           2.823 ms (pre 0.302 + iter 2.520) | mem  108MB | relerr vs solve: 6.712e-04 | bad 0
+PE-Quad-Coupled-Apply-Adaptive    4.448 ms (pre 0.302 + iter 4.146) | mem  116MB | relerr vs solve: 6.712e-04 | bad 0
+Torch-Solve                     4.527 ms (pre 0.302 + iter 4.225) | mem   92MB | relerr vs solve: 3.937e-07 | bad 0
+BEST finite: PE-Quad-Coupled-Apply @ 2.823 ms, relerr=6.712e-04
+
+-- case nonnormal_upper --
+PE-Quad-Inverse-Multiply        3.923 ms (pre 0.163 + iter 3.760) | mem  104MB | relerr vs solve: 4.104e-04 | bad 0
+PE-Quad-Coupled-Apply           2.599 ms (pre 0.163 + iter 2.436) | mem  108MB | relerr vs solve: 4.726e-04 | bad 0
+PE-Quad-Coupled-Apply-Adaptive    3.980 ms (pre 0.163 + iter 3.817) | mem  116MB | relerr vs solve: 4.726e-04 | bad 0
+Torch-Solve                     4.320 ms (pre 0.163 + iter 4.156) | mem   92MB | relerr vs solve: 1.286e-07 | bad 0
+BEST finite: PE-Quad-Coupled-Apply @ 2.599 ms, relerr=4.726e-04
+
+-- case similarity_posspec --
+PE-Quad-Inverse-Multiply        4.148 ms (pre 0.186 + iter 3.962) | mem  104MB | relerr vs solve: 7.047e-04 | bad 0
+PE-Quad-Coupled-Apply           2.731 ms (pre 0.186 + iter 2.545) | mem  108MB | relerr vs solve: 6.549e-04 | bad 0
+PE-Quad-Coupled-Apply-Adaptive    4.022 ms (pre 0.186 + iter 3.836) | mem  116MB | relerr vs solve: 6.549e-04 | bad 0
+Torch-Solve                     4.374 ms (pre 0.186 + iter 4.187) | mem   92MB | relerr vs solve: 5.081e-07 | bad 0
+BEST finite: PE-Quad-Coupled-Apply @ 2.731 ms, relerr=6.549e-04
+
+-- case similarity_posspec_hard --
+PE-Quad-Inverse-Multiply        4.080 ms (pre 0.165 + iter 3.914) | mem  104MB | relerr vs solve: 9.988e-01 | bad 0
+PE-Quad-Coupled-Apply           2.690 ms (pre 0.165 + iter 2.525) | mem  108MB | relerr vs solve: 9.988e-01 | bad 0
+PE-Quad-Coupled-Apply-Adaptive   15.643 ms (pre 0.165 + iter 15.477) | mem  128MB | relerr vs solve: 0.000e+00 | bad 0
+Torch-Solve                     4.341 ms (pre 0.165 + iter 4.176) | mem   92MB | relerr vs solve: 7.119e-04 | bad 0
+BEST finite: PE-Quad-Coupled-Apply @ 2.690 ms, relerr=9.988e-01

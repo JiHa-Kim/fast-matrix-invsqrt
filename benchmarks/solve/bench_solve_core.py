@@ -16,11 +16,13 @@ from fast_iroot.chebyshev import (
     select_inverse_proot_chebyshev_minimax_auto,
 )
 
-from .bench_common import median, time_ms_any, time_ms_repeat
+from benchmarks.common import median, time_ms_any, time_ms_repeat
 
 BASE_MATRIX_SOLVE_METHODS: List[str] = [
     "PE-Quad-Inverse-Multiply",
+    "Inverse-Newton-Inverse-Multiply",
     "PE-Quad-Coupled-Apply",
+    "Inverse-Newton-Coupled-Apply",
     "Chebyshev-Apply",
     "Torch-EVD-Solve",
 ]
@@ -130,6 +132,9 @@ def _build_solve_runner(
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
     cheb_apply_fn: Callable[..., Tuple[torch.Tensor, object]],
 ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+    inv_newton_step = ((p_val + 1.0) / p_val, -1.0 / p_val, 0.0)
+    inv_newton_coeffs = [inv_newton_step] * len(pe_step_coeffs)
+
     if method == "PE-Quad-Inverse-Multiply":
         ws_unc = None
 
@@ -138,6 +143,22 @@ def _build_solve_runner(
             Xn, ws_unc = uncoupled_fn(
                 A_norm,
                 abc_t=pe_step_coeffs,
+                p_val=p_val,
+                ws=ws_unc,
+                symmetrize_X=True,
+            )
+            return Xn @ B
+
+        return run
+
+    if method == "Inverse-Newton-Inverse-Multiply":
+        ws_unc = None
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor):
+            nonlocal ws_unc
+            Xn, ws_unc = uncoupled_fn(
+                A_norm,
+                abc_t=inv_newton_coeffs,
                 p_val=p_val,
                 ws=ws_unc,
                 symmetrize_X=True,
@@ -155,6 +176,27 @@ def _build_solve_runner(
                 A_norm,
                 B,
                 abc_t=pe_step_coeffs,
+                p_val=p_val,
+                ws=ws_cpl,
+                symmetrize_Y=True,
+                symmetrize_every=symmetrize_every,
+                terminal_last_step=True,
+                online_stop_tol=online_stop_tol,
+                online_min_steps=online_min_steps,
+            )
+            return Zn
+
+        return run
+
+    if method == "Inverse-Newton-Coupled-Apply":
+        ws_cpl = None
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor):
+            nonlocal ws_cpl
+            Zn, ws_cpl = coupled_solve_fn(
+                A_norm,
+                B,
+                abc_t=inv_newton_coeffs,
                 p_val=p_val,
                 ws=ws_cpl,
                 symmetrize_Y=True,

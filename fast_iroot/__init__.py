@@ -47,6 +47,7 @@ from .nsrc import (
     nsrc_solve_preconditioned,
     hybrid_pe_nsrc_solve,
 )
+from .nonspd import NONSPD_PRECOND_MODES, precond_nonspd
 
 __all__ = [
     "_quad_coeffs",
@@ -84,4 +85,6 @@ __all__ = [
     "nsrc_solve",
     "nsrc_solve_preconditioned",
     "hybrid_pe_nsrc_solve",
+    "NONSPD_PRECOND_MODES",
+    "precond_nonspd",
 ]

@@ -15,7 +15,7 @@ from typing import List, Optional, Tuple
 import torch
 
 try:
-    from scripts._bootstrap import ensure_repo_root_on_path
+    from benchmarks._bootstrap import ensure_repo_root_on_path
 except ModuleNotFoundError:
     from _bootstrap import ensure_repo_root_on_path
 
@@ -29,8 +29,8 @@ from fast_iroot import (
     inverse_proot_pe_quadratic_coupled,
     precond_spd,
 )
-from scripts.bench_common import parse_shapes, make_spd_cases, maybe_compile
-from scripts.bench_iroot_core import (
+from benchmarks.common import parse_shapes, make_spd_cases, maybe_compile
+from benchmarks.inverse_root.bench_iroot_core import (
     BenchResult,
     MATRIX_IROOT_METHODS,
     prepare_preconditioned_inputs,
@@ -255,3 +255,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

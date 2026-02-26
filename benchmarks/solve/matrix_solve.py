@@ -14,7 +14,7 @@ import math
 import torch
 
 try:
-    from scripts._bootstrap import ensure_repo_root_on_path
+    from benchmarks._bootstrap import ensure_repo_root_on_path
 except ModuleNotFoundError:
     from _bootstrap import ensure_repo_root_on_path
 
@@ -28,8 +28,8 @@ from fast_iroot import (
     inverse_proot_pe_quadratic_uncoupled,
     inverse_solve_pe_quadratic_coupled,
 )
-from scripts.bench_common import parse_shapes, make_spd_cases, maybe_compile
-from scripts.bench_solve_core import (
+from benchmarks.common import parse_shapes, make_spd_cases, maybe_compile
+from benchmarks.solve.bench_solve_core import (
     matrix_solve_methods,
     prepare_solve_inputs,
     eval_solve_method,
@@ -383,3 +383,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

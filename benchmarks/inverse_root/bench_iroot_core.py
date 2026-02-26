@@ -8,7 +8,7 @@ import torch
 from fast_iroot import PrecondStats, precond_spd
 from fast_iroot.metrics import compute_quality_stats, iroot_relative_error
 
-from .bench_common import median, pctl, time_ms_repeat, time_ms_any
+from benchmarks.common import median, pctl, time_ms_repeat, time_ms_any
 
 MATRIX_IROOT_METHODS: List[str] = ["Inverse-Newton", "PE-Quad", "PE-Quad-Coupled"]
 

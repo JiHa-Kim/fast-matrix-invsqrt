@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import torch
 
 try:
-    from scripts._bootstrap import ensure_repo_root_on_path
+    from benchmarks._bootstrap import ensure_repo_root_on_path
 except ModuleNotFoundError:
     from _bootstrap import ensure_repo_root_on_path
 
@@ -29,8 +29,8 @@ from fast_iroot import (
     inverse_proot_pe_quadratic_uncoupled,
     inverse_solve_pe_quadratic_coupled,
 )
-from scripts.bench_common import make_nonspd_cases, parse_shapes, maybe_compile
-from scripts.matrix_solve_nonspd import (
+from benchmarks.common import make_nonspd_cases, parse_shapes, maybe_compile
+from benchmarks.solve.matrix_solve_nonspd import (
     NonSpdBenchResult,
     compute_ground_truth,
     eval_method,
@@ -402,3 +402,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

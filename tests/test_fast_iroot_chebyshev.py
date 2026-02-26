@@ -13,7 +13,7 @@ from fast_iroot.chebyshev import (
     select_inverse_proot_chebyshev_minimax_auto,
 )
 from fast_iroot.metrics import exact_inverse_proot
-from scripts.bench_common import _spd_from_eigs
+from benchmarks.common import _spd_from_eigs
 
 
 def get_test_matrix(n: int = 128, case: str = "gaussian") -> torch.Tensor:
@@ -183,3 +183,5 @@ def test_chebyshev_minimax_auto_rejects_invalid_relerr_multiplier():
             error_grid_n=1025,
             max_relerr_mult=0.99,
         )
+
+

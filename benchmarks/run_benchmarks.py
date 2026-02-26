@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scripts/run_benchmarks.py
+benchmarks/run_benchmarks.py
 
 Orchestrates running the solver performance benchmarks for SPD and non-SPD cases.
 """
@@ -48,7 +48,7 @@ def main():
             "uv",
             "run",
             "python",
-            "scripts/matrix_solve.py",
+            "benchmarks/solve/matrix_solve.py",
             "--p",
             str(p),
             "--sizes",
@@ -72,7 +72,7 @@ def main():
         "uv",
         "run",
         "python",
-        "scripts/matrix_solve_nonspd.py",
+        "benchmarks/solve/matrix_solve_nonspd.py",
         "--sizes",
         "1024",
         "--k",
@@ -89,7 +89,7 @@ def main():
         "uv",
         "run",
         "python",
-        "scripts/matrix_solve_nonspd.py",
+        "benchmarks/solve/matrix_solve_nonspd.py",
         "--sizes",
         "2048",
         "--k",
@@ -104,3 +104,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

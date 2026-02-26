@@ -12,7 +12,7 @@ def run_benchmark(p_val, sizes="256,512", trials=10):
         "run",
         "python",
         "-m",
-        "scripts.matrix_iroot",
+        "benchmarks.inverse_root.matrix_iroot",
         "--p",
         str(p_val),
         "--sizes",
@@ -147,3 +147,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

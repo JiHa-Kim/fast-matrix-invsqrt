@@ -12,7 +12,7 @@ import sys
 import torch
 
 try:
-    from scripts._bootstrap import ensure_repo_root_on_path
+    from benchmarks._bootstrap import ensure_repo_root_on_path
 except ModuleNotFoundError:
     from _bootstrap import ensure_repo_root_on_path
 
@@ -190,3 +190,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

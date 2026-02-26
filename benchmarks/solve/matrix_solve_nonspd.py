@@ -16,7 +16,7 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import torch
 
 try:
-    from scripts._bootstrap import ensure_repo_root_on_path
+    from benchmarks._bootstrap import ensure_repo_root_on_path
 except ModuleNotFoundError:
     from _bootstrap import ensure_repo_root_on_path
 
@@ -29,7 +29,8 @@ from fast_iroot import (
     inverse_solve_pe_quadratic_coupled,
     apply_inverse_root_auto,
 )
-from scripts.bench_common import (
+from fast_iroot.nonspd import NONSPD_PRECOND_MODES, precond_nonspd
+from benchmarks.common import (
     make_nonspd_cases,
     median,
     parse_shapes,
@@ -40,13 +41,14 @@ from scripts.bench_common import (
 
 METHODS: List[str] = [
     "PE-Quad-Inverse-Multiply",
+    "Inverse-Newton-Inverse-Multiply",
     "PE-Quad-Coupled-Apply",
+    "Inverse-Newton-Coupled-Apply",
     "PE-Quad-Coupled-Apply-Safe",
     "PE-Quad-Coupled-Apply-Adaptive",
     "Torch-Solve",
     "Auto-Switch-Production",
 ]
-NONSPD_PRECOND_MODES: Tuple[str, ...] = ("row-norm", "frob", "ruiz")
 
 
 @dataclass
@@ -64,43 +66,6 @@ class NonSpdBenchResult:
     bad: int
     mem_alloc_mb: float
     mem_reserved_mb: float
-
-
-@torch.no_grad()
-def precond_nonspd(
-    A: torch.Tensor,
-    mode: str = "row-norm",
-    ruiz_iters: int = 2,
-    eps: float = 1e-12,
-) -> torch.Tensor:
-    mode_s = str(mode)
-    eps_f = float(eps)
-    if eps_f <= 0.0:
-        raise ValueError(f"eps must be > 0, got {eps}")
-    if mode_s == "row-norm":
-        # Generic non-SPD scaling: normalize by max absolute row-sum.
-        u = A.abs().sum(dim=-1).max(dim=-1).values.clamp_min(eps_f)
-        return A / u.unsqueeze(-1).unsqueeze(-1)
-    if mode_s == "frob":
-        # Frobenius scaling to keep typical singular values around O(1).
-        n = float(A.shape[-1])
-        scale = (torch.linalg.matrix_norm(A, ord="fro") / math.sqrt(n)).clamp_min(eps_f)
-        return A / scale.unsqueeze(-1).unsqueeze(-1)
-    if mode_s == "ruiz":
-        iters = int(ruiz_iters)
-        if iters < 1:
-            raise ValueError(f"ruiz_iters must be >= 1, got {ruiz_iters}")
-        X = A.clone()
-        for _ in range(iters):
-            row = X.abs().sum(dim=-1).clamp_min(eps_f)
-            X = X / row.unsqueeze(-1)
-            col = X.abs().sum(dim=-2).clamp_min(eps_f)
-            X = X / col.unsqueeze(-2)
-        return X
-    raise ValueError(
-        "Unknown non-SPD preconditioner mode: "
-        f"'{mode}'. Supported modes are {list(NONSPD_PRECOND_MODES)}."
-    )
 
 
 @torch.no_grad()
@@ -165,6 +130,8 @@ def _build_runner(
     uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
 ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+    inv_newton_coeffs = [((1.0 + 1.0) / 1.0, -1.0 / 1.0, 0.0)] * len(pe_coeffs)
+
     if method == "PE-Quad-Inverse-Multiply":
         ws_unc: Optional[object] = None
 
@@ -173,6 +140,23 @@ def _build_runner(
             Xn, ws_unc = uncoupled_fn(
                 A_norm,
                 abc_t=pe_coeffs,
+                p_val=1,
+                ws=ws_unc,
+                symmetrize_X=False,
+                assume_spd=False,
+            )
+            return Xn @ B
+
+        return run
+
+    if method == "Inverse-Newton-Inverse-Multiply":
+        ws_unc: Optional[object] = None
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            nonlocal ws_unc
+            Xn, ws_unc = uncoupled_fn(
+                A_norm,
+                abc_t=inv_newton_coeffs,
                 p_val=1,
                 ws=ws_unc,
                 symmetrize_X=False,
@@ -191,6 +175,28 @@ def _build_runner(
                 A_norm,
                 B,
                 abc_t=pe_coeffs,
+                p_val=1,
+                ws=ws_cpl,
+                symmetrize_Y=False,
+                symmetrize_every=1,
+                terminal_last_step=True,
+                online_stop_tol=None,
+                online_min_steps=1,
+                assume_spd=False,
+            )
+            return Zn
+
+        return run
+
+    if method == "Inverse-Newton-Coupled-Apply":
+        ws_cpl: Optional[object] = None
+
+        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+            nonlocal ws_cpl
+            Zn, ws_cpl = coupled_solve_fn(
+                A_norm,
+                B,
+                abc_t=inv_newton_coeffs,
                 p_val=1,
                 ws=ws_cpl,
                 symmetrize_Y=False,
@@ -631,3 +637,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -192,6 +192,12 @@ def inverse_proot_pe_quadratic_coupled(
 
         if p_val == 1:
             _matmul_into(ws.B, ws.Y, ws.Ybuf)
+        elif p_val == 3:
+            # Specialized odd-p fast path avoids _bpow(..., p_half=1) copy overhead.
+            _matmul_into(ws.B, ws.Y, ws.Xbuf)
+            _matmul_into(ws.B, ws.Xbuf, ws.Ybuf)
+            _matmul_into(ws.Ybuf, ws.B, ws.B2)
+            ws.Ybuf, ws.B2 = ws.B2, ws.Ybuf
         elif p_val % 2 == 0:
             p_half = p_val // 2
             _bpow(ws.B, p_half, out=ws.B2, tmp1=ws.Xbuf, tmp2=ws.Ybuf)
@@ -265,6 +271,12 @@ def inverse_solve_pe_quadratic_coupled(
             # Avoid _bpow(p_half=1) which would copy B into B2; use the symmetric update directly.
             _matmul_into(ws.Y, ws.B, ws.B2)
             _matmul_into(ws.B, ws.B2, ws.Ybuf)
+        elif p_val == 3:
+            # Specialized odd-p fast path avoids _bpow(..., p_half=1) copy overhead.
+            _matmul_into(ws.B, ws.Y, ws.tmp)
+            _matmul_into(ws.B, ws.tmp, ws.Ybuf)
+            _matmul_into(ws.Ybuf, ws.B, ws.B2)
+            ws.Ybuf, ws.B2 = ws.B2, ws.Ybuf
         elif p_val % 2 == 0:
             p_half = p_val // 2
             _bpow(ws.B, p_half, out=ws.B2, tmp1=ws.tmp, tmp2=ws.Ybuf)

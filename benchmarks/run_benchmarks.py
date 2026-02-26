@@ -14,10 +14,12 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Iterable
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RESULTS_DIR = os.path.join(REPO_ROOT, "benchmark_results")
@@ -61,6 +63,29 @@ def _run_and_write_txt(cmd: list[str], out_path: str) -> None:
     print(f"Logging to: {out_path}")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(out)
+
+
+def _parse_csv_tokens(spec: str) -> list[str]:
+    return [tok.strip() for tok in str(spec).split(",") if tok.strip()]
+
+
+def _split_extra_args(spec: str) -> list[str]:
+    text = str(spec).strip()
+    if not text:
+        return []
+    return shlex.split(text, posix=False)
+
+
+def _filter_specs(specs: Iterable[RunSpec], only_tokens: list[str]) -> list[RunSpec]:
+    toks = [t.lower() for t in only_tokens if t]
+    if not toks:
+        return list(specs)
+    out: list[RunSpec] = []
+    for spec in specs:
+        hay = f"{spec.name} {spec.txt_out}".lower()
+        if any(tok in hay for tok in toks):
+            out.append(spec)
+    return out
 
 
 def _build_specs(trials: int, dtype: str, timing_reps: int, warmup_reps: int) -> list[RunSpec]:
@@ -278,18 +303,114 @@ def _to_markdown(all_rows: list[tuple[str, int, int, str, str, float, float, flo
     return "\n".join(out)
 
 
+def _to_markdown_ab(
+    rows_a: list[tuple[str, int, int, str, str, float, float, float]],
+    rows_b: list[tuple[str, int, int, str, str, float, float, float]],
+    *,
+    label_a: str,
+    label_b: str,
+) -> str:
+    def _key(row: tuple[str, int, int, str, str, float, float, float]):
+        return row[0], row[1], row[2], row[3], row[4]
+
+    map_a = {_key(r): r for r in rows_a}
+    map_b = {_key(r): r for r in rows_b}
+    keys = sorted(set(map_a.keys()) & set(map_b.keys()))
+
+    out: list[str] = []
+    out.append("# Solver Benchmark A/B Report")
+    out.append("")
+    out.append(f"Generated: {datetime.now().isoformat(timespec='seconds')}")
+    out.append("")
+    out.append(f"A: {label_a}")
+    out.append(f"B: {label_b}")
+    out.append("")
+    out.append(
+        "| kind | n | k | case | method | "
+        f"{label_a}_total_ms | {label_b}_total_ms | delta_ms(B-A) | delta_pct | "
+        f"{label_a}_iter_ms | {label_b}_iter_ms | "
+        f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) |"
+    )
+    out.append("|---|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+
+    for key in keys:
+        ra = map_a[key]
+        rb = map_b[key]
+        kind, n, k, case_name, method = key
+        a_total, a_iter, a_rel = ra[5], ra[6], ra[7]
+        b_total, b_iter, b_rel = rb[5], rb[6], rb[7]
+        d_ms = b_total - a_total
+        d_pct = (100.0 * d_ms / a_total) if a_total != 0 else float("nan")
+        rel_ratio = (b_rel / a_rel) if a_rel != 0 else float("nan")
+        out.append(
+            f"| {kind} | {n} | {k} | {case_name} | {method} | "
+            f"{a_total:.3f} | {b_total:.3f} | {d_ms:.3f} | {d_pct:.2f}% | "
+            f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} |"
+        )
+    out.append("")
+    return "\n".join(out)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run maintained solver benchmark suites")
     parser.add_argument("--trials", type=int, default=5)
     parser.add_argument("--dtype", type=str, default="bf16", choices=["fp32", "bf16"])
     parser.add_argument("--timing-reps", type=int, default=5)
     parser.add_argument("--timing-warmup-reps", type=int, default=2)
+    parser.add_argument(
+        "--only",
+        type=str,
+        default="",
+        help=(
+            "Optional comma-separated substring filters for selecting a subset of run specs "
+            "(matches spec name and output filename)."
+        ),
+    )
+    parser.add_argument(
+        "--extra-args",
+        type=str,
+        default="",
+        help=(
+            "Extra CLI args appended to every benchmark command; useful for focused A/B runs "
+            "without editing this script."
+        ),
+    )
     parser.add_argument("--markdown", action="store_true", help="Write one markdown report instead of per-run txt files")
     parser.add_argument(
         "--out",
         type=str,
         default=os.path.join("benchmark_results", "latest_solver_benchmarks.md"),
         help="Output markdown path used with --markdown",
+    )
+    parser.add_argument(
+        "--ab-extra-args-a",
+        type=str,
+        default="",
+        help="A-side extra args (appended to every benchmark command) for A/B markdown compare mode.",
+    )
+    parser.add_argument(
+        "--ab-extra-args-b",
+        type=str,
+        default="",
+        help="B-side extra args (appended to every benchmark command) for A/B markdown compare mode.",
+    )
+    parser.add_argument(
+        "--ab-label-a",
+        type=str,
+        default="A",
+        help="Display label for A-side runs in A/B markdown report.",
+    )
+    parser.add_argument(
+        "--ab-label-b",
+        type=str,
+        default="B",
+        help="Display label for B-side runs in A/B markdown report.",
+    )
+    parser.add_argument(
+        "--ab-out",
+        type=str,
+        default=os.path.join("benchmark_results", "latest_solver_benchmarks_ab.md"),
+        help="Output markdown path used for A/B compare mode.",
     )
     args = parser.parse_args()
 
@@ -301,21 +422,54 @@ def main() -> None:
         raise ValueError("--timing-warmup-reps must be >= 0")
 
     _ensure_dirs()
-    specs = _build_specs(
+    specs_all = _build_specs(
         trials=int(args.trials),
         dtype=str(args.dtype),
         timing_reps=int(args.timing_reps),
         warmup_reps=int(args.timing_warmup_reps),
     )
+    specs = _filter_specs(specs_all, _parse_csv_tokens(args.only))
+    if len(specs) == 0:
+        raise ValueError("No benchmark specs matched --only filter")
+
+    base_extra_args = _split_extra_args(args.extra_args)
+    ab_mode = bool(str(args.ab_extra_args_a).strip() or str(args.ab_extra_args_b).strip())
+
+    if ab_mode:
+        a_extra = base_extra_args + _split_extra_args(args.ab_extra_args_a)
+        b_extra = base_extra_args + _split_extra_args(args.ab_extra_args_b)
+
+        rows_a: list[tuple[str, int, int, str, str, float, float, float]] = []
+        rows_b: list[tuple[str, int, int, str, str, float, float, float]] = []
+
+        for spec in specs:
+            raw_a = _run_and_capture(spec.cmd + a_extra)
+            rows_a.extend(_parse_rows(raw_a, spec.kind))
+            raw_b = _run_and_capture(spec.cmd + b_extra)
+            rows_b.extend(_parse_rows(raw_b, spec.kind))
+
+        out_path = os.path.join(REPO_ROOT, args.ab_out)
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(
+                _to_markdown_ab(
+                    rows_a,
+                    rows_b,
+                    label_a=str(args.ab_label_a),
+                    label_b=str(args.ab_label_b),
+                )
+            )
+        print(f"Wrote A/B markdown report: {out_path}")
+        return
 
     if not args.markdown:
         for spec in specs:
-            _run_and_write_txt(spec.cmd, spec.txt_out)
+            _run_and_write_txt(spec.cmd + base_extra_args, spec.txt_out)
         return
 
     all_rows: list[tuple[str, int, int, str, str, float, float, float]] = []
     for spec in specs:
-        raw = _run_and_capture(spec.cmd)
+        raw = _run_and_capture(spec.cmd + base_extra_args)
         rows = _parse_rows(raw, spec.kind)
         all_rows.extend(rows)
 

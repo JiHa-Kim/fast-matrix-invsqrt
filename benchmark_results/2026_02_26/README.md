@@ -41,6 +41,12 @@
   - Summaries: `summary_t10_fp32.md`, `summary_t10_fp32_safe_early.md`.
   - Exploratory runs: `exploratory/`.
 
+- `idea_solve_inverse_ablation_t10/`
+  - One-factor-at-a-time non-SPD `p=1` ideas ablation.
+  - Canonical summary (`k=16`): `summary.md`.
+  - Per-RHS summaries: `summary_k1.md`, `summary_k16.md`, `summary_k64.md`.
+  - Runbook: `README.md`.
+
 - `spd_p1_suite/`
   - SPD solve suite (`p=1`) with exact baselines:
     - `Torch-Solve`

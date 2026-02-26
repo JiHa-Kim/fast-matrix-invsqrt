@@ -103,6 +103,7 @@ uv run python scripts/matrix_solve_nonspd.py --p 1 --sizes 1024 --k 64 --trials 
 - Square-RHS direct-vs-materialize validation (`ideas/3`): `reports/2026_02_25_idea3_square_rhs_apply_vs_materialize.md`.
 - Preconditioner ablation + Gram path checks (`ideas/4`): `reports/2026_02_26_precond_and_gram_path_ablation.md`.
 - Non-SPD `p=1` solve suite (`10` trials): `reports/2026_02_26_nonspd_p1_solve_suite_t10.md`.
+- Non-SPD `p=1` ideas ablation (`t10`, one-factor-at-a-time): `reports/2026_02_26_solve_inverse_ideas_ablation.md`.
 - Raw logs:
   - `benchmark_results/2026_02_25/solve_ablation_t20/`
   - `benchmark_results/2026_02_25/solve_exploratory/`

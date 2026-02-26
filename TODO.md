@@ -1,2 +1,5 @@
 - [x] inverse solve for non-spd matrix (safe early fallback + dedicated non-SPD p=1 suite)
+- [x] solve_inverse ideas ablation (non-SPD p=1, one-factor-at-a-time)
+- [ ] non-SPD p=1: reduce hard-case safe fallback latency toward Torch-Solve
+- [ ] non-SPD p=1: investigate/guard against unstable precondition choices (frob, conservative coeff safety)
 - [ ] SPD p=1 path: reduce gap vs Torch-Cholesky-Solve exact baseline

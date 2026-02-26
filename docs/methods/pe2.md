@@ -1,58 +1,38 @@
-# PE-Quad Method (Quadratic Polynomial Express)
+# PE-Quad (Quadratic Polynomial-Express)
 
-The primary iteration method for computing `A^{-1/p}`.
+Primary inverse-root family used in this repo.
 
-## Variants
+## Form
 
-- **Coupled** (`inverse_proot_pe_quadratic_coupled`): Tracks both `X` and `Y`, skips Y-update on terminal step
-- **Uncoupled** (`inverse_proot_pe_quadratic_uncoupled`): Tracks only `X`, recomputes `Y = X^p · A` each step
-
-## Multiplier
-
-Uses tuned quadratic coefficients per step:
+At step `t`:
 
 $$
-B_t = a_t I + b_t Y + c_t Y^2
+B_t = a_t I + b_t Y_t + c_t Y_t^2.
 $$
 
-## Coupled Update Equations
+Then:
 
-Per full step:
+- Uncoupled: `Y_t = X_t^p A`, `X_{t+1} = X_t B_t`.
+- Coupled: `X_{t+1} = X_t B_t`, `Y_{t+1} = B_t^p Y_t` (commuting-model update).
 
-$$
-Y_2 \leftarrow Y Y, \quad
-B_t = a_t I + b_t Y + c_t Y_2
-$$
+## Implementations
 
-$$
-X \leftarrow X B_t, \quad
-Y \leftarrow B_t^p Y  \quad (\text{via binary exponentiation for } p \geq 3)
-$$
+- `inverse_proot_pe_quadratic_uncoupled`
+- `inverse_proot_pe_quadratic_coupled`
+- `inverse_solve_pe_quadratic_coupled` (apply variant for `Z = A^{-1/p}B`)
 
-Optional symmetrization: $Y \leftarrow \frac{1}{2}(Y + Y^\top)$
+## Current Optimized Paths
 
-Terminal step (default): compute only $X \leftarrow X B_t$, skip Y-update.
+- `p=2` coupled specialization (`inverse_sqrt_pe_quadratic`).
+- `p=3` coupled odd-`p` specialization avoiding extra copy overhead.
+- terminal last-step skip in all coupled variants.
+- configurable `symmetrize_every` cadence.
 
-## Uncoupled Update Equations
+## Practical Guidance (from latest benchmarks)
 
-Per step:
+- `p=1`: `Inverse-Newton` often dominates both speed and residual.
+- `p=2`: performance split is workload-dependent; coupled often fastest, uncoupled often best residual.
+- `p=3`: coupled commonly fastest, uncoupled commonly best residual/relerr.
+- `p>=4`: coupled usually fastest; uncoupled can still win accuracy for harder exponents (notably `p=8`).
 
-$$
-Y = X^p A, \quad B_t = a_t I + b_t Y + c_t Y^2, \quad X \leftarrow X B_t
-$$
-
-## Performance Optimizations
-
-- Fused `addmm`/`baddbmm` for polynomial evaluations in both coupled and uncoupled paths (saves multiple kernel launches/iter)
-- Binary exponentiation for coupled Y-update (`_bpow_times_y`): O(log p) matmuls
-- `matmul(out=...)` throughout for zero-allocation iterations
-- Pre-extracted CPU coefficient triples
-- Terminal last-step skip (coupled only)
-
-## When to Use Which Variant
-
-| Scenario | Recommended |
-|----------|-------------|
-| p ≥ 2, n ≥ 512 | **PE-Quad-Coupled** (10-14% faster via terminal savings) |
-| p = 1, n ≤ 512 | **PE-Quad** (lower workspace overhead) |
-| Memory constrained | **PE-Quad** (4 vs 6 workspace tensors) |
+See `results/benchmark_report.md` for full tables.

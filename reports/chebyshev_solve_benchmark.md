@@ -1,45 +1,62 @@
-# Chebyshev Direct Solve Benchmark Report
+# Chebyshev Direct Apply Benchmark (`Z = A^{-1/2} B`)
 
-The `apply_inverse_proot_chebyshev` implementation provides a staggering efficiency improvement over dense intermediate inversion when computing the action of an inverted matrix root on a rectangular block of right-hand sides, $X = A^{-1/p} B$. 
+*Updated from fresh runs on 2026-02-25.*
 
-When $K \ll N$ (where $A$ is $N \times N$ and $B$ is $N \times K$), computing an explicitly dense $N \times N$ inverse requires $O(N^3)$ operations. The Chebyshev method applies the Clenshaw recurrence linearly over the columns of $B$, requiring only $O(N^2 K)$ operations.
+## Configuration
 
-## Test Configuration
-- **Hardware**: CUDA Acceleration, bfloat16 mixed precision
-- **Inputs**: SPD covariance profiles targeting $p=2$ (Inverse Square Root) scaled via Frobenius Preconditioning to $[\ell, 1]$.
-- **Tested Methodologies**:
-  1. **PE-Quad-Inverse-Multiply**: Pure uncoupled Polynomial Expansion building $A^{-1/2}_{N \times N}$ followed by $A^{-1/2} @ B$. Let $Z=A^{-1/2}B$.
-  2. **PE-Quad-Coupled-Apply**: Streaming execution where the $Y_t$ components scale up, with final execution tracking $B_t Z_{t+1}$. Matches memory of (1).
-  3. **Chebyshev-Apply**: Minimax discrete approximations generated via scipy targeting $[-1, 1]$ scaled mapping evaluated natively via Clenshaw recurrence.
+- Command family: `scripts/matrix_solve.py`
+- `p=2`, `sizes=1024,2048`, `trials=3`, `timing_reps=5`
+- `dtype=bf16`, `precond=frob`, `l_target=0.05`
+- Cases: `gaussian_spd`, `illcond_1e6`
+- Compared methods:
+  - `PE-Quad-Inverse-Multiply`
+  - `PE-Quad-Coupled-Apply`
+  - `Chebyshev-Apply`
 
-## Results 
+Raw logs:
 
-### Size $1024 \times 1024$
-| Method | RHS ($K$) | Iteration Time | Memory Usage | Relative Error vs True |
-|--------|:-------:|---------------:|-------------:|-----------------------:|
-| PE-Quad-Inverse-Multiply | 16 | 3.885 ms | 37 MB | 3.891e-03 |
-| PE-Quad-Coupled-Apply    | 16 | 2.617 ms | 39 MB | 4.242e-03 |
-| **Chebyshev-Apply**          | 16 | **3.331 ms** | **29 MB** | **2.991e-03** |
-| PE-Quad-Inverse-Multiply | 64 | 4.052 ms | 38 MB | 3.891e-03 |
-| **Chebyshev-Apply**          | 64 | **3.594 ms** | **30 MB** | **2.975e-03** |
+- `artifacts/benchmarks/solve_p2_k16_2026-02-25.txt`
+- `artifacts/benchmarks/solve_p2_k64_2026-02-25.txt`
 
-### Size $2048 \times 2048$
-| Method | RHS ($K$) | Iteration Time | Memory Usage | Relative Error vs True |
-|--------|:-------:|---------------:|-------------:|-----------------------:|
-| PE-Quad-Inverse-Multiply | 16 | 22.980 ms | 121 MB | 2.869e-03 |
-| PE-Quad-Coupled-Apply    | 16 | 14.476 ms | 129 MB | 4.272e-03 |
-| **Chebyshev-Apply**          | 16 |  **4.931 ms** |  **89 MB** | **3.143e-03** |
+## Results (`K=16`)
 
-### Size $4096 \times 4096$
-| Method | RHS ($K$) | Iteration Time | Memory Usage | Relative Error vs True |
-|--------|:-------:|---------------:|-------------:|-----------------------:|
-| PE-Quad-Inverse-Multiply | 16 | 154.463 ms | 458 MB | 2.884e-03 |
-| PE-Quad-Coupled-Apply    | 16 |  99.497 ms | 490 MB | 5.066e-03 |
-| **Chebyshev-Apply**          | 16 |  **7.059 ms** | **330 MB** | **3.113e-03** |
-| PE-Quad-Inverse-Multiply | 64 | 152.340 ms | 463 MB | 1.389e-03 |
-| **Chebyshev-Apply**          | 64 |  **7.253 ms** | **337 MB** | **2.975e-03** |
+| Size | Case | Method | Iter ms | Peak Mem | RelErr vs Eig |
+|---|---|---|---:|---:|---:|
+| 1024 | gaussian_spd | PE-Quad-Inverse-Multiply | 8.429 | 28 MB | 3.906e-03 |
+| 1024 | gaussian_spd | PE-Quad-Coupled-Apply | 5.633 | 30 MB | 4.211e-03 |
+| 1024 | gaussian_spd | Chebyshev-Apply | 5.680 | 21 MB | 3.174e-03 |
+| 1024 | illcond_1e6 | PE-Quad-Inverse-Multiply | 3.711 | 28 MB | 2.594e-03 |
+| 1024 | illcond_1e6 | PE-Quad-Coupled-Apply | 2.344 | 30 MB | 4.974e-03 |
+| 1024 | illcond_1e6 | Chebyshev-Apply | 10.549 | 21 MB | 3.052e-03 |
+| 2048 | gaussian_spd | PE-Quad-Inverse-Multiply | 22.896 | 89 MB | 2.853e-03 |
+| 2048 | gaussian_spd | PE-Quad-Coupled-Apply | 15.080 | 97 MB | 4.333e-03 |
+| 2048 | gaussian_spd | Chebyshev-Apply | 11.328 | 57 MB | 3.235e-03 |
+| 2048 | illcond_1e6 | PE-Quad-Inverse-Multiply | 23.366 | 89 MB | 2.838e-03 |
+| 2048 | illcond_1e6 | PE-Quad-Coupled-Apply | 14.679 | 97 MB | 4.364e-03 |
+| 2048 | illcond_1e6 | Chebyshev-Apply | 10.588 | 57 MB | 3.296e-03 |
 
-## Conclusion
-As $N$ grows, the $O(N^3)$ computational wall of full inversion rapidly collapses performance. At size $4096 \times 4096$, **Chebyshev Apply is approximately 22 times faster** than forming an explicit inverse operator via Polynomial Expansions, completing the identical operation in 7 milliseconds compared to 151 milliseconds. 
+## Results (`K=64`)
 
-Chebyshev direct solves maintain stable relative errors equivalent to or better than Polynomial Expansions (consistently hovering around ~ 0.3% relative deviation). Memory requirements systematically drop by up to 30%, which allows scaling root iterations to higher dimensional spaces previously locked behind VRAM constraints.
+| Size | Case | Method | Iter ms | Peak Mem | RelErr vs Eig |
+|---|---|---|---:|---:|---:|
+| 1024 | gaussian_spd | PE-Quad-Inverse-Multiply | 8.946 | 29 MB | 3.891e-03 |
+| 1024 | gaussian_spd | PE-Quad-Coupled-Apply | 3.572 | 31 MB | 4.211e-03 |
+| 1024 | gaussian_spd | Chebyshev-Apply | 6.645 | 22 MB | 3.128e-03 |
+| 1024 | illcond_1e6 | PE-Quad-Inverse-Multiply | 6.534 | 29 MB | 2.594e-03 |
+| 1024 | illcond_1e6 | PE-Quad-Coupled-Apply | 7.597 | 31 MB | 4.974e-03 |
+| 1024 | illcond_1e6 | Chebyshev-Apply | 17.965 | 22 MB | 3.036e-03 |
+| 2048 | gaussian_spd | PE-Quad-Inverse-Multiply | 23.052 | 90 MB | 1.190e-03 |
+| 2048 | gaussian_spd | PE-Quad-Coupled-Apply | 14.848 | 98 MB | 3.540e-03 |
+| 2048 | gaussian_spd | Chebyshev-Apply | 8.595 | 59 MB | 3.113e-03 |
+| 2048 | illcond_1e6 | PE-Quad-Inverse-Multiply | 22.788 | 90 MB | 1.289e-03 |
+| 2048 | illcond_1e6 | PE-Quad-Coupled-Apply | 15.758 | 98 MB | 3.616e-03 |
+| 2048 | illcond_1e6 | Chebyshev-Apply | 3.309 | 59 MB | 3.143e-03 |
+
+## Takeaways
+
+1. At `n=2048`, `Chebyshev-Apply` is consistently fastest in this sweep:
+   - `1.33x` to `4.76x` faster than `PE-Quad-Coupled-Apply`.
+   - `2.02x` to `6.89x` faster than `PE-Quad-Inverse-Multiply`.
+2. At `n=1024`, performance is mixed and case-dependent; coupled apply often wins latency.
+3. Chebyshev uses the least memory in every measured cell.
+4. Relative error remains low across methods (roughly `1e-3` to `5e-3`).

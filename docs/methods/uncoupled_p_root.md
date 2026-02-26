@@ -1,46 +1,34 @@
-# Uncoupled p-th Root Iterations
+# Uncoupled Inverse p-th Root
 
-## Motivation
+## Idea
 
-The coupled iteration tracks both `X ≈ A^{-1/p}` and `Y ≈ A·X^p`, requiring 8 workspace tensors.
-The uncoupled formulation drops `Y` persistence, recomputing it each step from `X`:
+Do not persist `Y`. Recompute it each step from the current `X`:
 
-$$ Y_k = X_k^p A $$
+$$
+Y_k = X_k^p A,\qquad X_{k+1}=X_k P_k(Y_k),
+$$
 
-Then:
+with quadratic `P_k(y)=a_k + b_k y + c_k y^2`.
 
-$$ X_{k+1} = X_k \cdot P_k(Y_k) $$
+## Workspace
 
-where `P_k` is a quadratic polynomial with tuned coefficients.
+`IrootWorkspaceUncoupled` uses 4 dense `(..., n, n)` tensors:
 
-## Advantages Over Coupled
+- `X`, `Xbuf`, `T1`, `T2`
 
-1. **Lower memory**: 4 workspace tensors (`X, Xbuf, T1, T2`) vs 6
-2. **Simpler logic**: No Y-tracking or buffer management
-3. **Natural p-generalization**: `X^p` computed via specialized fast paths (p=1,2,3,4) or generic loop
+Compared with 6 tensors in coupled inverse-root workspace.
 
-## Performance Optimizations
+## Performance Details
 
-- **Fused `addmm`**: The final `X_new = a·X + b·(X·Y)` uses a single `_addmm_into` BLAS call
-  instead of separate matmul + copy + mul + add (saves 2 kernel launches per iteration)
-- **p-specific matmul chains**: p=4 uses `X^2 → (X^2)^2` (2 matmuls) instead of generic loop (3 matmuls)
-- **Binary exponentiation**: General $p \geq 5$ delegates to `_bpow_times_y` for $O(\log p)$ matmuls instead of an $O(p)$ naive loop.
+- Fused `_addmm_into` for polynomial evaluation (`aI + bY + cY^2` path).
+- Fast exponentiation helpers:
+  - specialized chains for `p=1`, `p=2`, `p=4`,
+  - `_bpow_times_y` for generic `p`.
+- Optional `symmetrize_X` after each step.
 
-## API
+## When It Tends to Win
 
-```python
-from fast_iroot import inverse_proot_pe_quadratic_uncoupled
+- Accuracy-sensitive runs for higher exponents (`p=8` in current benchmark tables).
+- Memory-constrained scenarios where fewer `n x n` buffers help.
 
-X, ws = inverse_proot_pe_quadratic_uncoupled(
-    A_norm,
-    abc_t=quad_coeffs,
-    p_val=4,
-    symmetrize_X=True,
-)
-```
-
-## When to Use
-
-- Memory-constrained settings (large n, limited GPU memory)
-- p=1 at small sizes (coupled overhead not worth it)
-- When workspace reuse across calls is not needed
+See `results/benchmark_report.md` for current data.

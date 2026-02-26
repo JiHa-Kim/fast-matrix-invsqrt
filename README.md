@@ -1,171 +1,89 @@
 # Fast Matrix Inverse p-th Roots (GPU-Focused)
 
-Fast, practical inverse p-th root iteration for SPD matrices, tuned for ML preconditioning workloads.
+Practical inverse p-th-root kernels for SPD matrices, optimized for fixed-iteration, GEMM-heavy workloads in ML preconditioning.
 
-This project prioritizes:
-- fixed small iteration budgets
-- GEMM-dominated kernels (matmul-only, no solves/QR)
-- bf16-friendly stability
-- empirical benchmarking over purely theoretical comparisons
+## What This Repo Provides
+
+- Explicit inverse p-th roots:
+  - `inverse_proot_pe_quadratic_uncoupled`
+  - `inverse_proot_pe_quadratic_coupled`
+- Direct apply to RHS blocks (`Z = A^{-1/p} B`) without materializing dense `A^{-1/p}`:
+  - `apply_inverse_proot_chebyshev`
+  - `inverse_solve_pe_quadratic_coupled`
+- Preconditioning + diagnostics:
+  - `precond_spd`
+  - `compute_quality_stats`, `iroot_relative_error`
 
 ## Repository Layout
 
 - `fast_iroot/`
-  - `precond.py` — Preconditioning logic (`precond_spd`)
-  - `coupled.py` — Coupled quadratic PE iterations (`inverse_sqrt_pe_quadratic`, `inverse_proot_pe_quadratic_coupled`)
-  - `uncoupled.py` — Uncoupled quadratic PE iterations (`inverse_proot_pe_quadratic_uncoupled`)
-  - `chebyshev.py` — Chebyshev Minimax Polynomial Direct Apply logic (`apply_inverse_proot_chebyshev`)
-  - `apply.py` — Direct apply inverse / inverse-root wrappers.
-  - `coeffs.py` — Coefficient schedule loading/tuning hooks (`build_pe_schedules`)
-  - `metrics.py` — Quality metrics (`compute_quality_stats`, `exact_inverse_proot`)
-  - `utils.py` — Low-level helpers (`_matmul_into`, `_addmm_into`, `_bpow_times_y`)
-  - `auto_policy.py` — Legacy auto-policy utilities (currently unused)
+  - Core kernels and utilities.
 - `scripts/`
-  - `matrix_iroot.py` — Main benchmark harness CLI for explicit inverse p-th roots
-  - `matrix_solve.py` — Benchmark harness CLI for direct solves ($Z \approx A^{-1/p} B$)
-  - `coeff_tuner.py` — Offline schedule tuning utility
-  - `verify_iroot.py` — Correctness test across p∈{1,2,3,4,8}
-  - `generate_benchmark_report.py` — Benchmark report generator
+  - `matrix_iroot.py`: inverse-root benchmark CLI.
+  - `matrix_solve.py`: solve/apply benchmark CLI.
+  - `verify_iroot.py`: correctness/stability sweep.
+  - `generate_benchmark_report.py`: regenerates `results/benchmark_report.md`.
+- `scripts/bench_common.py`, `scripts/bench_iroot_core.py`, `scripts/bench_solve_core.py`
+  - Shared benchmark engines/helpers.
+- `results/`
+  - Latest generated inverse-root benchmark report.
 - `reports/`
-  - Benchmark results and comprehensive report (`chebyshev_solve_benchmark.md`)
-- `archive/`
-  - Archived affine/NS methods (deprecated, reference only)
+  - Narrative benchmark notes (including Chebyshev solve report).
+- `artifacts/benchmarks/`
+  - Raw benchmark logs used to build reports.
+- `docs/methods/`
+  - Method-level docs.
 
-## Features & Usage
-
-### 1. Generating $X \approx A^{-1/p}$
-Constructing explicit precision dense roots ($O(N^3)$ operation).
-
-```python
-import torch
-from fast_iroot import precond_spd, inverse_proot_pe_quadratic_uncoupled
-
-A = torch.randn(1024, 1024, dtype=torch.float32, device="cuda")
-A = (A @ A.mT) / 1024
-
-# 1. Precondition the SPD matrix (spectral scaling)
-A_norm, stats = precond_spd(A, mode="frob", l_target=0.05)
-
-# 2. Iterate inverse square root explicitly (N x N)
-X_norm, _ = inverse_proot_pe_quadratic_uncoupled(
-    A_norm,
-    abc_t=pe_schedule, # Generate with `build_pe_schedules`
-    p_val=2
-)
-```
-
-### 2. Direct Solve $Z \approx A^{-1/p} B$
-Leverages PyTorch-native Clenshaw recurrences over precomputed minimax polynomials. Perfect for whitening feature sets / preconditioning gradients where $K \ll N$, resulting in $O(N^2 K)$ memory and operational complexity ($> 10 \times$ speedup vs Dense Matrix formation).
-
-```python
-import torch
-from fast_iroot import precond_spd, apply_inverse_proot_chebyshev
-
-# Given an SPD Matrix A (N x N) and an RHS Matrix B (N x K)
-A = torch.randn(4096, 4096, dtype=torch.float32, device="cuda"); A = A @ A.mT
-B = torch.randn(4096, 32, dtype=torch.float32, device="cuda")
-
-A_norm, stats = precond_spd(A, mode="frob", l_target=0.05)
-
-# Direct Clenshaw solver avoiding N x N memory footprints
-Z, _ = apply_inverse_proot_chebyshev(
-    A=A_norm,
-    B=B,
-    p_val=2, 
-    degree=32, 
-    l_min=0.05
-)
-```
-
-## Environment
-
-`pyproject.toml` is configured for `uv` and CUDA-enabled PyTorch wheels.
-
-### Install
+## Install
 
 ```bash
 uv sync
 ```
 
-## Quick Start
-
-Run a quick benchmark (inverse 4th root):
+## Quick Verification
 
 ```bash
-uv run python -m scripts.matrix_iroot --p 4 --sizes 256,512 --dtype bf16 --trials 8
-```
-
-Run for matrix inverse (p=1):
-
-```bash
-uv run python -m scripts.matrix_iroot --p 1 --sizes 256,512,1024 --dtype bf16 --trials 8 --coeff-mode tuned
-```
-
-Verify correctness across multiple p values:
-
-```bash
+uv run python -m pytest -q
 uv run python scripts/verify_iroot.py
 ```
 
-## Methods
+## Benchmark Commands
 
-The project uses **quadratic polynomial-express (PE-Quad)** iterations exclusively:
+Regenerate inverse-root benchmark report (compiled, p in `{1,2,3,4,8}`):
 
-### PE-Quad (Uncoupled)
-Tracks only `X ≈ A^{-1/p}`, recomputing `Y = X^p · A` each step.
-- Lower memory (5 workspace tensors)
-- Works for any p
-
-### PE-Quad-Coupled
-Tracks both `X ≈ A^{-1/p}` and `Y ≈ A · X^p`.
-- Terminal-step optimization: skips Y-update on last iteration (saves 2-3 matmuls)
-- 10-14% faster iteration time for p≥2 at larger sizes
-- Works for any p via binary exponentiation and similarity transforms (`_bpow`)
-
-### Deprecated Methods (archived)
-Affine methods (PE-Affine, Newton-Schulz NS3/NS4, PE-NS3) are archived in `archive/affine_iterations.py`. They consistently underperform quadratic methods in both speed and residual quality.
-
-## Important CLI Flags
-
-```text
---p               Root exponent (1=inverse, 2=inv sqrt, 4=inv 4th root, etc.)
---sizes           Matrix dimensions to benchmark
---dtype {fp32,bf16}
---trials          Number of test matrices per case
---compile         Enable torch.compile
---precond {none,frob,aol}
---coeff-mode {auto,precomputed,tuned}
---coeff-seed      Seed for coefficient tuning
---coeff-safety    Safety scaling factor
---target-resid    Target residual threshold
---metrics-mode {full,fast}
---power-iters     Spectral residual estimation iterations
---mv-samples      Random MV probe sample count
---hard-probe-iters  Hard-direction probe iterations
+```bash
+uv run python scripts/generate_benchmark_report.py --out results/benchmark_report.md --sizes 256,512,1024 --trials 10
 ```
 
-## Metrics Reported
+Reproduce latest solve/apply benchmark logs:
 
-Per method and case:
-- Total median ms (precond + iteration)
-- Iteration median ms
-- Residual (median / p95 / max)
-- Relative error vs eigendecomp
-- Symmetry diagnostics (symX, symW)
-- Bad count (NaN/Inf)
+```bash
+uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 16 --trials 3 --timing-reps 5 --dtype bf16 --precond frob --l-target 0.05 > artifacts/benchmarks/solve_p2_k16_2026-02-25.txt
+uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 --timing-reps 5 --dtype bf16 --precond frob --l-target 0.05 > artifacts/benchmarks/solve_p2_k64_2026-02-25.txt
+```
 
-## Results
+## Key CLI Flags
 
-See `results/benchmark_report.md` for the latest comprehensive benchmark data.
+- `--p`: root exponent.
+- `--sizes`: comma-separated matrix sizes.
+- `--dtype {fp32,bf16}`.
+- `--precond {none,frob,aol}`.
+- `--coeff-mode {auto,precomputed,tuned}` (inverse-root harness).
+- `--compile`: enable `torch.compile`.
+- `--timing-reps`: average repeated runs per trial.
+- `--symmetrize-every`: symmetrize cadence for coupled `Y`.
+- `--metrics-mode {full,coupled}` (inverse-root harness).
 
-## Tuning Coefficients
+## Latest Benchmark Artifacts
 
-Use `scripts/coeff_tuner.py` for offline schedule generation:
-- Precomputed schedules available for p=2, l_target=0.05
-- Tuned schedules for arbitrary p and targets via `--coeff-mode tuned`
-- Optional safety scaling
+- Inverse-root report: `results/benchmark_report.md` (generated 2026-02-25).
+- Solve/apply narrative: `reports/chebyshev_solve_benchmark.md` (updated from 2026-02-25 raw logs).
+- Solve raw logs:
+  - `artifacts/benchmarks/solve_p2_k16_2026-02-25.txt`
+  - `artifacts/benchmarks/solve_p2_k64_2026-02-25.txt`
 
 ## References
 
-- Amsel et al., 2025. *The Polar Express: Optimal Matrix Sign Methods and Their Application to the Muon Algorithm* (arXiv:2505.16932)
-- Boissin et al., 2025. *Turbo-Muon: Accelerating Orthogonality-Based Optimization with Pre-Conditioning* (arXiv:2512.04632)
+- Guo & Higham (2006), *A Schur-Newton Method for the Matrix p-th Root and its Inverse*: https://eprints.maths.manchester.ac.uk/850/
+- Amsel et al. (2025), *The Polar Express*: https://arxiv.org/abs/2505.16932
+- Li et al. (CVPR 2018), *iSQRT-COV*: https://openaccess.thecvf.com/content_cvpr_2018/html/Li_Towards_Faster_Training_CVPR_2018_paper.html

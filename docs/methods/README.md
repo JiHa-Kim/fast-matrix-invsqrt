@@ -25,5 +25,6 @@ underperform quadratic methods:
 ## Source of Truth
 
 - Core kernels: `fast_iroot/`
-- Benchmark harness: `scripts/matrix_iroot.py`
+- Benchmark harnesses: `scripts/matrix_iroot.py`, `scripts/matrix_solve.py`
+- Benchmark cores: `scripts/bench_iroot_core.py`, `scripts/bench_solve_core.py`
 - Quality metrics: `fast_iroot/metrics.py`

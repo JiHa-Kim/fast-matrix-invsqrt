@@ -4,6 +4,7 @@ matrix_iroot.py
 Matmul-only inverse-p-th-root benchmark harness.
 Core iteration/preconditioning code lives in fast_iroot/.
 """
+# ruff: noqa: E402
 
 from __future__ import annotations
 

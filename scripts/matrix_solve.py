@@ -4,6 +4,7 @@ matrix_solve.py
 Benchmark harness for inverse-p-th-root applied directly to a block of vectors B:
 Z = A^{-1/p} B.
 """
+# ruff: noqa: E402
 
 from __future__ import annotations
 

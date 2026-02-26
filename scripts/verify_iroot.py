@@ -4,6 +4,7 @@ verify_iroot.py — Correctness & stability verification for inverse p-th root.
 Tests quadratic methods (uncoupled and coupled) across
 p in {1, 2, 3, 4, 8} and n in {64, 256}.
 """
+# ruff: noqa: E402
 
 from __future__ import annotations
 

@@ -1,1 +1,2 @@
-- [ ] inverse solve for non-spd matrix (fix divergence on base cases + investigate torch.linalg.solve)
+- [x] inverse solve for non-spd matrix (safe early fallback + dedicated non-SPD p=1 suite)
+- [ ] SPD p=1 path: reduce gap vs Torch-Cholesky-Solve exact baseline

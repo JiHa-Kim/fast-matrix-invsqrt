@@ -1,0 +1,52 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 256x256 | RHS 256x16 | dtype=torch.float32 ==
+precond=jacobi | l_target=0.05 | p=1 | ruiz_iters=2 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_stop_tol=0.0 | cuda_graph=False
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        4.209 ms (pre 2.936 + iter 1.273) | mem   14MB | relerr vs true: 6.477e-04
+PE-Quad-Coupled-Apply           3.630 ms (pre 2.936 + iter 0.694) | mem   15MB | relerr vs true: 5.095e-04 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1
+Chebyshev-Apply                 6.443 ms (pre 2.936 + iter 3.507) | mem   14MB | relerr vs true: 6.891e-07 | cheb_deg 32
+Torch-Solve                     3.765 ms (pre 2.936 + iter 0.829) | mem   14MB | relerr vs true: 3.856e-07
+Torch-Cholesky-Solve            3.376 ms (pre 2.936 + iter 0.440) | mem   14MB | relerr vs true: 1.618e-07
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        3.067 ms (pre 1.675 + iter 1.392) | mem   14MB | relerr vs true: 6.373e-04
+PE-Quad-Coupled-Apply           2.581 ms (pre 1.675 + iter 0.906) | mem   15MB | relerr vs true: 4.473e-04 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1
+Chebyshev-Apply                 5.094 ms (pre 1.675 + iter 3.419) | mem   14MB | relerr vs true: 1.608e-05 | cheb_deg 32
+Torch-Solve                     2.534 ms (pre 1.675 + iter 0.859) | mem   14MB | relerr vs true: 1.606e-05
+Torch-Cholesky-Solve            2.116 ms (pre 1.675 + iter 0.441) | mem   14MB | relerr vs true: 1.639e-07
+
+== SPD Size 512x512 | RHS 512x16 | dtype=torch.float32 ==
+precond=jacobi | l_target=0.05 | p=1 | ruiz_iters=2 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_stop_tol=0.0 | cuda_graph=False
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        3.301 ms (pre 1.804 + iter 1.496) | mem   33MB | relerr vs true: 5.562e-04
+PE-Quad-Coupled-Apply           2.557 ms (pre 1.804 + iter 0.753) | mem   34MB | relerr vs true: 5.818e-04 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1
+Chebyshev-Apply                 5.661 ms (pre 1.804 + iter 3.857) | mem   29MB | relerr vs true: 6.700e-04 | cheb_deg 32
+Torch-Solve                     4.601 ms (pre 1.804 + iter 2.797) | mem   30MB | relerr vs true: 5.824e-07
+Torch-Cholesky-Solve            2.417 ms (pre 1.804 + iter 0.613) | mem   31MB | relerr vs true: 1.692e-07
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        2.567 ms (pre 1.349 + iter 1.218) | mem   33MB | relerr vs true: 5.698e-04
+PE-Quad-Coupled-Apply           2.119 ms (pre 1.349 + iter 0.771) | mem   34MB | relerr vs true: 6.136e-04 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1
+Chebyshev-Apply                 5.349 ms (pre 1.349 + iter 4.000) | mem   29MB | relerr vs true: 6.782e-04 | cheb_deg 32
+Torch-Solve                     3.753 ms (pre 1.349 + iter 2.404) | mem   30MB | relerr vs true: 1.235e-05
+Torch-Cholesky-Solve            1.949 ms (pre 1.349 + iter 0.601) | mem   31MB | relerr vs true: 1.669e-07
+
+== SPD Size 1024x1024 | RHS 1024x16 | dtype=torch.float32 ==
+precond=jacobi | l_target=0.05 | p=1 | ruiz_iters=2 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_stop_tol=0.0 | cuda_graph=False
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply        6.445 ms (pre 1.366 + iter 5.079) | mem  106MB | relerr vs true: 5.060e-04
+PE-Quad-Coupled-Apply           3.758 ms (pre 1.366 + iter 2.392) | mem  110MB | relerr vs true: 6.446e-04 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1
+Chebyshev-Apply                 5.075 ms (pre 1.366 + iter 3.710) | mem   90MB | relerr vs true: 6.783e-04 | cheb_deg 32
+Torch-Solve                     5.877 ms (pre 1.366 + iter 4.511) | mem   94MB | relerr vs true: 6.748e-06
+Torch-Cholesky-Solve            2.735 ms (pre 1.366 + iter 1.369) | mem   98MB | relerr vs true: 1.703e-07
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply        6.387 ms (pre 1.293 + iter 5.094) | mem  106MB | relerr vs true: 6.245e-04
+PE-Quad-Coupled-Apply           3.672 ms (pre 1.293 + iter 2.379) | mem  110MB | relerr vs true: 7.601e-04 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1
+Chebyshev-Apply                 4.997 ms (pre 1.293 + iter 3.704) | mem   90MB | relerr vs true: 6.765e-04 | cheb_deg 32
+Torch-Solve                     5.834 ms (pre 1.293 + iter 4.541) | mem   94MB | relerr vs true: 1.134e-05
+Torch-Cholesky-Solve            2.742 ms (pre 1.293 + iter 1.449) | mem   98MB | relerr vs true: 1.692e-07

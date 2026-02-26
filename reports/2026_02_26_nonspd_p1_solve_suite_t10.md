@@ -2,6 +2,11 @@
 
 *Date: 2026-02-26*
 
+Superseded by safe-early pass:
+
+- `reports/2026_02_26_p1_solve_speed_stability_comprehensive.md`
+- `benchmark_results/2026_02_26/nonspd_p1_suite/summary_t10_fp32_safe_early.md`
+
 ## Scope
 
 Dedicated non-SPD inverse-solve benchmark using:
@@ -37,4 +42,3 @@ For the hard non-normal case (`similarity_posspec_hard`):
   - use `PE-Quad-Coupled-Apply` (`assume_spd=False` path).
 - Robustness-first / unknown non-normality:
   - use adaptive safe mode (`nonspd_adaptive=True`, `nonspd_safe_fallback_tol=0.01`) to cap catastrophic failures.
-

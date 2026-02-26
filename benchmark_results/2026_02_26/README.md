@@ -35,6 +35,22 @@
 
 - `nonspd_p1_suite/`
   - Dedicated non-SPD solve suite (`p=1`) at `n=1024`, `k in {1,16,64}`, `10` trials.
-  - Canonical logs: `t10_fp32/`.
-  - Summary: `summary_t10_fp32.md`.
+  - Legacy canonical logs: `t10_fp32/`.
+  - Early-safe logs (with `--nonspd-safe-early-y-tol 0.8`): `t10_fp32_safe_early/`.
+  - Cross-size sanity (`n in {256,512,1024}`, `k=16`): `cross_size_k16_t10_fp32_safe_early/`.
+  - Summaries: `summary_t10_fp32.md`, `summary_t10_fp32_safe_early.md`.
   - Exploratory runs: `exploratory/`.
+
+- `spd_p1_suite/`
+  - SPD solve suite (`p=1`) with exact baselines:
+    - `Torch-Solve`
+    - `Torch-Cholesky-Solve`
+  - `n=1024`, `k in {1,16,64}`, `10` trials:
+    - `t10_fp32_cholesky/`
+  - Cross-size sanity (`n in {256,512,1024}`, `k=16`):
+    - `cross_size_k16_t10_fp32_cholesky/`
+  - Comprehensive case sweep (`gaussian_spd`, `illcond_1e6`, `illcond_1e12`, `near_rank_def`, `spike`):
+    - `comprehensive_k16_t10_fp32_cholesky/`
+  - Summaries:
+    - `summary_t10_fp32_cholesky.md`
+    - `summary_comprehensive_k16_t10_fp32_cholesky.md`

@@ -59,6 +59,53 @@ def _build_step_polynomial(
     return out
 
 
+@torch.no_grad()
+def _apply_affine_left(
+    Y: torch.Tensor, M: torch.Tensor, *, a: float, b: float, out: torch.Tensor
+) -> torch.Tensor:
+    """out <- (a I + b Y) M, without materializing B."""
+    _addmm_into(M, Y, M, beta=float(a), alpha=float(b), out=out)
+    return out
+
+
+@torch.no_grad()
+def _apply_affine_right(
+    X: torch.Tensor, Y: torch.Tensor, *, a: float, b: float, out: torch.Tensor
+) -> torch.Tensor:
+    """out <- X (a I + b Y), without materializing B."""
+    _addmm_into(X, X, Y, beta=float(a), alpha=float(b), out=out)
+    return out
+
+
+@torch.no_grad()
+def _update_y_affine_p1(
+    Y: torch.Tensor, *, a: float, b: float, out: torch.Tensor
+) -> torch.Tensor:
+    """out <- (a I + b Y) Y = a Y + b Y^2."""
+    _addmm_into(Y, Y, Y, beta=float(a), alpha=float(b), out=out)
+    return out
+
+
+@torch.no_grad()
+def _update_y_affine_p2(
+    Y: torch.Tensor,
+    *,
+    a: float,
+    b: float,
+    tmp_y2: torch.Tensor,
+    out: torch.Tensor,
+) -> torch.Tensor:
+    """out <- (a I + b Y) Y (a I + b Y) = a^2 Y + 2ab Y^2 + b^2 Y^3."""
+    _matmul_into(Y, Y, tmp_y2)        # Y^2
+    _matmul_into(tmp_y2, Y, out)      # Y^3
+    bb = float(b) * float(b)
+    if bb != 1.0:
+        out.mul_(bb)
+    out.add_(tmp_y2, alpha=2.0 * float(a) * float(b))
+    out.add_(Y, alpha=float(a) * float(a))
+    return out
+
+
 def _alloc_ws_coupled(A: torch.Tensor) -> IrootWorkspaceCoupled:
     shape = A.shape
     return IrootWorkspaceCoupled(
@@ -219,15 +266,20 @@ def inverse_proot_pe_quadratic_coupled(
 
     T = len(coeffs)
     for t, (a, b, c) in enumerate(coeffs):
-        _build_step_polynomial(ws.Y, a=a, b=b, c=c, out=ws.B)
-
-        _matmul_into(ws.X, ws.B, ws.Xbuf)
+        affine_step = abs(float(c)) <= _AFFINE_C_EPS
+        if affine_step and p_val == 1:
+            _apply_affine_right(ws.X, ws.Y, a=a, b=b, out=ws.Xbuf)
+        else:
+            _build_step_polynomial(ws.Y, a=a, b=b, c=c, out=ws.B)
+            _matmul_into(ws.X, ws.B, ws.Xbuf)
         ws.X, ws.Xbuf = ws.Xbuf, ws.X
 
         if terminal_last_step and (t == T - 1):
             break
 
-        if p_val == 1:
+        if affine_step and p_val == 1:
+            _update_y_affine_p1(ws.Y, a=a, b=b, out=ws.Ybuf)
+        elif p_val == 1:
             _matmul_into(ws.B, ws.Y, ws.Ybuf)
         elif p_val == 3:
             # Specialized odd-p fast path avoids _bpow(..., p_half=1) copy overhead.
@@ -321,15 +373,22 @@ def inverse_solve_pe_quadratic_coupled(
 
     T = len(coeffs)
     for t, (a, b, c) in enumerate(coeffs):
-        _build_step_polynomial(ws.Y, a=a, b=b, c=c, out=ws.B)
-
-        _matmul_into(ws.B, ws.Z, ws.Zbuf)
+        affine_step = abs(float(c)) <= _AFFINE_C_EPS
+        if affine_step and (p_val == 1 or p_val == 2):
+            _apply_affine_left(ws.Y, ws.Z, a=a, b=b, out=ws.Zbuf)
+        else:
+            _build_step_polynomial(ws.Y, a=a, b=b, c=c, out=ws.B)
+            _matmul_into(ws.B, ws.Z, ws.Zbuf)
         ws.Z, ws.Zbuf = ws.Zbuf, ws.Z
 
         if terminal_last_step and (t == T - 1):
             break
 
-        if p_val == 1:
+        if affine_step and p_val == 1:
+            _update_y_affine_p1(ws.Y, a=a, b=b, out=ws.Ybuf)
+        elif affine_step and p_val == 2:
+            _update_y_affine_p2(ws.Y, a=a, b=b, tmp_y2=ws.tmp, out=ws.Ybuf)
+        elif p_val == 1:
             _matmul_into(ws.B, ws.Y, ws.Ybuf)
         elif p_val == 2:
             # Avoid _bpow(p_half=1) which would copy B into B2; use the symmetric update directly.

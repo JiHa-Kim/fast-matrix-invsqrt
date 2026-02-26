@@ -86,6 +86,7 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 
 - Inverse-root report: `reports/2025_02_25_benchmark_p1thru5.md`.
 - Solve online-coefficient ablation (`20` trials): `reports/2026_02_25_solve_online_coeff_ablation_t20.md`.
 - Affine online-schedule ablation (`20` trials): `reports/2026_02_26_affine_online_coeff_ablation_t20.md`.
+- Coupled affine fast-path perf check: `reports/2026_02_26_coupled_affine_fastpath_perf.md`.
 - Square-RHS direct-vs-materialize validation (`ideas/3`): `reports/2026_02_25_idea3_square_rhs_apply_vs_materialize.md`.
 - Preconditioner ablation + Gram path checks (`ideas/4`): `reports/2026_02_26_precond_and_gram_path_ablation.md`.
 - Raw logs:
@@ -96,6 +97,7 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 
   - `benchmark_results/2026_02_26/idea4_precond_iroot_t20/`
   - `benchmark_results/2026_02_26/idea4_gram_precond_t20/`
   - `benchmark_results/2026_02_26/idea_affine_online_t20/`
+  - `benchmark_results/2026_02_26/perf_coupled_affine_fastpath_t20/`
 
 ## References
 

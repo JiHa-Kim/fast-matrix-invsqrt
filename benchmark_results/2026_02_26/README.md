@@ -17,3 +17,10 @@
 - `idea_affine_online_t20/`
   - Solve online-schedule ablation logs including `greedy-affine-opt`.
   - Aggregated summary: `summary_coupled_apply.md`.
+
+- `perf_coupled_affine_fastpath_t20/`
+  - A/B perf artifacts for coupled affine fast-path refactor (`HEAD` vs optimized).
+  - Same-interpreter solve-suite logs: `baseline_sameenv/`, `optimized_sameenv/`.
+  - Parsed suite summary: `summary_coupled_apply_fastpath_sameenv.md`.
+  - Kernel-focused microbench summary: `microbench_compare.md`.
+  - Operator profiler captures: `profile/baseline_top_ops.txt`, `profile/optimized_top_ops.txt`.

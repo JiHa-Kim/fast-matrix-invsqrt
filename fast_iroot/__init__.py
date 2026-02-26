@@ -1,4 +1,3 @@
-from .auto_policy import AutoPolicyConfig, choose_auto_method
 from .coeffs import _quad_coeffs, build_pe_schedules
 from .coupled import (
     IrootWorkspaceCoupled,
@@ -29,8 +28,6 @@ from .chebyshev import (
 )
 
 __all__ = [
-    "AutoPolicyConfig",
-    "choose_auto_method",
     "_quad_coeffs",
     "build_pe_schedules",
     "IrootWorkspaceCoupled",

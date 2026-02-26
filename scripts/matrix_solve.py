@@ -117,12 +117,15 @@ def _build_solve_runner(
     l_min: float = 0.05,
 ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
     if method == "PE-Quad-Inverse-Multiply":
+        ws_unc = None
 
         def run(A_norm: torch.Tensor, B: torch.Tensor):
-            Xn, _ = inverse_proot_pe_quadratic_uncoupled(
+            nonlocal ws_unc
+            Xn, ws_unc = inverse_proot_pe_quadratic_uncoupled(
                 A_norm,
                 abc_t=pe_quad_coeffs,
                 p_val=p_val,
+                ws=ws_unc,
                 symmetrize_X=True,
             )
             return Xn @ B
@@ -130,13 +133,16 @@ def _build_solve_runner(
         return run
 
     if method == "PE-Quad-Coupled-Apply":
+        ws_cpl = None
 
         def run(A_norm: torch.Tensor, B: torch.Tensor):
-            Zn, _ = inverse_solve_pe_quadratic_coupled(
+            nonlocal ws_cpl
+            Zn, ws_cpl = inverse_solve_pe_quadratic_coupled(
                 A_norm,
                 B,
                 abc_t=pe_quad_coeffs,
                 p_val=p_val,
+                ws=ws_cpl,
                 symmetrize_Y=True,
                 terminal_last_step=True,
             )
@@ -145,15 +151,18 @@ def _build_solve_runner(
         return run
 
     if method == "Chebyshev-Apply":
+        ws_cheb = None
 
         def run(A_norm: torch.Tensor, B: torch.Tensor):
-            Zn, _ = apply_inverse_proot_chebyshev(
+            nonlocal ws_cheb
+            Zn, ws_cheb = apply_inverse_proot_chebyshev(
                 A_norm,
                 B,
                 p_val=p_val,
                 degree=cheb_degree,
                 l_min=l_min,
                 l_max=1.0,
+                ws=ws_cheb,
             )
             return Zn
 

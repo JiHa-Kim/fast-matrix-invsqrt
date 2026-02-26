@@ -366,9 +366,7 @@ def eval_method(
         def run_once() -> torch.Tensor:
             nonlocal ws
             torch.compiler.cudagraph_mark_step_begin()
-            ws = None
-            Xn, ws2 = runner(A_norm, ws)
-            ws = ws2
+            Xn, ws = runner(A_norm, ws)
             return Xn
 
         ms_iter, Xn = time_ms_repeat(run_once, device, reps=timing_reps)

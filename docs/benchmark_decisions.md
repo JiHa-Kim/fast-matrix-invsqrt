@@ -1,5 +1,23 @@
 # Benchmark Decisions
 
+## 2026-02-26: Chebyshev CUDA graph replay for `p=2,4`
+
+Decision:
+- Enable CUDA graph replay for `Chebyshev-Apply` when `--cuda-graph` is enabled (default on via `--cheb-cuda-graph`).
+
+Benchmark arguments:
+- `p=2`:
+  - `uv run python benchmarks/run_benchmarks.py --only "SPD p=2 k<n,SPD p=2 k=n=256,SPD p=2 k=n=512,SPD p=2 k=n=1024,SPD p=2 k=n=2048" --extra-args=--cuda-graph --ab-extra-args-a=--no-cheb-cuda-graph --ab-extra-args-b=--cheb-cuda-graph --ab-label-a cheb_graph_off --ab-label-b cheb_graph_on --ab-out benchmark_results/runs/2026_02_26/ab_onechange_cheb_cuda_graph_p2/report.md --manifest-out benchmark_results/runs/2026_02_26/ab_onechange_cheb_cuda_graph_p2/manifest.json`
+- `p=4`:
+  - `uv run python benchmarks/run_benchmarks.py --only "SPD p=4 k<n,SPD p=4 k=n=256,SPD p=4 k=n=512,SPD p=4 k=n=1024,SPD p=4 k=n=2048" --extra-args=--cuda-graph --ab-extra-args-a=--no-cheb-cuda-graph --ab-extra-args-b=--cheb-cuda-graph --ab-label-a cheb_graph_off --ab-label-b cheb_graph_on --ab-out benchmark_results/runs/2026_02_26/ab_onechange_cheb_cuda_graph_p4/report.md --manifest-out benchmark_results/runs/2026_02_26/ab_onechange_cheb_cuda_graph_p4/manifest.json`
+- Note: this A/B was split by `p` to avoid key collisions in combined reports.
+
+Key results (`Chebyshev-Apply`, `k<n` and `k=n` included):
+- `p=2`: `19/20` cells faster, `-13.39%` aggregate total ms, relerr unchanged.
+  - `k<n`: `-31.16%`; `k=n`: `-6.37%`.
+- `p=4`: `17/20` cells faster, `-16.35%` aggregate total ms, relerr unchanged.
+  - `k<n`: `-40.22%`; `k=n`: `-6.36%`.
+
 ## 2026-02-26: SPD p=1 Torch-Solve backend
 
 Decision:

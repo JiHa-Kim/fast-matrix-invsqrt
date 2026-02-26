@@ -13,6 +13,8 @@ def apply_inverse(
     symmetrize_Y: bool = True,
     symmetrize_every: int = 1,
     terminal_last_step: bool = True,
+    online_stop_tol: Optional[float] = None,
+    online_min_steps: int = 2,
 ) -> Tuple[torch.Tensor, InverseSolveWorkspaceCoupled]:
     """
     Apply an iterative inverse to M_norm using a coupled quadratic PE scheme.
@@ -29,6 +31,8 @@ def apply_inverse(
         symmetrize_Y=symmetrize_Y,
         symmetrize_every=symmetrize_every,
         terminal_last_step=terminal_last_step,
+        online_stop_tol=online_stop_tol,
+        online_min_steps=online_min_steps,
     )
 
 
@@ -42,6 +46,8 @@ def apply_inverse_root(
     symmetrize_Y: bool = True,
     symmetrize_every: int = 1,
     terminal_last_step: bool = True,
+    online_stop_tol: Optional[float] = None,
+    online_min_steps: int = 2,
 ) -> Tuple[torch.Tensor, InverseSolveWorkspaceCoupled]:
     """
     Apply an iterative inverse p-th root to M_norm using a coupled quadratic PE scheme.
@@ -58,4 +64,6 @@ def apply_inverse_root(
         symmetrize_Y=symmetrize_Y,
         symmetrize_every=symmetrize_every,
         terminal_last_step=terminal_last_step,
+        online_stop_tol=online_stop_tol,
+        online_min_steps=online_min_steps,
     )

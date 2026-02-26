@@ -83,6 +83,8 @@ def _build_solve_runner(
     p_val: int,
     l_min: float,
     symmetrize_every: int,
+    online_stop_tol: Optional[float],
+    online_min_steps: int,
     uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
     cheb_apply_fn: Callable[..., Tuple[torch.Tensor, object]],
@@ -117,6 +119,8 @@ def _build_solve_runner(
                 symmetrize_Y=True,
                 symmetrize_every=symmetrize_every,
                 terminal_last_step=True,
+                online_stop_tol=online_stop_tol,
+                online_min_steps=online_min_steps,
             )
             return Zn
 
@@ -177,6 +181,8 @@ def eval_solve_method(
     p_val: int,
     l_min: float,
     symmetrize_every: int,
+    online_stop_tol: Optional[float],
+    online_min_steps: int,
     uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
     cheb_apply_fn: Callable[..., Tuple[torch.Tensor, object]],
@@ -244,6 +250,8 @@ def eval_solve_method(
             p_val=p_val,
             l_min=l_min_eff,
             symmetrize_every=symmetrize_every,
+            online_stop_tol=online_stop_tol,
+            online_min_steps=online_min_steps,
             uncoupled_fn=uncoupled_fn,
             coupled_solve_fn=coupled_solve_fn,
             cheb_apply_fn=cheb_apply_fn,

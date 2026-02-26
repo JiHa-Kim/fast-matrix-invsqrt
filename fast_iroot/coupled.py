@@ -159,6 +159,8 @@ def inverse_proot_pe_quadratic_coupled(
     symmetrize_Y: bool = True,
     symmetrize_every: int = 1,
     terminal_last_step: bool = True,
+    online_stop_tol: Optional[float] = None,
+    online_min_steps: int = 2,
 ) -> Tuple[torch.Tensor, IrootWorkspaceCoupled]:
     """Coupled quadratic PE iteration for general p (inverse p-th root)."""
     _validate_p_val(p_val)
@@ -166,6 +168,13 @@ def inverse_proot_pe_quadratic_coupled(
     sym_every = int(symmetrize_every)
     if sym_every < 1:
         raise ValueError(f"symmetrize_every must be >= 1, got {symmetrize_every}")
+    if online_stop_tol is not None and float(online_stop_tol) <= 0.0:
+        raise ValueError(
+            f"online_stop_tol must be > 0 when provided, got {online_stop_tol}"
+        )
+    online_min = int(online_min_steps)
+    if online_min < 1:
+        raise ValueError(f"online_min_steps must be >= 1, got {online_min_steps}")
 
     # p=2 has an optimized coupled implementation (avoids an extra B->B2 copy).
     if p_val == 2:
@@ -230,6 +239,17 @@ def inverse_proot_pe_quadratic_coupled(
             _symmetrize_inplace(ws.Ybuf, ws.B2)
         ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
 
+        # Low-overhead online early-stop based on Y diagonal closeness to identity.
+        if (
+            online_stop_tol is not None
+            and (t + 1) >= online_min
+            and (t + 1) < T
+        ):
+            diag = ws.Y.diagonal(dim1=-2, dim2=-1)
+            diag_err = torch.max(torch.abs(diag - 1.0))
+            if float(diag_err) <= float(online_stop_tol):
+                break
+
     return ws.X, ws
 
 
@@ -243,6 +263,8 @@ def inverse_solve_pe_quadratic_coupled(
     symmetrize_Y: bool = True,
     symmetrize_every: int = 1,
     terminal_last_step: bool = True,
+    online_stop_tol: Optional[float] = None,
+    online_min_steps: int = 2,
 ) -> Tuple[torch.Tensor, InverseSolveWorkspaceCoupled]:
     """Coupled quadratic PE iteration for computing an inverse-like solve on M.
 
@@ -255,6 +277,13 @@ def inverse_solve_pe_quadratic_coupled(
     sym_every = int(symmetrize_every)
     if sym_every < 1:
         raise ValueError(f"symmetrize_every must be >= 1, got {symmetrize_every}")
+    if online_stop_tol is not None and float(online_stop_tol) <= 0.0:
+        raise ValueError(
+            f"online_stop_tol must be > 0 when provided, got {online_stop_tol}"
+        )
+    online_min = int(online_min_steps)
+    if online_min < 1:
+        raise ValueError(f"online_min_steps must be >= 1, got {online_min_steps}")
     if M_norm.shape[-2] != A_norm.shape[-1]:
         raise ValueError(
             f"M_norm must have shape[..., {A_norm.shape[-1]}, :], got {M_norm.shape}"
@@ -316,5 +345,16 @@ def inverse_solve_pe_quadratic_coupled(
             # ws.B2 is used as scratch here; contents destroyed.
             _symmetrize_inplace(ws.Ybuf, ws.B2)
         ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
+
+        # Low-overhead online early-stop based on Y diagonal closeness to identity.
+        if (
+            online_stop_tol is not None
+            and (t + 1) >= online_min
+            and (t + 1) < T
+        ):
+            diag = ws.Y.diagonal(dim1=-2, dim2=-1)
+            diag_err = torch.max(torch.abs(diag - 1.0))
+            if float(diag_err) <= float(online_stop_tol):
+                break
 
     return ws.Z, ws

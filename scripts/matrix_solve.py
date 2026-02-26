@@ -102,6 +102,21 @@ def main():
         ),
     )
     p.add_argument("--compile", action="store_true")
+    p.add_argument(
+        "--online-stop-tol",
+        type=float,
+        default=0.0,
+        help=(
+            "If > 0, enable low-overhead online PE early-stop for coupled apply based on "
+            "max|diag(Y)-1| <= tol."
+        ),
+    )
+    p.add_argument(
+        "--online-min-steps",
+        type=int,
+        default=2,
+        help="Minimum number of coupled PE steps before online early-stop is allowed.",
+    )
 
     args = p.parse_args()
     if int(args.symmetrize_every) < 1:
@@ -114,7 +129,14 @@ def main():
         raise ValueError(
             f"--cheb-max-relerr-mult must be >= 1.0, got {args.cheb_max_relerr_mult}"
         )
+    if float(args.online_stop_tol) < 0.0:
+        raise ValueError(f"--online-stop-tol must be >= 0, got {args.online_stop_tol}")
+    if int(args.online_min_steps) < 1:
+        raise ValueError(f"--online-min-steps must be >= 1, got {args.online_min_steps}")
     cheb_candidate_degrees = _parse_int_csv(args.cheb_candidate_degrees)
+    online_stop_tol = (
+        float(args.online_stop_tol) if float(args.online_stop_tol) > 0.0 else None
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
@@ -158,7 +180,7 @@ def main():
             print(
                 f"precond={args.precond} | l_target={args.l_target} | p={p_val} | "
                 f"cheb_deg={args.cheb_degree} | cheb_mode={args.cheb_mode} | "
-                f"symEvery={args.symmetrize_every}"
+                f"symEvery={args.symmetrize_every} | online_stop_tol={args.online_stop_tol}"
             )
 
             for case in cases:
@@ -196,6 +218,8 @@ def main():
                         p_val=p_val,
                         l_min=args.l_target,
                         symmetrize_every=args.symmetrize_every,
+                        online_stop_tol=online_stop_tol,
+                        online_min_steps=args.online_min_steps,
                         uncoupled_fn=uncoupled_fn,
                         coupled_solve_fn=coupled_solve_fn,
                         cheb_apply_fn=cheb_apply_fn,

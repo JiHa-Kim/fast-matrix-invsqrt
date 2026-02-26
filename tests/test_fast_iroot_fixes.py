@@ -171,3 +171,61 @@ def test_apply_inverse_root_symmetrize_every_passthrough():
     assert torch.isfinite(Z1).all()
     assert torch.isfinite(Z2).all()
     assert Z1.shape == Z2.shape == M.shape
+
+
+def test_inverse_solve_online_early_stop_matches_single_step():
+    n = 8
+    torch.manual_seed(123)
+    A = torch.randn(n, n)
+    A = (A @ A.mT) / n + torch.eye(n) * 0.1
+    M = torch.randn(n, n // 2)
+
+    # Use multiple coefficients but force online stop after first allowed step.
+    abc_t = [
+        (1.5, -0.5, 0.0),
+        (1.4, -0.4, 0.0),
+        (1.3, -0.3, 0.0),
+    ]
+
+    Z_online, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=abc_t,
+        p_val=2,
+        online_stop_tol=1e9,
+        online_min_steps=1,
+    )
+    Z_single, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=[abc_t[0]],
+        p_val=2,
+    )
+
+    assert torch.allclose(Z_online, Z_single, atol=1e-5, rtol=1e-5)
+
+
+def test_inverse_solve_online_stop_validation():
+    A = torch.randn(6, 6)
+    A = (A @ A.mT) / 6 + torch.eye(6) * 0.1
+    M = torch.randn(6, 3)
+    abc_t = [(1.5, -0.5, 0.0)]
+
+    with pytest.raises(ValueError, match="online_stop_tol"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=2,
+            online_stop_tol=0.0,
+        )
+
+    with pytest.raises(ValueError, match="online_min_steps"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=2,
+            online_stop_tol=1e-3,
+            online_min_steps=0,
+        )

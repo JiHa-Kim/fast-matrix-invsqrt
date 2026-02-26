@@ -8,6 +8,16 @@ This method relies on finding the minimax polynomial approximation of the functi
 
 We use discrete orthogonality (via `scipy.integrate`-style calculation) mapped to the $[ -1, 1 ]$ interval to compute the highly precise coefficients $c_k$.
 
+### Choosing $\ell_{min}$ Safely
+
+Chebyshev approximation assumes the spectrum of the input matrix lies inside the approximation interval.
+For $x^{-1/p}$, choosing $\ell_{min}$ *too large* (i.e., larger than the true smallest eigenvalue) can make the
+approximation arbitrarily bad.
+
+If you are already calling `precond_spd(...)`, it returns a conservative Gershgorin lower proxy (`stats.gersh_lo`)
+for the *preconditioned* matrix. Using that value (optionally with a small safety margin) is a reasonable way to
+set $\ell_{min}$ for `apply_inverse_proot_chebyshev` without doing an eigendecomposition.
+
 ## Clenshaw Recurrence
 
 Instead of naively evaluating $c_0 + c_1 T_1(A) B + c_2 T_2(A) B + \dots$, we use the Clenshaw recurrence. This avoids accumulating floating-point sum errors and minimizes tensor storage allocations.

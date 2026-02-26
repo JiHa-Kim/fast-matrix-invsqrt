@@ -27,6 +27,21 @@ $$
 
 For `p=2`, the symmetric form `B Y B` is used to preserve symmetry in finite precision.
 
+### Why This Update Matches the Scalar PE Model
+
+In exact arithmetic, coupled PE relies on a commutativity invariant: starting from `X_0 = I` and `Y_0 = A`,
+each update uses `B_t = q(Y_t)` where `q` is a polynomial, so `B_t` is a polynomial in `A`. By induction, `X_t`
+and `Y_t` remain polynomials in `A`, hence commute with `A` and with each other.
+
+Under the invariant `Y_t = X_t^p A`, the `X` update implies:
+
+$$
+Y_{t+1} = X_{t+1}^p A = (X_t B_t)^p A = X_t^p B_t^p A = B_t^p X_t^p A = B_t^p Y_t.
+$$
+
+Finite precision caveat: commutativity is only approximate. Symmetrizing `Y` helps, and a pragmatic extra
+stabilization option is to periodically refresh `Y := X^p A` (uncoupled recomputation) if drift is observed.
+
 ## 3) Terminal Last-Step Optimization
 
 For the last iteration step, only `X <- X B` is required for output.

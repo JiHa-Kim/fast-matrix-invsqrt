@@ -203,6 +203,8 @@ def inverse_proot_pe_quadratic_coupled(
             _matmul_into(ws.B, ws.Y, ws.Ybuf)
         elif p_val == 3:
             # Specialized odd-p fast path avoids _bpow(..., p_half=1) copy overhead.
+            # This realizes Y <- B^2 Y B (commuting-model equivalent to B^3 Y);
+            # optional symmetrization controls finite-precision drift.
             _matmul_into(ws.B, ws.Y, ws.Xbuf)
             _matmul_into(ws.B, ws.Xbuf, ws.Ybuf)
             _matmul_into(ws.Ybuf, ws.B, ws.B2)
@@ -217,6 +219,8 @@ def inverse_proot_pe_quadratic_coupled(
             _bpow(ws.B, p_half, out=ws.B2, tmp1=ws.Xbuf, tmp2=ws.Ybuf)
             _matmul_into(ws.B, ws.Y, ws.Xbuf)
             _matmul_into(ws.B2, ws.Xbuf, ws.Ybuf)
+            # Odd-p update: Y <- B^h (B Y) B^h = B^(h+1) Y B^h.
+            # Under the commuting PE model this is equivalent to B^p Y.
             # Avoid a full-matrix copy_ by writing the final result into ws.B (B is dead after this point).
             _matmul_into(ws.Ybuf, ws.B2, ws.B)
             ws.Ybuf, ws.B = ws.B, ws.Ybuf
@@ -286,6 +290,8 @@ def inverse_solve_pe_quadratic_coupled(
             _matmul_into(ws.B, ws.B2, ws.Ybuf)
         elif p_val == 3:
             # Specialized odd-p fast path avoids _bpow(..., p_half=1) copy overhead.
+            # This realizes Y <- B^2 Y B (commuting-model equivalent to B^3 Y);
+            # optional symmetrization controls finite-precision drift.
             _matmul_into(ws.B, ws.Y, ws.tmp)
             _matmul_into(ws.B, ws.tmp, ws.Ybuf)
             _matmul_into(ws.Ybuf, ws.B, ws.B2)
@@ -300,6 +306,8 @@ def inverse_solve_pe_quadratic_coupled(
             _bpow(ws.B, p_half, out=ws.B2, tmp1=ws.tmp, tmp2=ws.Ybuf)
             _matmul_into(ws.B, ws.Y, ws.tmp)
             _matmul_into(ws.B2, ws.tmp, ws.Ybuf)
+            # Odd-p update: Y <- B^h (B Y) B^h = B^(h+1) Y B^h.
+            # Under the commuting PE model this is equivalent to B^p Y.
             # Avoid a full-matrix copy_ by writing the final result into ws.B (B is dead after this point).
             _matmul_into(ws.Ybuf, ws.B2, ws.B)
             ws.Ybuf, ws.B = ws.B, ws.Ybuf

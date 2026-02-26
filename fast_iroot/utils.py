@@ -15,6 +15,7 @@ def _validate_p_val(p_val: int) -> None:
 
 @torch.no_grad()
 def _symmetrize_inplace(M: torch.Tensor, tmp: Optional[torch.Tensor] = None) -> None:
+    """Symmetrize M in place. If tmp is provided, it is used as a scratch buffer and its contents are destroyed."""
     if tmp is None:
         M.copy_(0.5 * (M + M.mT))
         return
@@ -38,7 +39,9 @@ def _addmm_into(
     alpha: float,
     out: torch.Tensor,
 ) -> torch.Tensor:
-    """out = beta * bias + alpha * (mat1 @ mat2).  Fused BLAS call."""
+    """out = beta * bias + alpha * (mat1 @ mat2).  Fused BLAS call.
+    For dim > 3, bias, mat1, mat2, and out must have identical batch shapes (no broadcasting).
+    """
     if mat1.dim() == 2:
         torch.addmm(bias, mat1, mat2, beta=beta, alpha=alpha, out=out)
     elif mat1.dim() == 3:

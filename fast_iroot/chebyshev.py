@@ -10,7 +10,9 @@ from .utils import _matmul_into, _check_square
 
 @dataclass
 class ChebyshevApplyWorkspace:
-    """Workspace for Chebyshev Clenshaw recurrence."""
+    """Workspace for Chebyshev Clenshaw recurrence.
+    Note: T_curr, T_prev, T_next are Clenshaw b-recurrence buffers, not Chebyshev T polynomials.
+    """
 
     T_curr: torch.Tensor
     T_prev: torch.Tensor
@@ -57,6 +59,9 @@ def compute_chebyshev_coeffs_cached(
     Cached version of Chebyshev coefficients for f(x) = x^{-1/p}.
     Returns a tuple of floats instead of a numpy array so it is hashable.
     """
+
+    if l_min <= 0:
+        raise ValueError("l_min must be > 0 for x^{-1/p}")
 
     def f_inv_root(x: np.ndarray) -> np.ndarray:
         return np.power(x, -1.0 / p_val)
@@ -126,6 +131,10 @@ def apply_inverse_chebyshev_with_coeffs(
         raise ValueError(f"l_min ({l_min}) must be strictly less than l_max ({l_max})")
     if degree < 0:
         raise ValueError(f"degree must be >= 0, got {degree}")
+    if len(c_list) != degree + 1:
+        raise ValueError(
+            f"c_list must have length degree + 1 ({degree + 1}), got {len(c_list)}"
+        )
 
     if not _ws_ok_chebyshev(ws, B):
         ws = _alloc_ws_chebyshev(B)
@@ -197,6 +206,8 @@ def apply_inverse_proot_chebyshev(
     """
     if p_val <= 0:
         raise ValueError(f"p_val must be strictly positive, got {p_val}")
+    if l_min <= 0:
+        raise ValueError("l_min must be > 0 for x^{-1/p}")
 
     c_list = compute_chebyshev_coeffs_cached(p_val, degree, l_min, l_max)
     return apply_inverse_chebyshev_with_coeffs(A, B, c_list, degree, l_min, l_max, ws)

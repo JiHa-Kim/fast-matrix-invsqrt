@@ -139,6 +139,7 @@ def inverse_sqrt_pe_quadratic(
         _matmul_into(ws.Y, ws.B, ws.B2)
         _matmul_into(ws.B, ws.B2, ws.Ybuf)
         if symmetrize_Y:
+            # ws.B2 is used as scratch here; contents destroyed.
             _symmetrize_inplace(ws.Ybuf, ws.B2)
         ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
 
@@ -193,6 +194,7 @@ def inverse_proot_pe_quadratic_coupled(
             ws.Ybuf.copy_(ws.Xbuf)
 
         if symmetrize_Y:
+            # ws.B2 is used as scratch here; contents destroyed.
             _symmetrize_inplace(ws.Ybuf, ws.B2)
         ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
 
@@ -260,6 +262,7 @@ def inverse_solve_pe_quadratic_coupled(
             ws.Ybuf.copy_(ws.tmp)
 
         if symmetrize_Y:
+            # ws.B2 is used as scratch here; contents destroyed.
             _symmetrize_inplace(ws.Ybuf, ws.B2)
         ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
 

@@ -43,6 +43,11 @@ def precond_spd(
     if A.is_complex():
         raise ValueError("precond_spd does not support complex tensors")
     _check_square(A)
+    if (A.diagonal(dim1=-2, dim2=-1) <= 0).any():
+        raise ValueError(
+            "precond_spd requires SPD matrices with strictly positive diagonals"
+        )
+
     # -------- precondition (scale) --------
     if mode == "none":
         A_pre = A

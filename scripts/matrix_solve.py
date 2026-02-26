@@ -108,11 +108,13 @@ def main():
         "--online-coeff-mode",
         type=str,
         default="greedy-newton",
-        choices=["off", "greedy-newton", "greedy-minimax"],
+        choices=["off", "greedy-newton", "greedy-minimax", "greedy-affine-opt"],
         help=(
             "Optional coupled PE coefficient schedule adaptation. "
             "'greedy-newton' picks per-step between base quadratic and inverse-Newton "
             "affine coefficients using a scalar interval cost model; "
+            "'greedy-affine-opt' picks per-step among base quadratic, inverse-Newton, "
+            "and interval-optimal affine coefficients; "
             "'greedy-minimax' also includes a local-basis minimax-alpha candidate "
             "with NS dominance gating."
         ),
@@ -305,9 +307,15 @@ def main():
                         if not math.isnan(rr.pe_minimax_steps_used)
                         else ""
                     )
+                    pe_affine_str = (
+                        f" | affineopt_steps {rr.pe_affine_opt_steps_used:.0f}"
+                        if not math.isnan(rr.pe_affine_opt_steps_used)
+                        else ""
+                    )
                     print(
                         f"{name:<28s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}){mem_str} | "
-                        f"relerr vs true: {rr.rel_err:.3e}{cheb_deg_str}{pe_newton_str}{pe_minimax_str}"
+                        f"relerr vs true: {rr.rel_err:.3e}"
+                        f"{cheb_deg_str}{pe_newton_str}{pe_minimax_str}{pe_affine_str}"
                     )
 
 

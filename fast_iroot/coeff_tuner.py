@@ -170,6 +170,102 @@ def inverse_newton_coeffs(p_val):
     return (float(p_val + 1) / p_val, -1.0 / p_val, 0.0)
 
 
+def affine_coeffs_from_b(b_slope: float) -> Tuple[float, float, float]:
+    """Affine fixed-point family q_b(y)=1+b(y-1), returned in standard basis."""
+    b_f = float(b_slope)
+    return (1.0 - b_f, b_f, 0.0)
+
+
+def affine_qmin(b_slope: float, lo: float, hi: float) -> float:
+    """Exact min of q_b(y)=1+b(y-1) on [lo,hi]."""
+    b_f = float(b_slope)
+    lo_f = float(lo)
+    hi_f = float(hi)
+    q_lo = 1.0 + b_f * (lo_f - 1.0)
+    q_hi = 1.0 + b_f * (hi_f - 1.0)
+    return float(min(q_lo, q_hi))
+
+
+def affine_b_feasible_bounds(
+    lo: float,
+    hi: float,
+    *,
+    q_floor: float = 1e-6,
+    b_cap: float = 8.0,
+) -> Tuple[float, float]:
+    """Bounds for b such that q_b(y)=1+b(y-1) >= q_floor on [lo,hi]."""
+    lo_f = float(lo)
+    hi_f = float(hi)
+    qf = float(q_floor)
+    if qf <= 0.0:
+        raise ValueError(f"q_floor must be > 0, got {q_floor}")
+
+    b_lo = -float("inf")
+    b_hi = float("inf")
+    for y in (lo_f, hi_f):
+        dy = float(y - 1.0)
+        if abs(dy) <= 1e-15:
+            continue
+        thr = (qf - 1.0) / dy
+        if dy > 0.0:
+            b_lo = max(b_lo, float(thr))
+        else:
+            b_hi = min(b_hi, float(thr))
+
+    # Typical normalization uses hi ~= 1 and may leave one side unbounded.
+    # Use a conservative finite cap for robust 1D search.
+    cap_terms = [max(float(b_cap), 1.0)]
+    if abs(lo_f - 1.0) > 1e-9:
+        cap_terms.append(4.0 / abs(lo_f - 1.0))
+    if abs(hi_f - 1.0) > 1e-9:
+        cap_terms.append(4.0 / abs(hi_f - 1.0))
+    cap = min(max(cap_terms), 1e4)
+
+    if not math.isfinite(b_lo):
+        b_lo = -cap
+    if not math.isfinite(b_hi):
+        b_hi = cap
+
+    return float(b_lo), float(b_hi)
+
+
+def interval_update_affine_exact(
+    b_slope: float,
+    lo: float,
+    hi: float,
+    *,
+    p_val: int = 2,
+) -> Tuple[float, float]:
+    """Exact interval update for φ(y)=y*(1+b(y-1))^p via closed-form critical point."""
+    b_f = float(b_slope)
+    lo_f = float(lo)
+    hi_f = float(hi)
+    p_i = int(p_val)
+    if p_i <= 0:
+        raise ValueError(f"p_val must be >= 1, got {p_val}")
+
+    try:
+        cand = [lo_f, hi_f]
+        if abs(b_f) > 1e-15:
+            y_star = (b_f - 1.0) / (b_f * (1.0 + float(p_i)))
+            if lo_f <= y_star <= hi_f:
+                cand.append(float(y_star))
+
+        vals = []
+        for y in cand:
+            q = 1.0 + b_f * (float(y) - 1.0)
+            vals.append(float(y) * float(q**p_i))
+
+        lo_new = float(min(vals))
+        hi_new = float(max(vals))
+        if not (math.isfinite(lo_new) and math.isfinite(hi_new)):
+            raise FloatingPointError("non-finite affine interval extrema")
+        return lo_new, hi_new
+    except Exception:
+        abc = affine_coeffs_from_b(b_f)
+        return interval_update_quadratic_exact(abc, lo_f, hi_f, p_val=p_i)
+
+
 def _bpow_gemm_cost(exp: int) -> int:
     """Estimated GEMM count for _bpow(..., p=exp) in coupled kernels."""
     e = int(exp)
@@ -406,6 +502,147 @@ def _solve_local_alpha_minimax_cached(
     )
 
 
+def solve_local_affine_b_optimal(
+    *,
+    p_val: int,
+    lo: float,
+    hi: float,
+    q_floor: float = 1e-6,
+    coarse_points: int = 65,
+    refine_iters: int = 18,
+    cache_quant: float = 1e-4,
+    b_cap: float = 8.0,
+) -> Tuple[float, Dict[str, float]]:
+    """Approximate 1D minimax solve over affine fixed-point family q_b(y)=1+b(y-1)."""
+    p_i = int(p_val)
+    if p_i <= 0:
+        raise ValueError(f"p_val must be >= 1, got {p_val}")
+    if coarse_points < 5:
+        raise ValueError(f"coarse_points must be >= 5, got {coarse_points}")
+    q = float(cache_quant)
+    if q <= 0.0:
+        raise ValueError(f"cache_quant must be > 0, got {cache_quant}")
+    if float(b_cap) <= 0.0:
+        raise ValueError(f"b_cap must be > 0, got {b_cap}")
+
+    lo_f = max(float(lo), 1e-12)
+    hi_f = max(float(hi), lo_f * 1.0001)
+    lo_q = round(lo_f / q) * q
+    hi_q = round(hi_f / q) * q
+    hi_q = max(hi_q, lo_q * 1.0001)
+
+    b_star, objective, eval_count, fallback_ns = _solve_local_affine_b_optimal_cached(
+        p_i,
+        float(lo_q),
+        float(hi_q),
+        float(q_floor),
+        int(coarse_points),
+        int(refine_iters),
+        float(b_cap),
+    )
+    return float(b_star), {
+        "objective": float(objective),
+        "eval_count": float(eval_count),
+        "fallback_ns": float(fallback_ns),
+    }
+
+
+def _solve_local_affine_b_optimal_impl(
+    p_i: int,
+    lo_f: float,
+    hi_f: float,
+    q_floor_f: float,
+    coarse_points: int,
+    refine_iters: int,
+    b_cap_f: float,
+) -> Tuple[float, float, float, float]:
+    b_ns = -1.0 / float(p_i)
+    b_lo, b_hi = affine_b_feasible_bounds(
+        lo_f, hi_f, q_floor=float(q_floor_f), b_cap=float(b_cap_f)
+    )
+
+    eval_count = 0
+
+    def _objective(b_slope: float) -> float:
+        nonlocal eval_count
+        eval_count += 1
+        if affine_qmin(b_slope, lo_f, hi_f) <= q_floor_f:
+            return float("inf")
+        lo2, hi2 = interval_update_affine_exact(b_slope, lo_f, hi_f, p_val=p_i)
+        return float(interval_error_to_identity(lo2, hi2))
+
+    if not (math.isfinite(b_lo) and math.isfinite(b_hi) and b_lo < b_hi):
+        ns_obj = _objective(b_ns)
+        return float(b_ns), float(ns_obj), float(eval_count), 1.0
+
+    grid = np.linspace(float(b_lo), float(b_hi), int(coarse_points), dtype=np.float64)
+    vals = np.array([_objective(float(b)) for b in grid], dtype=np.float64)
+    feasible = np.isfinite(vals)
+    if not np.any(feasible):
+        ns_obj = _objective(b_ns)
+        return float(b_ns), float(ns_obj), float(eval_count), 1.0
+
+    idx = int(np.nanargmin(vals))
+    best_b = float(grid[idx])
+    best_val = float(vals[idx])
+
+    left_idx = max(0, idx - 1)
+    right_idx = min(len(grid) - 1, idx + 1)
+    left = float(grid[left_idx])
+    right = float(grid[right_idx])
+    if right <= left:
+        span = max(float(b_hi - b_lo), 1e-6)
+        left = max(float(b_lo), best_b - 0.1 * span)
+        right = min(float(b_hi), best_b + 0.1 * span)
+
+    inv_phi = (math.sqrt(5.0) - 1.0) / 2.0
+    x1 = right - inv_phi * (right - left)
+    x2 = left + inv_phi * (right - left)
+    f1 = _objective(x1)
+    f2 = _objective(x2)
+    for _ in range(int(refine_iters)):
+        if f1 <= f2:
+            right = x2
+            x2 = x1
+            f2 = f1
+            x1 = right - inv_phi * (right - left)
+            f1 = _objective(x1)
+        else:
+            left = x1
+            x1 = x2
+            f1 = f2
+            x2 = left + inv_phi * (right - left)
+            f2 = _objective(x2)
+
+    for b_slope, val in ((x1, f1), (x2, f2), (b_ns, _objective(b_ns))):
+        if math.isfinite(val) and val < best_val:
+            best_b = float(b_slope)
+            best_val = float(val)
+
+    return float(best_b), float(best_val), float(eval_count), 0.0
+
+
+@lru_cache(maxsize=4096)
+def _solve_local_affine_b_optimal_cached(
+    p_i: int,
+    lo_f: float,
+    hi_f: float,
+    q_floor_f: float,
+    coarse_points: int,
+    refine_iters: int,
+    b_cap_f: float,
+) -> Tuple[float, float, float, float]:
+    return _solve_local_affine_b_optimal_impl(
+        int(p_i),
+        float(lo_f),
+        float(hi_f),
+        float(q_floor_f),
+        int(coarse_points),
+        int(refine_iters),
+        float(b_cap_f),
+    )
+
+
 def plan_coupled_local_minimax_schedule(
     base_coeffs: Sequence[Tuple[float, float, float]],
     *,
@@ -625,6 +862,128 @@ def plan_coupled_quadratic_newton_schedule(
         "pred_lo_final": float(lo),
         "pred_hi_final": float(hi),
         "pred_err_final": float(interval_error_to_identity(lo, hi)),
+    }
+    return planned, meta
+
+
+def plan_coupled_quadratic_affine_opt_schedule(
+    base_coeffs: Sequence[Tuple[float, float, float]],
+    *,
+    p_val: int,
+    lo_init: float,
+    hi_init: float = 1.0,
+    min_rel_improve: float = 0.0,
+    terminal_last_step: bool = True,
+    q_floor: float = 1e-6,
+) -> Tuple[List[Tuple[float, float, float]], Dict[str, float]]:
+    """Greedy cost-aware planner with interval-optimal affine candidate.
+
+    At each step, evaluates:
+      - baseline quadratic coefficients,
+      - inverse-Newton affine coefficients,
+      - interval-optimal affine q_b(y)=1+b(y-1),
+    and picks the best predicted contraction-per-GEMM candidate.
+    """
+    if len(base_coeffs) == 0:
+        raise ValueError("base_coeffs must contain at least one coefficient triple")
+    if float(min_rel_improve) < 0.0:
+        raise ValueError(f"min_rel_improve must be >= 0, got {min_rel_improve}")
+
+    p_i = int(p_val)
+    if p_i <= 0:
+        raise ValueError(f"p_val must be >= 1, got {p_val}")
+
+    lo = max(float(lo_init), 1e-12)
+    hi = max(float(hi_init), lo * 1.0001)
+    coeffs = [(float(a), float(b), float(c)) for (a, b, c) in list(base_coeffs)]
+    ns_abc = inverse_newton_coeffs(p_i)
+
+    planned: List[Tuple[float, float, float]] = []
+    counts: Dict[str, int] = {"base": 0, "newton": 0, "affine_opt": 0}
+    affine_eval_sum = 0.0
+
+    eps = 1e-15
+    improve_thr = float(min_rel_improve)
+
+    for t, base_abc in enumerate(coeffs):
+        include_y_update = not (bool(terminal_last_step) and (t == len(coeffs) - 1))
+        err_cur = max(interval_error_to_identity(lo, hi), eps)
+
+        def _score_from_interval(
+            lo2: float, hi2: float, *, affine_step: bool
+        ) -> float:
+            err2 = max(interval_error_to_identity(lo2, hi2), eps)
+            gemm = coupled_apply_step_gemm_cost(
+                p_i, affine_step=affine_step, include_y_update=include_y_update
+            )
+            return float((err2 / err_cur) ** (1.0 / float(max(gemm, 1))))
+
+        def _evaluate_quad(
+            abc: Tuple[float, float, float]
+        ) -> Tuple[float, float, float]:
+            a, b, c = abc
+            if p_i % 2 == 1:
+                pos_ok = certify_positivity_quadratic(
+                    a, b, c, lo, hi, q_min=float(q_floor)
+                )
+                if not pos_ok:
+                    return float("inf"), lo, hi
+            lo2, hi2 = interval_update_quadratic_exact(abc, lo, hi, p_val=p_i)
+            score = _score_from_interval(
+                float(lo2), float(hi2), affine_step=(abs(float(c)) <= 1e-15)
+            )
+            return score, float(lo2), float(hi2)
+
+        def _evaluate_affine_opt() -> Tuple[float, float, float, Tuple[float, float, float]]:
+            b_star, b_meta = solve_local_affine_b_optimal(
+                p_val=p_i,
+                lo=lo,
+                hi=hi,
+                q_floor=float(q_floor),
+            )
+            nonlocal affine_eval_sum
+            affine_eval_sum += float(b_meta.get("eval_count", 0.0))
+            if affine_qmin(b_star, lo, hi) <= float(q_floor):
+                return float("inf"), lo, hi, affine_coeffs_from_b(b_star)
+            lo2, hi2 = interval_update_affine_exact(b_star, lo, hi, p_val=p_i)
+            score = _score_from_interval(float(lo2), float(hi2), affine_step=True)
+            return score, float(lo2), float(hi2), affine_coeffs_from_b(b_star)
+
+        score_base, lo_base, hi_base = _evaluate_quad(base_abc)
+        score_ns, lo_ns, hi_ns = _evaluate_quad(ns_abc)
+        score_aff, lo_aff, hi_aff, abc_aff = _evaluate_affine_opt()
+
+        cand = [
+            ("base", score_base, lo_base, hi_base, base_abc),
+            ("newton", score_ns, lo_ns, hi_ns, ns_abc),
+            ("affine_opt", score_aff, lo_aff, hi_aff, abc_aff),
+        ]
+
+        finite = [x for x in cand if math.isfinite(x[1])]
+        if len(finite) == 0:
+            choice = ("newton", score_ns, lo_ns, hi_ns, ns_abc)
+        else:
+            finite.sort(key=lambda x: x[1])
+            choice = finite[0]
+            if math.isfinite(score_base):
+                rel_imp = (score_base - choice[1]) / max(score_base, eps)
+                if rel_imp <= improve_thr:
+                    choice = ("base", score_base, lo_base, hi_base, base_abc)
+
+        tag, _, lo_next, hi_next, abc = choice
+        planned.append(abc)
+        counts[tag] += 1
+        lo = max(float(lo_next), 1e-15)
+        hi = max(float(hi_next), lo * 1.0001)
+
+    meta: Dict[str, float] = {
+        "base_steps": float(counts["base"]),
+        "newton_steps": float(counts["newton"]),
+        "affine_opt_steps": float(counts["affine_opt"]),
+        "pred_lo_final": float(lo),
+        "pred_hi_final": float(hi),
+        "pred_err_final": float(interval_error_to_identity(lo, hi)),
+        "affine_eval_avg_per_step": float(affine_eval_sum / float(len(coeffs))),
     }
     return planned, meta
 

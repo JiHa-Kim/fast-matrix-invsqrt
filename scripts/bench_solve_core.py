@@ -6,6 +6,7 @@ from typing import Callable, List, Optional, Tuple
 import torch
 
 from fast_iroot.coeff_tuner import (
+    plan_coupled_quadratic_affine_opt_schedule,
     plan_coupled_local_minimax_schedule,
     plan_coupled_quadratic_newton_schedule,
 )
@@ -42,6 +43,7 @@ class SolveBenchResult:
     cheb_degree_used: float
     pe_newton_steps_used: float
     pe_minimax_steps_used: float
+    pe_affine_opt_steps_used: float
 
 
 @torch.no_grad()
@@ -205,6 +207,7 @@ def eval_solve_method(
     cheb_degree_used_list: List[float] = []
     pe_newton_steps_list: List[float] = []
     pe_minimax_steps_list: List[float] = []
+    pe_affine_opt_steps_list: List[float] = []
 
     if len(prepared_inputs) == 0:
         return SolveBenchResult(
@@ -217,6 +220,7 @@ def eval_solve_method(
             cheb_degree_used=float("nan"),
             pe_newton_steps_used=float("nan"),
             pe_minimax_steps_used=float("nan"),
+            pe_affine_opt_steps_used=float("nan"),
         )
 
     for i, prep in enumerate(prepared_inputs):
@@ -236,6 +240,7 @@ def eval_solve_method(
         pe_step_coeffs_eff = list(pe_quad_coeffs)
         pe_newton_steps_eff = 0.0
         pe_minimax_steps_eff = 0.0
+        pe_affine_opt_steps_eff = 0.0
         if method == "Chebyshev-Apply":
             if cheb_mode == "fixed":
                 cheb_degree_used_list.append(float(cheb_degree_eff))
@@ -287,14 +292,27 @@ def eval_solve_method(
                     ),
                     terminal_last_step=True,
                 )
+            elif online_coeff_mode == "greedy-affine-opt":
+                pe_step_coeffs_eff, sched_meta = (
+                    plan_coupled_quadratic_affine_opt_schedule(
+                        pe_step_coeffs_eff,
+                        p_val=p_val,
+                        lo_init=lo_hint,
+                        hi_init=1.0,
+                        min_rel_improve=float(online_coeff_min_rel_improve),
+                        terminal_last_step=True,
+                    )
+                )
             else:
                 raise ValueError(
                     "Unknown online_coeff_mode: "
                     f"'{online_coeff_mode}'. Supported modes are "
-                    "'off', 'greedy-newton', 'greedy-minimax'."
+                    "'off', 'greedy-newton', 'greedy-minimax', "
+                    "'greedy-affine-opt'."
                 )
             pe_newton_steps_eff = float(sched_meta.get("newton_steps", 0.0))
             pe_minimax_steps_eff = float(sched_meta.get("minimax_steps", 0.0))
+            pe_affine_opt_steps_eff = float(sched_meta.get("affine_opt_steps", 0.0))
 
         runner = _build_solve_runner(
             method=method,
@@ -342,6 +360,7 @@ def eval_solve_method(
         if method == "PE-Quad-Coupled-Apply":
             pe_newton_steps_list.append(pe_newton_steps_eff)
             pe_minimax_steps_list.append(pe_minimax_steps_eff)
+            pe_affine_opt_steps_list.append(pe_affine_opt_steps_eff)
 
     ms_iter_med = median(ms_iter_list)
     ms_pre_med = ms_precond_median
@@ -361,6 +380,11 @@ def eval_solve_method(
         ),
         pe_minimax_steps_used=(
             median(pe_minimax_steps_list) if pe_minimax_steps_list else float("nan")
+        ),
+        pe_affine_opt_steps_used=(
+            median(pe_affine_opt_steps_list)
+            if pe_affine_opt_steps_list
+            else float("nan")
         ),
     )
 

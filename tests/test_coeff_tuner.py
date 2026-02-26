@@ -1,17 +1,23 @@
 import math
 
 from fast_iroot.coeff_tuner import (
+    affine_b_feasible_bounds,
+    affine_coeffs_from_b,
+    affine_qmin,
     certify_positivity_quadratic,
     coupled_apply_step_gemm_cost,
     fit_quadratic_local,
     interval_log_width,
+    interval_update_affine_exact,
     interval_update_quadratic_exact,
     interval_error_to_identity,
     inverse_newton_coeffs,
     local_quadratic_coeffs_from_alpha,
     make_schedule,
+    plan_coupled_quadratic_affine_opt_schedule,
     plan_coupled_local_minimax_schedule,
     plan_coupled_quadratic_newton_schedule,
+    solve_local_affine_b_optimal,
     solve_local_alpha_minimax,
 )
 
@@ -48,6 +54,34 @@ def test_inverse_newton_coeffs():
     assert math.isclose(a, 1.5)
     assert math.isclose(b, -0.5)
     assert c == 0.0
+
+
+def test_affine_coeffs_from_b_fixed_point():
+    for b_slope in (-2.0, -0.5, 0.0, 0.7):
+        a, b, c = affine_coeffs_from_b(b_slope)
+        assert math.isclose(c, 0.0)
+        # q(1) = 1 for the fixed-point-preserving affine family.
+        assert math.isclose(a + b, 1.0)
+
+
+def test_interval_update_affine_exact_matches_quadratic_exact_for_affine():
+    lo, hi = 0.2, 1.0
+    for p in [1, 2, 4]:
+        b_slope = -1.0 / p  # inverse-Newton affine
+        abc = affine_coeffs_from_b(b_slope)
+        lo1, hi1 = interval_update_affine_exact(b_slope, lo, hi, p_val=p)
+        lo2, hi2 = interval_update_quadratic_exact(abc, lo, hi, p_val=p)
+        assert math.isclose(lo1, lo2, rel_tol=1e-8, abs_tol=1e-10)
+        assert math.isclose(hi1, hi2, rel_tol=1e-8, abs_tol=1e-10)
+
+
+def test_affine_b_feasible_bounds_contains_newton():
+    lo, hi = 0.2, 1.0
+    b_lo, b_hi = affine_b_feasible_bounds(lo, hi, q_floor=1e-6)
+    b_ns = -0.5  # p=2
+    assert b_lo < b_hi
+    assert b_lo < b_ns < b_hi
+    assert affine_qmin(b_ns, lo, hi) > 1e-6
 
     # p=4: a = 1.25, b = -0.25, c = 0
     a, b, c = inverse_newton_coeffs(4)
@@ -172,6 +206,21 @@ def test_solve_local_alpha_minimax_no_worse_than_newton_objective():
     assert err_mm <= err_ns + 1e-8
 
 
+def test_solve_local_affine_b_optimal_no_worse_than_newton():
+    lo, hi = 0.2, 1.0
+    for p in [1, 2, 4]:
+        b_star, meta = solve_local_affine_b_optimal(p_val=p, lo=lo, hi=hi)
+        assert math.isfinite(b_star)
+        assert meta["fallback_ns"] in (0.0, 1.0)
+
+        lo_aff, hi_aff = interval_update_affine_exact(b_star, lo, hi, p_val=p)
+        b_ns = -1.0 / p
+        lo_ns, hi_ns = interval_update_affine_exact(b_ns, lo, hi, p_val=p)
+        err_aff = interval_error_to_identity(lo_aff, hi_aff)
+        err_ns = interval_error_to_identity(lo_ns, hi_ns)
+        assert err_aff <= err_ns + 1e-8
+
+
 def test_plan_coupled_local_minimax_schedule_reports_step_counts():
     base = [(1.0, 0.0, 0.0)] * 3
     sched, meta = plan_coupled_local_minimax_schedule(
@@ -189,3 +238,20 @@ def test_plan_coupled_local_minimax_schedule_reports_step_counts():
     assert math.isclose(total_steps, 3.0)
     assert math.isfinite(meta["pred_err_final"])
     assert math.isfinite(interval_log_width(meta["pred_lo_final"], meta["pred_hi_final"]))
+
+
+def test_plan_coupled_quadratic_affine_opt_schedule_reports_step_counts():
+    base = [(1.0, 0.0, 0.0)] * 3
+    sched, meta = plan_coupled_quadratic_affine_opt_schedule(
+        base,
+        p_val=2,
+        lo_init=0.2,
+        hi_init=1.0,
+        min_rel_improve=0.0,
+    )
+    assert len(sched) == 3
+    total_steps = (
+        meta["base_steps"] + meta["newton_steps"] + meta["affine_opt_steps"]
+    )
+    assert math.isclose(total_steps, 3.0)
+    assert math.isfinite(meta["pred_err_final"])

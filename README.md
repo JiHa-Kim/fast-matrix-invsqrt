@@ -28,7 +28,7 @@ Practical inverse p-th-root kernels for SPD matrices, optimized for fixed-iterat
 - `results/`
   - Latest generated inverse-root benchmark report.
 - `reports/`
-  - Narrative benchmark notes (including Chebyshev solve report).
+  - Narrative benchmark notes.
 - `artifacts/benchmarks/`
   - Raw benchmark logs used to build reports.
 - `docs/methods/`
@@ -77,7 +77,7 @@ uv run python scripts/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 
 ## Latest Benchmark Artifacts
 
 - Inverse-root report: `results/benchmark_report.md` (generated 2026-02-25).
-- Solve/apply narrative: `reports/chebyshev_solve_benchmark.md` (updated from 2026-02-25 raw logs).
+- Solve/apply narrative: `reports/2025_02_25_comprehensive_p1_p4_benchmark.md`.
 - Solve raw logs:
   - `artifacts/benchmarks/solve_p2_k16_2026-02-25.txt`
   - `artifacts/benchmarks/solve_p2_k64_2026-02-25.txt`

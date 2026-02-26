@@ -1,7 +1,7 @@
 [project]
 name = "matrix-invsqrt"
 version = "0.1.0"
-description = "Add your description here"
+description = "GPU-focused inverse p-th-root kernels for SPD matrices"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

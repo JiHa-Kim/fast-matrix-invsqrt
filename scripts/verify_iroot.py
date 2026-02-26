@@ -11,32 +11,21 @@ import sys
 import torch
 
 try:
-    from fast_iroot import (
-        _quad_coeffs,
-        build_pe_schedules,
-        inverse_proot_pe_quadratic_uncoupled,
-        inverse_proot_pe_quadratic_coupled,
-        inverse_solve_pe_quadratic_coupled,
-        precond_spd,
-    )
-    from fast_iroot.metrics import compute_quality_stats, iroot_relative_error
+    from scripts._bootstrap import ensure_repo_root_on_path
 except ModuleNotFoundError:
-    from pathlib import Path
+    from _bootstrap import ensure_repo_root_on_path
 
-    # Fallback for direct script execution: `python scripts/verify_iroot.py`.
-    REPO_ROOT = Path(__file__).resolve().parents[1]
-    if str(REPO_ROOT) not in sys.path:
-        sys.path.insert(0, str(REPO_ROOT))
+ensure_repo_root_on_path()
 
-    from fast_iroot import (
-        _quad_coeffs,
-        build_pe_schedules,
-        inverse_proot_pe_quadratic_uncoupled,
-        inverse_proot_pe_quadratic_coupled,
-        inverse_solve_pe_quadratic_coupled,
-        precond_spd,
-    )
-    from fast_iroot.metrics import compute_quality_stats, iroot_relative_error
+from fast_iroot import (
+    _quad_coeffs,
+    build_pe_schedules,
+    inverse_proot_pe_quadratic_uncoupled,
+    inverse_proot_pe_quadratic_coupled,
+    inverse_solve_pe_quadratic_coupled,
+    precond_spd,
+)
+from fast_iroot.metrics import compute_quality_stats, iroot_relative_error
 
 
 def make_spd(

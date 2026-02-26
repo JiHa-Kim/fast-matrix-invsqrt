@@ -3,10 +3,7 @@ from typing import List, Sequence, Tuple
 
 import torch
 
-try:
-    from scripts.coeff_tuner import make_schedule
-except ImportError:
-    make_schedule = None
+from .coeff_tuner import make_schedule
 
 
 def _quad_coeffs(
@@ -73,11 +70,6 @@ def build_pe_schedules(
         pe_quad = pe4_005.clone()
         base_desc = "precomputed(l_target=0.05)"
     else:
-        if make_schedule is None:
-            raise ImportError(
-                "make_schedule is unavailable. Install coeff_tuner or use "
-                "coeff_mode='precomputed'/'auto' with l_target=0.05."
-            )
         l0 = max(float(l_target), 1e-6)
         quad = make_schedule(
             "quad", T=4, l0=l0, l_cushion=l0, seed=int(coeff_seed), p_val=p_val

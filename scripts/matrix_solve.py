@@ -13,43 +13,26 @@ import math
 import torch
 
 try:
-    from fast_iroot import (
-        _quad_coeffs,
-        apply_inverse_proot_chebyshev,
-        build_pe_schedules,
-        inverse_proot_pe_quadratic_uncoupled,
-        inverse_solve_pe_quadratic_coupled,
-    )
-    from scripts.bench_common import parse_shapes, make_spd_cases, maybe_compile
-    from scripts.bench_solve_core import (
-        MATRIX_SOLVE_METHODS,
-        prepare_solve_inputs,
-        eval_solve_method,
-        compute_ground_truth,
-    )
+    from scripts._bootstrap import ensure_repo_root_on_path
 except ModuleNotFoundError:
-    import sys
-    from pathlib import Path
+    from _bootstrap import ensure_repo_root_on_path
 
-    # Fallback for direct script execution: `python scripts/matrix_solve.py`.
-    REPO_ROOT = Path(__file__).resolve().parents[1]
-    if str(REPO_ROOT) not in sys.path:
-        sys.path.insert(0, str(REPO_ROOT))
+ensure_repo_root_on_path()
 
-    from fast_iroot import (
-        _quad_coeffs,
-        apply_inverse_proot_chebyshev,
-        build_pe_schedules,
-        inverse_proot_pe_quadratic_uncoupled,
-        inverse_solve_pe_quadratic_coupled,
-    )
-    from scripts.bench_common import parse_shapes, make_spd_cases, maybe_compile
-    from scripts.bench_solve_core import (
-        MATRIX_SOLVE_METHODS,
-        prepare_solve_inputs,
-        eval_solve_method,
-        compute_ground_truth,
-    )
+from fast_iroot import (
+    _quad_coeffs,
+    apply_inverse_proot_chebyshev,
+    build_pe_schedules,
+    inverse_proot_pe_quadratic_uncoupled,
+    inverse_solve_pe_quadratic_coupled,
+)
+from scripts.bench_common import parse_shapes, make_spd_cases, maybe_compile
+from scripts.bench_solve_core import (
+    MATRIX_SOLVE_METHODS,
+    prepare_solve_inputs,
+    eval_solve_method,
+    compute_ground_truth,
+)
 
 
 def main():

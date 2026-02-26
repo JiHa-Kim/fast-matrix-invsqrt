@@ -1,6 +1,6 @@
 import math
 
-from scripts.coeff_tuner import (
+from fast_iroot.coeff_tuner import (
     certify_positivity_quadratic,
     fit_quadratic_local,
     interval_update_quadratic_exact,

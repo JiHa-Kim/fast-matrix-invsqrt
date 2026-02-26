@@ -1,40 +1,23 @@
-# Fast Matrix Inverse p-th Roots (GPU-Focused)
+# Fast Matrix Inverse p-th Roots
 
-Practical inverse p-th-root kernels for SPD matrices, optimized for fixed-iteration, GEMM-heavy workloads in ML preconditioning.
+GPU-focused inverse p-th-root kernels with a solver-first benchmark workflow.
 
-## What This Repo Provides
+## Core Focus
 
-- Explicit inverse p-th roots:
-  - `inverse_proot_pe_quadratic_uncoupled`
-  - `inverse_proot_pe_quadratic_coupled`
-- Direct apply to RHS blocks (`Z = A^{-1/p} B`) without materializing dense `A^{-1/p}`:
-  - `apply_inverse_proot_chebyshev`
-  - `inverse_solve_pe_quadratic_coupled`
-  - `apply_inverse_root_auto` (single-shot vs reuse-aware strategy)
-- Preconditioning + diagnostics:
-  - `precond_spd`
-  - `precond_gram_spd` (`A = G^T G` path)
-  - `compute_quality_stats`, `iroot_relative_error`
+- Direct solve/apply path (`Z = A^{-1/p} B`) is the primary production path.
+- Explicit inverse-root materialization (`X = A^{-1/p}`) is secondary.
 
 ## Repository Layout
 
-- `fast_iroot/`
-  - Core kernels and utilities.
-- `benchmarks/`
-  - `solve/`: primary benchmark CLIs for direct solve/apply (`Z = A^{-1/p}B`).
-    - `matrix_solve.py`, `matrix_solve_nonspd.py`, `ablate_solve_inverse_ideas.py`
-  - `inverse_root/`: inverse-root-only harnesses (`X = A^{-1/p}`), typically secondary in practice.
-    - `matrix_iroot.py`, `verify_iroot.py`, `generate_benchmark_report.py`
-- `benchmarks/common.py`, `benchmarks/inverse_root/bench_iroot_core.py`, `benchmarks/solve/bench_solve_core.py`
-  - Shared benchmark engines/helpers.
-- `results/`
-  - Latest generated inverse-root benchmark report.
-- `reports/`
-  - Narrative benchmark notes.
-- `artifacts/benchmarks/`
-  - Raw benchmark logs used to build reports.
-- `docs/methods/`
-  - Method-level docs.
+- `fast_iroot/`: core library kernels and preconditioning utilities.
+- `benchmarks/solve/`: primary solver benchmarks.
+  - `matrix_solve.py` (SPD)
+  - `matrix_solve_nonspd.py` (non-SPD, p=1)
+  - `ablate_solve_inverse_ideas.py`
+- `benchmarks/common.py`: shared benchmark helpers.
+- `tests/`: pytest suite.
+- `benchmark_results/`: raw benchmark logs.
+- `reports/latest/`: current summaries generated from fresh runs.
 
 ## Install
 
@@ -42,83 +25,31 @@ Practical inverse p-th-root kernels for SPD matrices, optimized for fixed-iterat
 uv sync
 ```
 
-## Quick Verification
+## Verification
 
 ```bash
 uv run python -m pytest -q
-uv run python benchmarks/inverse_root/verify_iroot.py
+uv run python -m pytest tests/test_verify_iroot.py -q
 ```
 
-## Benchmark Commands
-
-Regenerate inverse-root benchmark report (compiled, p in `{1,2,3,4,8}`):
+## Main Benchmark Entry Point
 
 ```bash
-uv run python benchmarks/inverse_root/generate_benchmark_report.py --out results/benchmark_report.md --sizes 256,512,1024 --trials 10
+uv run python benchmarks/run_benchmarks.py
 ```
 
-Reproduce latest solve/apply benchmark logs:
+This runs the maintained batch benchmark flow and writes logs under `benchmark_results/`.
+
+## Direct Solver Benchmark Commands
 
 ```bash
-uv run python benchmarks/solve/matrix_solve.py --p 2 --sizes 1024,2048 --k 16 --trials 3 --timing-reps 5 --dtype bf16 --precond jacobi --l-target 0.05 > artifacts/benchmarks/solve_p2_k16_2026-02-25.txt
-uv run python benchmarks/solve/matrix_solve.py --p 2 --sizes 1024,2048 --k 64 --trials 3 --timing-reps 5 --dtype bf16 --precond jacobi --l-target 0.05 > artifacts/benchmarks/solve_p2_k64_2026-02-25.txt
+uv run python -m benchmarks.solve.matrix_solve --p 1 --sizes 1024 --k 1,16,64,1024 --trials 5 --dtype bf16
+uv run python -m benchmarks.solve.matrix_solve_nonspd --p 1 --sizes 1024 --k 1,16,64,1024 --trials 5 --dtype bf16
 ```
 
-Run dedicated non-SPD `p=1` solve sweep (`10` trials):
+## Notes
 
-```bash
-uv run python benchmarks/solve/matrix_solve_nonspd.py --p 1 --sizes 1024 --k 1 --trials 10 --timing-reps 5 --timing-warmup-reps 2 --dtype fp32
-uv run python benchmarks/solve/matrix_solve_nonspd.py --p 1 --sizes 1024 --k 16 --trials 10 --timing-reps 5 --timing-warmup-reps 2 --dtype fp32
-uv run python benchmarks/solve/matrix_solve_nonspd.py --p 1 --sizes 1024 --k 64 --trials 10 --timing-reps 5 --timing-warmup-reps 2 --dtype fp32
-```
-
-## Key CLI Flags
-
-- `--p`: root exponent.
-- `--sizes`: comma-separated matrix sizes.
-- `--dtype {fp32,bf16}`.
-- `--precond {none,frob,aol,jacobi,ruiz}`.
-- `--precond-ruiz-iters`: equilibration rounds for `ruiz`.
-- `--coeff-mode {auto,precomputed,tuned}` (inverse-root harness).
-- `--compile`: enable `torch.compile`.
-- `--cuda-graph`: enable CUDA graph replay for fixed-shape coupled-apply timing path (CUDA only).
-- `--cuda-graph-warmup`: warmup count before capture when `--cuda-graph` is enabled.
-- `--timing-warmup-reps`: untimed warmup calls before timing each method/input.
-- `--timing-reps`: average repeated runs per trial.
-- `--symmetrize-every`: symmetrize cadence for coupled `Y`.
-- `--online-coeff-mode {off,greedy-newton,greedy-minimax,greedy-affine-opt}`: optional cost-aware per-step PE schedule adaptation for coupled apply (`greedy-affine-opt` is default).
-- `--online-coeff-min-rel-improve`: switch threshold for `--online-coeff-mode=greedy-newton`.
-- `--online-coeff-min-ns-logwidth-rel-improve`: minimax-vs-NS dominance margin for `--online-coeff-mode=greedy-minimax`.
-- `--online-stop-tol`, `--online-min-steps`: low-overhead coupled early-stop controls.
-- `--metrics-mode {full,coupled}` (inverse-root harness).
-
-## Latest Benchmark Artifacts
-
-- Inverse-root report: `reports/2025_02_25_benchmark_p1thru5.md`.
-- Solve online-coefficient ablation (`20` trials): `reports/2026_02_25_solve_online_coeff_ablation_t20.md`.
-- Affine online-schedule ablation (`20` trials): `reports/2026_02_26_affine_online_coeff_ablation_t20.md`.
-- Coupled affine fast-path perf check: `reports/2026_02_26_coupled_affine_fastpath_perf.md`.
-- CUDA-graph coupled-apply ablation (`20` trials): `reports/2026_02_26_cuda_graph_ablation_t20.md`.
-- Square-RHS direct-vs-materialize validation (`ideas/3`): `reports/2026_02_25_idea3_square_rhs_apply_vs_materialize.md`.
-- Preconditioner ablation + Gram path checks (`ideas/4`): `reports/2026_02_26_precond_and_gram_path_ablation.md`.
-- Non-SPD `p=1` solve suite (`10` trials): `reports/2026_02_26_nonspd_p1_solve_suite_t10.md`.
-- Non-SPD `p=1` ideas ablation (`t10`, one-factor-at-a-time): `reports/2026_02_26_solve_inverse_ideas_ablation.md`.
-- Raw logs:
-  - `benchmark_results/2026_02_25/solve_ablation_t20/`
-  - `benchmark_results/2026_02_25/solve_exploratory/`
-  - `benchmark_results/2026_02_25/iroot_p1_p5/`
-  - `benchmark_results/2026_02_26/idea4_precond_t20/`
-  - `benchmark_results/2026_02_26/idea4_precond_iroot_t20/`
-  - `benchmark_results/2026_02_26/idea4_gram_precond_t20/`
-  - `benchmark_results/2026_02_26/idea_affine_online_t20/`
-  - `benchmark_results/2026_02_26/perf_coupled_affine_fastpath_t20/`
-  - `benchmark_results/2026_02_26/idea_cuda_graph_t20_warmup2/`
-  - `benchmark_results/2026_02_26/nonspd_p1_suite/`
-
-## References
-
-- Guo & Higham (2006), *A Schur-Newton Method for the Matrix p-th Root and its Inverse*: https://eprints.maths.manchester.ac.uk/850/
-- Amsel et al. (2025), *The Polar Express*: https://arxiv.org/abs/2505.16932
-- Li et al. (CVPR 2018), *iSQRT-COV*: https://openaccess.thecvf.com/content_cvpr_2018/html/Li_Towards_Faster_Training_CVPR_2018_paper.html
-
-
+- Newton baselines are included in solve benchmarks:
+  - `Inverse-Newton-Inverse-Multiply`
+  - `Inverse-Newton-Coupled-Apply`
+- Report files are expected to be regenerated from fresh benchmark logs when needed.

@@ -82,12 +82,10 @@ coupled PE apply method:
 
 ## 8) Benchmark Metrics
 
-`benchmarks/inverse_root/matrix_iroot.py` reports:
+Primary solver harnesses report:
 
 - total/precond/iter latency medians,
-- residual median/p95/max,
-- optional relative error (`metrics-mode=full`),
-- optional probes (`power_iters`, `mv_samples`, `hard_probe_iters`),
-- symmetry diagnostics (`symX`, `symW`),
-- `bad` non-finite count.
+- relative error vs reference solve,
+- memory usage (CUDA),
+- method-specific diagnostics (e.g., chosen online schedule and Newton baseline behavior).
 

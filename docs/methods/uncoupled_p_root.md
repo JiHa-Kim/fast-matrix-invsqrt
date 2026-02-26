@@ -31,4 +31,4 @@ Compared with 6 tensors in coupled inverse-root workspace.
 - Accuracy-sensitive runs for higher exponents (`p=8` in current benchmark tables).
 - Memory-constrained scenarios where fewer `n x n` buffers help.
 
-See `results/benchmark_report.md` for current data.
+See `benchmark_results/` and `reports/latest/` for current data.

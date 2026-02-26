@@ -35,4 +35,4 @@ Then:
 - `p=3`: coupled commonly fastest, uncoupled commonly best residual/relerr.
 - `p>=4`: coupled usually fastest; uncoupled can still win accuracy for harder exponents (notably `p=8`).
 
-See `results/benchmark_report.md` for full tables.
+See `benchmark_results/` and `reports/latest/` for current solver benchmark outputs.

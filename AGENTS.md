@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - `fast_iroot/`: core library code (inverse p-th-root kernels, solve/apply paths, preconditioning, diagnostics).
-- `benchmarks/`: benchmark and verification CLIs (`inverse_root/matrix_iroot.py`, `solve/matrix_solve.py`, `solve/matrix_solve_nonspd.py`, `inverse_root/verify_iroot.py`).
+- `benchmarks/`: benchmark CLIs (`run_benchmarks.py`, `solve/matrix_solve.py`, `solve/matrix_solve_nonspd.py`).
 - `tests/`: `pytest` test suite (`test_*.py`) for kernels, benchmark helpers, preconditioners, and coefficient tuning.
 - `benchmark_results/`: raw benchmark logs and summaries (dated folders).
 - `reports/`: narrative benchmark writeups and decisions.
@@ -13,7 +13,7 @@
 - `uv run python -m pytest -q`: run all tests.
 - `uv run python -m pytest tests/test_fast_iroot_fixes.py -q`: run focused regression tests.
 - `uv run python -m ruff check .`: lint Python sources.
-- `uv run python benchmarks/inverse_root/verify_iroot.py`: correctness/stability validation sweep.
+- `uv run python -m pytest tests/test_verify_iroot.py -q`: correctness/stability validation sweep.
 - `uv run python benchmarks/solve/matrix_solve.py --p 1 --sizes 1024 --k 16 --trials 10 --dtype fp32`: SPD solve benchmark.
 - `uv run python benchmarks/solve/matrix_solve_nonspd.py --p 1 --sizes 1024 --k 16 --trials 10 --dtype fp32`: non-SPD solve benchmark.
 

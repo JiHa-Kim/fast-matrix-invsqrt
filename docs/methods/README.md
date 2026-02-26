@@ -1,6 +1,6 @@
 # Method Documentation
 
-This section documents the inverse p-th root methods used in the project.
+This section documents active methods used by the solver/apply workflow.
 
 ## Active Methods
 
@@ -25,7 +25,7 @@ underperform quadratic methods:
 ## Source of Truth
 
 - Core kernels: `fast_iroot/`
-- Benchmark harnesses: `benchmarks/inverse_root/matrix_iroot.py`, `benchmarks/solve/matrix_solve.py`
-- Benchmark cores: `benchmarks/inverse_root/bench_iroot_core.py`, `benchmarks/solve/bench_solve_core.py`
+- Benchmark harnesses: `benchmarks/run_benchmarks.py`, `benchmarks/solve/matrix_solve.py`, `benchmarks/solve/matrix_solve_nonspd.py`
+- Benchmark cores: `benchmarks/solve/bench_solve_core.py`
 - Quality metrics: `fast_iroot/metrics.py`
 

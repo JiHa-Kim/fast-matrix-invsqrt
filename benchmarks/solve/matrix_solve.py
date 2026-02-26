@@ -143,6 +143,15 @@ def main():
         help="Warmup calls before CUDA graph capture when --cuda-graph is enabled.",
     )
     p.add_argument(
+        "--cheb-cuda-graph",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Allow CUDA graph replay for Chebyshev-Apply when --cuda-graph is enabled "
+            "(CUDA only)."
+        ),
+    )
+    p.add_argument(
         "--online-coeff-mode",
         type=str,
         default="greedy-affine-opt",
@@ -368,6 +377,7 @@ def main():
                                 online_coeff_min_steps=args.online_coeff_min_steps,
                                 use_cuda_graph=bool(args.cuda_graph),
                                 cuda_graph_warmup=int(args.cuda_graph_warmup),
+                                cheb_cuda_graph=bool(args.cheb_cuda_graph),
                                 uncoupled_fn=uncoupled_fn,
                                 coupled_solve_fn=coupled_solve_fn,
                                 cheb_apply_fn=cheb_apply_fn,

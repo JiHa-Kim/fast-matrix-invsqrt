@@ -30,6 +30,25 @@ P1_SPD_SOLVE_BASELINES: List[str] = ["Torch-Solve", "Torch-Cholesky-Solve"]
 P1_SPD_SOLVE_EXTRA_CASES: List[str] = ["Torch-Cholesky-Solve-ReuseFactor"]
 
 
+def _can_use_cuda_graph_for_method(
+    method: str,
+    *,
+    use_cuda_graph: bool,
+    device: torch.device,
+    online_stop_tol: Optional[float],
+    cheb_cuda_graph: bool,
+) -> bool:
+    if not bool(use_cuda_graph):
+        return False
+    if device.type != "cuda":
+        return False
+    if method == "PE-Quad-Coupled-Apply":
+        return online_stop_tol is None
+    if method == "Chebyshev-Apply":
+        return bool(cheb_cuda_graph)
+    return False
+
+
 def matrix_solve_methods(p_val: int) -> List[str]:
     methods = list(BASE_MATRIX_SOLVE_METHODS)
     if int(p_val) == 1:
@@ -339,6 +358,7 @@ def eval_solve_method(
     online_coeff_min_steps: int,
     use_cuda_graph: bool,
     cuda_graph_warmup: int,
+    cheb_cuda_graph: bool,
     uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
     cheb_apply_fn: Callable[..., Tuple[torch.Tensor, object]],
@@ -545,11 +565,12 @@ def eval_solve_method(
         def timed_call() -> torch.Tensor:
             return runner(A_norm, B)
 
-        if (
-            bool(use_cuda_graph)
-            and device.type == "cuda"
-            and method == "PE-Quad-Coupled-Apply"
-            and online_stop_tol is None
+        if _can_use_cuda_graph_for_method(
+            method,
+            use_cuda_graph=bool(use_cuda_graph),
+            device=device,
+            online_stop_tol=online_stop_tol,
+            cheb_cuda_graph=bool(cheb_cuda_graph),
         ):
             try:
                 timed_call = _build_cuda_graph_replay(

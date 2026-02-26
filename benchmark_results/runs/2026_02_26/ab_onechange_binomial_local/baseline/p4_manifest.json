@@ -1,0 +1,405 @@
+{
+  "args": {
+    "ab_extra_args_a": "",
+    "ab_extra_args_b": "",
+    "ab_label_a": "A",
+    "ab_label_b": "B",
+    "ab_out": "benchmark_results\\latest_solver_benchmarks_ab.md",
+    "dtype": "bf16",
+    "extra_args": "",
+    "integrity_checksums": true,
+    "manifest_out": "..\\benchmark_results\\runs\\2026_02_26\\ab_onechange_binomial_local\\baseline\\p4_manifest.json",
+    "markdown": false,
+    "only": "SPD p=4",
+    "out": "..\\benchmark_results\\runs\\2026_02_26\\ab_onechange_binomial_local\\baseline\\p4_report.md",
+    "timing_reps": 5,
+    "timing_warmup_reps": 2,
+    "trials": 5
+  },
+  "argv": [
+    "--only",
+    "SPD p=4",
+    "--out",
+    "..\\benchmark_results\\runs\\2026_02_26\\ab_onechange_binomial_local\\baseline\\p4_report.md",
+    "--manifest-out",
+    "..\\benchmark_results\\runs\\2026_02_26\\ab_onechange_binomial_local\\baseline\\p4_manifest.json"
+  ],
+  "extra_args": {
+    "base": []
+  },
+  "generated_at": "2026-02-26T18:19:22",
+  "git": {
+    "branch": "HEAD",
+    "dirty": true,
+    "head": "b61ee3756ccca6cd5421b1ae8b471f52dc79856f",
+    "tracked_source_sha256": "c6592fcf926df07c052124e7dd69a88fc50ff2429fee48f6f2082ffe0de6015d"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "raw_logs",
+  "only_filter": [
+    "SPD p=4"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_klt_n_sizes1024_2048_k1_16_64_20260226_181718.txt.sha256",
+      "sha256": "8f806f5c901d8734a7f4905e55c94b907c7654a66918a429e891e7e87a25297d"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_klt_n_sizes1024_2048_k1_16_64_20260226_181718.txt",
+      "sha256": "a502a91c087036baaecf4f94d72c5fb9607c256c66a36f1a13b73e222b544b14"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n256_k256_20260226_181718.txt.sha256",
+      "sha256": "e6dfb19ec73d5c01187499fe638a2d41cbebd1abf0b97ca8acaa8a337c79c03c"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n256_k256_20260226_181718.txt",
+      "sha256": "738a22fb98a789dbf8247896573c7a2b2d72cb34c5087c6cd7ab006d4bac33b7"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n512_k512_20260226_181718.txt.sha256",
+      "sha256": "03df2e56921d9c5385841075c3304e5d794f09e00e1108e6c2f7605694ff3e7c"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n512_k512_20260226_181718.txt",
+      "sha256": "c9c09a685dd9a2de0ede2f8bd5e0a57c4567cd9685c4d7978573c54d31e3da0b"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n1024_k1024_20260226_181718.txt.sha256",
+      "sha256": "241394a909bc501600f484176535b3c3bc0275f6bcacdb08a37e012fc013c6e9"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n1024_k1024_20260226_181718.txt",
+      "sha256": "c36766455928768da96d034b2095e2517407d9cde10c12dfc9b692e4b55fd2a0"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n2048_k2048_20260226_181718.txt.sha256",
+      "sha256": "c5daa6192a6cd5a8e1bf829aa2fe39578ace4c34bf061edff25a543ba1c569e4"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n2048_k2048_20260226_181718.txt",
+      "sha256": "17d7e7e3c7e0ad62ebae5f10cde629796bd8c43c5f656b696f26965b018080ea"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>/.tmp_baseline_binomial",
+  "repro_context": {
+    "args": {
+      "ab_extra_args_a": "",
+      "ab_extra_args_b": "",
+      "ab_label_a": "A",
+      "ab_label_b": "B",
+      "ab_out": "benchmark_results\\latest_solver_benchmarks_ab.md",
+      "dtype": "bf16",
+      "extra_args": "",
+      "integrity_checksums": true,
+      "manifest_out": "..\\benchmark_results\\runs\\2026_02_26\\ab_onechange_binomial_local\\baseline\\p4_manifest.json",
+      "markdown": false,
+      "only": "SPD p=4",
+      "out": "..\\benchmark_results\\runs\\2026_02_26\\ab_onechange_binomial_local\\baseline\\p4_report.md",
+      "timing_reps": 5,
+      "timing_warmup_reps": 2,
+      "trials": 5
+    },
+    "argv": [
+      "--only",
+      "SPD p=4",
+      "--out",
+      "..\\benchmark_results\\runs\\2026_02_26\\ab_onechange_binomial_local\\baseline\\p4_report.md",
+      "--manifest-out",
+      "..\\benchmark_results\\runs\\2026_02_26\\ab_onechange_binomial_local\\baseline\\p4_manifest.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "base": []
+    },
+    "git": {
+      "branch": "HEAD",
+      "dirty": true,
+      "head": "b61ee3756ccca6cd5421b1ae8b471f52dc79856f",
+      "tracked_source_sha256": "c6592fcf926df07c052124e7dd69a88fc50ff2429fee48f6f2082ffe0de6015d"
+    },
+    "mode": "raw_logs",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "4",
+          "--sizes",
+          "1024,2048",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=4 k<n"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "4",
+          "--sizes",
+          "256",
+          "--k",
+          "256",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=4 k=n=256"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "4",
+          "--sizes",
+          "512",
+          "--k",
+          "512",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=4 k=n=512"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "4",
+          "--sizes",
+          "1024",
+          "--k",
+          "1024",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=4 k=n=1024"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "4",
+          "--sizes",
+          "2048",
+          "--k",
+          "2048",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=4 k=n=2048"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "9e6141f07bcdc63bf5e5a98dbc19532e7968192ad8b4c402968263790ee07441",
+  "runs": [
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "4",
+        "--sizes",
+        "1024,2048",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p4_klt_n_sizes1024_2048_k1_16_64_20260226_181718.txt",
+      "output_sha256": "a502a91c087036baaecf4f94d72c5fb9607c256c66a36f1a13b73e222b544b14",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p4_klt_n_sizes1024_2048_k1_16_64_20260226_181718.txt.sha256",
+      "spec_name": "SPD p=4 k<n",
+      "stdout_sha256": "a502a91c087036baaecf4f94d72c5fb9607c256c66a36f1a13b73e222b544b14"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "4",
+        "--sizes",
+        "256",
+        "--k",
+        "256",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n256_k256_20260226_181718.txt",
+      "output_sha256": "738a22fb98a789dbf8247896573c7a2b2d72cb34c5087c6cd7ab006d4bac33b7",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n256_k256_20260226_181718.txt.sha256",
+      "spec_name": "SPD p=4 k=n=256",
+      "stdout_sha256": "738a22fb98a789dbf8247896573c7a2b2d72cb34c5087c6cd7ab006d4bac33b7"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "4",
+        "--sizes",
+        "512",
+        "--k",
+        "512",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n512_k512_20260226_181718.txt",
+      "output_sha256": "c9c09a685dd9a2de0ede2f8bd5e0a57c4567cd9685c4d7978573c54d31e3da0b",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n512_k512_20260226_181718.txt.sha256",
+      "spec_name": "SPD p=4 k=n=512",
+      "stdout_sha256": "c9c09a685dd9a2de0ede2f8bd5e0a57c4567cd9685c4d7978573c54d31e3da0b"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "4",
+        "--sizes",
+        "1024",
+        "--k",
+        "1024",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n1024_k1024_20260226_181718.txt",
+      "output_sha256": "c36766455928768da96d034b2095e2517407d9cde10c12dfc9b692e4b55fd2a0",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n1024_k1024_20260226_181718.txt.sha256",
+      "spec_name": "SPD p=4 k=n=1024",
+      "stdout_sha256": "c36766455928768da96d034b2095e2517407d9cde10c12dfc9b692e4b55fd2a0"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "4",
+        "--sizes",
+        "2048",
+        "--k",
+        "2048",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n2048_k2048_20260226_181718.txt",
+      "output_sha256": "17d7e7e3c7e0ad62ebae5f10cde629796bd8c43c5f656b696f26965b018080ea",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p4_keq_n_n2048_k2048_20260226_181718.txt.sha256",
+      "spec_name": "SPD p=4 k=n=2048",
+      "stdout_sha256": "17d7e7e3c7e0ad62ebae5f10cde629796bd8c43c5f656b696f26965b018080ea"
+    }
+  ],
+  "spec_count": 5
+}

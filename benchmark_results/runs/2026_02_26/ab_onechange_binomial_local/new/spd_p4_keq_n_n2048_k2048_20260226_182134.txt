@@ -1,0 +1,18 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 2048x2048 | RHS 2048x2048 | dtype=torch.bfloat16 ==
+precond=jacobi | l_target=0.05 | p=4 | ruiz_iters=2 | cheb_deg=32 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_coeff_target_err=0.01 | online_stop_tol=0.0 | cuda_graph=False
+
+-- case gaussian_spd --
+PE-Quad-Inverse-Multiply       29.781 ms (pre 3.712 + iter 26.069) | mem  224MB | relerr vs true: 4.303e-03
+Inverse-Newton-Inverse-Multiply   29.735 ms (pre 3.712 + iter 26.023) | mem  224MB | relerr vs true: 4.303e-03
+PE-Quad-Coupled-Apply          18.885 ms (pre 3.712 + iter 15.173) | mem  248MB | relerr vs true: 3.998e-03 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply   20.851 ms (pre 3.712 + iter 17.140) | mem  240MB | relerr vs true: 3.937e-03
+Chebyshev-Apply                57.086 ms (pre 3.712 + iter 53.374) | mem  216MB | relerr vs true: 2.075e-03 | cheb_deg 32
+
+-- case illcond_1e6 --
+PE-Quad-Inverse-Multiply       29.306 ms (pre 2.152 + iter 27.155) | mem  224MB | relerr vs true: 4.333e-03
+Inverse-Newton-Inverse-Multiply   28.293 ms (pre 2.152 + iter 26.141) | mem  224MB | relerr vs true: 4.333e-03
+PE-Quad-Coupled-Apply          17.346 ms (pre 2.152 + iter 15.195) | mem  248MB | relerr vs true: 4.028e-03 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1 | steps 3
+Inverse-Newton-Coupled-Apply   19.365 ms (pre 2.152 + iter 17.213) | mem  240MB | relerr vs true: 3.967e-03
+Chebyshev-Apply                55.851 ms (pre 2.152 + iter 53.700) | mem  216MB | relerr vs true: 2.045e-03 | cheb_deg 32

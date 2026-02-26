@@ -1,0 +1,405 @@
+{
+  "args": {
+    "ab_extra_args_a": "",
+    "ab_extra_args_b": "",
+    "ab_label_a": "A",
+    "ab_label_b": "B",
+    "ab_out": "benchmark_results\\latest_solver_benchmarks_ab.md",
+    "dtype": "bf16",
+    "extra_args": "",
+    "integrity_checksums": true,
+    "manifest_out": "benchmark_results/runs/2026_02_26/ab_onechange_binomial_local/new/p2_manifest.json",
+    "markdown": false,
+    "only": "SPD p=2",
+    "out": "benchmark_results/runs/2026_02_26/ab_onechange_binomial_local/new/p2_report.md",
+    "timing_reps": 5,
+    "timing_warmup_reps": 2,
+    "trials": 5
+  },
+  "argv": [
+    "--only",
+    "SPD p=2",
+    "--out",
+    "benchmark_results/runs/2026_02_26/ab_onechange_binomial_local/new/p2_report.md",
+    "--manifest-out",
+    "benchmark_results/runs/2026_02_26/ab_onechange_binomial_local/new/p2_manifest.json"
+  ],
+  "extra_args": {
+    "base": []
+  },
+  "generated_at": "2026-02-26T18:21:27",
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "b61ee3756ccca6cd5421b1ae8b471f52dc79856f",
+    "tracked_source_sha256": "c70bc63c25654a0655168cbe7eb64d40a1a1c086fbfaec44b8a5c84ee8e51bf6"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "raw_logs",
+  "only_filter": [
+    "SPD p=2"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_klt_n_sizes1024_2048_k1_16_64_20260226_181931.txt.sha256",
+      "sha256": "10c410f51f115933536f80fa7db2eeaae87c1a2919ce7a1526f45389632a4648"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_klt_n_sizes1024_2048_k1_16_64_20260226_181931.txt",
+      "sha256": "192c35524ae350bb8568f9d5697981565031962625bd94512e8f317fc47d6ff5"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n256_k256_20260226_181931.txt.sha256",
+      "sha256": "92219939b43cd07914c312f4b7bbaa65293d1fcb795d474116ca3e39fcb2a3bd"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n256_k256_20260226_181931.txt",
+      "sha256": "41653f00bef67f97e382fd0859d67d9fcad323a629adaee635ae42d565667e7b"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n512_k512_20260226_181931.txt.sha256",
+      "sha256": "76eb18377212d3228c64b96f8ddb53035cb1d6ca349b98a37cd53871b6f642e9"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n512_k512_20260226_181931.txt",
+      "sha256": "6d7e51508755b2375ecbf91c305e4b8328bea7e601cbc38e9f69f2bd05e28995"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n1024_k1024_20260226_181931.txt.sha256",
+      "sha256": "b150157a1f02ae87c2fec0e1aed5193ed3b5988a7b84fe3fb7b2a15afb991770"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n1024_k1024_20260226_181931.txt",
+      "sha256": "023d2b6cf1ab9ae93abeb5a91f1961cb95f65be6fb7961e9ccc9ba11d29eb6f0"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n2048_k2048_20260226_181931.txt.sha256",
+      "sha256": "0cb6abb7b87d022f1708e87a8266acb92c23308669f4c43c1a1f663b2f18996c"
+    },
+    {
+      "path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n2048_k2048_20260226_181931.txt",
+      "sha256": "f73f120e225545b471d41df20c1b4ed0a1b9f67d69db892686dd80b71cd53b2f"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>",
+  "repro_context": {
+    "args": {
+      "ab_extra_args_a": "",
+      "ab_extra_args_b": "",
+      "ab_label_a": "A",
+      "ab_label_b": "B",
+      "ab_out": "benchmark_results\\latest_solver_benchmarks_ab.md",
+      "dtype": "bf16",
+      "extra_args": "",
+      "integrity_checksums": true,
+      "manifest_out": "benchmark_results/runs/2026_02_26/ab_onechange_binomial_local/new/p2_manifest.json",
+      "markdown": false,
+      "only": "SPD p=2",
+      "out": "benchmark_results/runs/2026_02_26/ab_onechange_binomial_local/new/p2_report.md",
+      "timing_reps": 5,
+      "timing_warmup_reps": 2,
+      "trials": 5
+    },
+    "argv": [
+      "--only",
+      "SPD p=2",
+      "--out",
+      "benchmark_results/runs/2026_02_26/ab_onechange_binomial_local/new/p2_report.md",
+      "--manifest-out",
+      "benchmark_results/runs/2026_02_26/ab_onechange_binomial_local/new/p2_manifest.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "base": []
+    },
+    "git": {
+      "branch": "main",
+      "dirty": true,
+      "head": "b61ee3756ccca6cd5421b1ae8b471f52dc79856f",
+      "tracked_source_sha256": "c70bc63c25654a0655168cbe7eb64d40a1a1c086fbfaec44b8a5c84ee8e51bf6"
+    },
+    "mode": "raw_logs",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "2",
+          "--sizes",
+          "1024,2048",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=2 k<n"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "2",
+          "--sizes",
+          "256",
+          "--k",
+          "256",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=2 k=n=256"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "2",
+          "--sizes",
+          "512",
+          "--k",
+          "512",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=2 k=n=512"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "2",
+          "--sizes",
+          "1024",
+          "--k",
+          "1024",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=2 k=n=1024"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "2",
+          "--sizes",
+          "2048",
+          "--k",
+          "2048",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=2 k=n=2048"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "c02b7f08807e7cf3c90003f485a16dc04a4e03e39b12ce33dad3fd2c7468986f",
+  "runs": [
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "1024,2048",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p2_klt_n_sizes1024_2048_k1_16_64_20260226_181931.txt",
+      "output_sha256": "192c35524ae350bb8568f9d5697981565031962625bd94512e8f317fc47d6ff5",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p2_klt_n_sizes1024_2048_k1_16_64_20260226_181931.txt.sha256",
+      "spec_name": "SPD p=2 k<n",
+      "stdout_sha256": "192c35524ae350bb8568f9d5697981565031962625bd94512e8f317fc47d6ff5"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "256",
+        "--k",
+        "256",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n256_k256_20260226_181931.txt",
+      "output_sha256": "41653f00bef67f97e382fd0859d67d9fcad323a629adaee635ae42d565667e7b",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n256_k256_20260226_181931.txt.sha256",
+      "spec_name": "SPD p=2 k=n=256",
+      "stdout_sha256": "41653f00bef67f97e382fd0859d67d9fcad323a629adaee635ae42d565667e7b"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "512",
+        "--k",
+        "512",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n512_k512_20260226_181931.txt",
+      "output_sha256": "6d7e51508755b2375ecbf91c305e4b8328bea7e601cbc38e9f69f2bd05e28995",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n512_k512_20260226_181931.txt.sha256",
+      "spec_name": "SPD p=2 k=n=512",
+      "stdout_sha256": "6d7e51508755b2375ecbf91c305e4b8328bea7e601cbc38e9f69f2bd05e28995"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "1024",
+        "--k",
+        "1024",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n1024_k1024_20260226_181931.txt",
+      "output_sha256": "023d2b6cf1ab9ae93abeb5a91f1961cb95f65be6fb7961e9ccc9ba11d29eb6f0",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n1024_k1024_20260226_181931.txt.sha256",
+      "spec_name": "SPD p=2 k=n=1024",
+      "stdout_sha256": "023d2b6cf1ab9ae93abeb5a91f1961cb95f65be6fb7961e9ccc9ba11d29eb6f0"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "2048",
+        "--k",
+        "2048",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "output_path": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n2048_k2048_20260226_181931.txt",
+      "output_sha256": "f73f120e225545b471d41df20c1b4ed0a1b9f67d69db892686dd80b71cd53b2f",
+      "output_sha256_file": "benchmark_results/latest_spd_solve_logs/spd_p2_keq_n_n2048_k2048_20260226_181931.txt.sha256",
+      "spec_name": "SPD p=2 k=n=2048",
+      "stdout_sha256": "f73f120e225545b471d41df20c1b4ed0a1b9f67d69db892686dd80b71cd53b2f"
+    }
+  ],
+  "spec_count": 5
+}

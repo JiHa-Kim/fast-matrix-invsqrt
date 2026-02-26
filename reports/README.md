@@ -1,15 +1,10 @@
 # Reports
 
-This directory contains technical reports and research findings for the `fast_iroot` library.
+Freshly regenerated from current benchmark runs.
 
-## Latest Reports (Up-to-Date)
-
-These reports represent the current best-known architecture and performance benchmarks as of the latest production version.
-
-- **[latest/solve_p1_comprehensive.md](latest/solve_p1_comprehensive.md)**: Final report on p=1 solve speed, stability, and the k-aware branching strategy.
+## Latest
+- `latest/solver_performance.md`: current batch run summary from `benchmark_results/*.log`.
+- `latest/solve_p1_comprehensive.md`: p=1 SPD/non-SPD focused summary including Newton baselines.
 
 ## Archive
-
-Historical reports from research, ablation studies, and initial development phases. These may refer to outdated code or sub-optimal configurations.
-
-- **[archive/](archive/)**: Archived research reports.
+- Older narrative reports were intentionally removed and can be recovered from git history.

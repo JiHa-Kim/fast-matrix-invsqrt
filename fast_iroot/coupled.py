@@ -158,6 +158,18 @@ def inverse_proot_pe_quadratic_coupled(
     """Coupled quadratic PE iteration for general p (inverse p-th root)."""
     _validate_p_val(p_val)
     _check_square(A_norm)
+
+    # p=2 has an optimized coupled implementation (avoids an extra B->B2 copy).
+    if p_val == 2:
+        X, ws2 = inverse_sqrt_pe_quadratic(
+            A_norm,
+            abc_t=abc_t,
+            ws=ws,
+            symmetrize_Y=symmetrize_Y,
+            terminal_last_step=terminal_last_step,
+        )
+        return X, ws2
+
     if not _ws_ok_coupled(ws, A_norm):
         ws = _alloc_ws_coupled(A_norm)
     assert ws is not None
@@ -190,8 +202,9 @@ def inverse_proot_pe_quadratic_coupled(
             _bpow(ws.B, p_half, out=ws.B2, tmp1=ws.Xbuf, tmp2=ws.Ybuf)
             _matmul_into(ws.B, ws.Y, ws.Xbuf)
             _matmul_into(ws.B2, ws.Xbuf, ws.Ybuf)
-            _matmul_into(ws.Ybuf, ws.B2, ws.Xbuf)
-            ws.Ybuf.copy_(ws.Xbuf)
+            # Avoid a full-matrix copy_ by writing the final result into ws.B (B is dead after this point).
+            _matmul_into(ws.Ybuf, ws.B2, ws.B)
+            ws.Ybuf, ws.B = ws.B, ws.Ybuf
 
         if symmetrize_Y:
             # ws.B2 is used as scratch here; contents destroyed.
@@ -248,6 +261,10 @@ def inverse_solve_pe_quadratic_coupled(
 
         if p_val == 1:
             _matmul_into(ws.B, ws.Y, ws.Ybuf)
+        elif p_val == 2:
+            # Avoid _bpow(p_half=1) which would copy B into B2; use the symmetric update directly.
+            _matmul_into(ws.Y, ws.B, ws.B2)
+            _matmul_into(ws.B, ws.B2, ws.Ybuf)
         elif p_val % 2 == 0:
             p_half = p_val // 2
             _bpow(ws.B, p_half, out=ws.B2, tmp1=ws.tmp, tmp2=ws.Ybuf)
@@ -258,8 +275,9 @@ def inverse_solve_pe_quadratic_coupled(
             _bpow(ws.B, p_half, out=ws.B2, tmp1=ws.tmp, tmp2=ws.Ybuf)
             _matmul_into(ws.B, ws.Y, ws.tmp)
             _matmul_into(ws.B2, ws.tmp, ws.Ybuf)
-            _matmul_into(ws.Ybuf, ws.B2, ws.tmp)
-            ws.Ybuf.copy_(ws.tmp)
+            # Avoid a full-matrix copy_ by writing the final result into ws.B (B is dead after this point).
+            _matmul_into(ws.Ybuf, ws.B2, ws.B)
+            ws.Ybuf, ws.B = ws.B, ws.Ybuf
 
         if symmetrize_Y:
             # ws.B2 is used as scratch here; contents destroyed.

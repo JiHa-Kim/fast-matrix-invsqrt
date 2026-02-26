@@ -1,7 +1,7 @@
 # TODO
 
 Date: 2026-02-26
-Scope: prioritize unimplemented ideas from `ideas/p.md` and `ideas/p1.md`, with emphasis on `p=2,4`.
+Scope: prioritize unimplemented ideas from `ideas/p.md`, `ideas/p1.md`, and `ideas/1.md`, with emphasis on `p=2,4`.
 
 ## P0: Highest Priority (p=2,4)
 
@@ -25,6 +25,10 @@ Scope: prioritize unimplemented ideas from `ideas/p.md` and `ideas/p1.md`, with 
   - Gap today: implementation exists, but default benchmark matrix does not include it for `p>1`.
   - Exit check: method appears in `run_benchmarks.py` default outputs and is compared in docs reports.
 
+- [ ] Add an explicit `n=1024` policy benchmark track with `k in {16,64,1024}` and strategy recommendations.
+  - Gap today: results exist, but there is no codified policy table for when to prefer Chebyshev vs coupled PE by `(n,k)`.
+  - Exit check: benchmark report includes a decision table and a default strategy recommendation per `(n,k)` regime.
+
 ## P1: Next Wave
 
 - [ ] Add stronger Turbo-style normalization for SPD: robust `lambda_min` estimation + scalar scaling target beyond current row-sum/Gershgorin proxies.
@@ -39,7 +43,11 @@ Scope: prioritize unimplemented ideas from `ideas/p.md` and `ideas/p1.md`, with 
 - [ ] Expose and benchmark `Torch-EVD-Solve` for `p>1` in the maintained benchmark matrix.
   - Gap today: evaluation code exists, but it is not in the default methods list.
 
+- [ ] Add a mixed-precision factorization + iterative-refinement path for SPD `p>1` when `k ~= n`.
+  - Gap today: direct polynomial methods are available, but there is no explicit high-accuracy mixed-precision fallback path for fat-RHS regimes.
+
 ## P2: Benchmark/Reporting Hygiene
 
 - [ ] Add a single report view for `p=2,4` that tracks both speed and precision gap to strong references (EVD or high-precision baseline).
 - [ ] Record per-run online schedule composition (`newton/minimax/affine`) in markdown summaries to see whether advanced policies are actually active.
+- [ ] Add ML-relevant quality metrics to benchmark summaries: preconditioned-spectrum clustering probes and directional-bias proxies.

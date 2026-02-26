@@ -1,7 +1,7 @@
 # Implementation Status: Ideas vs Code
 
 Date: 2026-02-26
-Primary reference ideas: `ideas/p.md`, `ideas/p1.md`.
+Primary reference ideas: `ideas/p.md`, `ideas/p1.md`, `ideas/1.md`.
 
 This page distinguishes what is already implemented from what is still missing to try.
 
@@ -31,8 +31,12 @@ This page distinguishes what is already implemented from what is still missing t
 - Block-diagonal SPD preconditioning mode.
 - Block-Lanczos/Krylov direct apply for `A^{-1/p}B` (`p=2,4`).
 - Default benchmark exposure of `Torch-EVD-Solve` and `Chebyshev-Apply` for `p>1`.
+- Strategy policy split by RHS regime at `n=1024` (e.g., `k << n` polynomial direct-apply vs `k ~= n` factorization-centric path).
+- Mixed-precision factorization + iterative-refinement solve path for SPD `p>1` fat-RHS workloads.
+- ML-relevant quality metrics in reports (spectral-clustering probes and directional-bias proxies), not just solve relerr.
 
 ## Why This Matters for Current Priorities
 
 - `p=1` already has strong `torch.linalg.solve` baselines and dedicated fallback/hybrid handling.
 - Remaining headroom is mainly in `p=2,4` speed-vs-relerr tradeoffs, especially for SPD solve/apply workloads where polynomial/direct-apply paths should improve throughput.
+- The `n=1024` regime needs explicit policy-level tuning because it is often the practical optimization knee in ML block preconditioning.

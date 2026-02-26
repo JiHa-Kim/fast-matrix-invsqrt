@@ -207,17 +207,6 @@ def main():
         default=2,
         help="Minimum number of coupled PE steps before online early-stop is allowed.",
     )
-    p.add_argument(
-        "--p1-torch-solve-backend",
-        type=str,
-        default="cholesky",
-        choices=["cholesky", "linalg"],
-        help=(
-            "Backend for Torch-Solve when p=1 on SPD inputs. "
-            "Default keeps Cholesky path; use 'linalg' for direct A/B comparison."
-        ),
-    )
-
     args = p.parse_args()
     if int(args.symmetrize_every) < 1:
         raise ValueError(
@@ -368,7 +357,6 @@ def main():
                                 symmetrize_every=args.symmetrize_every,
                                 online_stop_tol=online_stop_tol,
                                 online_min_steps=args.online_min_steps,
-                                p1_torch_solve_backend=args.p1_torch_solve_backend,
                                 online_coeff_mode=online_coeff_mode,
                                 online_coeff_min_rel_improve=args.online_coeff_min_rel_improve,
                                 online_coeff_min_ns_logwidth_rel_improve=(

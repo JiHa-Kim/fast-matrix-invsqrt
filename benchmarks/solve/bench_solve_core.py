@@ -130,7 +130,6 @@ def _build_solve_runner(
     symmetrize_every: int,
     online_stop_tol: Optional[float],
     online_min_steps: int,
-    p1_torch_solve_backend: str,
     uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
     cheb_apply_fn: Callable[..., Tuple[torch.Tensor, object]],
@@ -248,21 +247,12 @@ def _build_solve_runner(
         return run
 
     if method == "Torch-Solve":
-        backend = str(p1_torch_solve_backend).strip().lower()
-        if backend not in ("cholesky", "linalg"):
-            raise ValueError(
-                "p1_torch_solve_backend must be one of {'cholesky', 'linalg'}"
-            )
-
         def run(A_norm: torch.Tensor, B: torch.Tensor):
             A_f32 = A_norm.to(torch.float32)
             B_f32 = B.to(torch.float32)
             if int(p_val) == 1:
-                if backend == "cholesky":
-                    L = torch.linalg.cholesky(A_f32)
-                    Z = torch.cholesky_solve(B_f32, L)
-                else:
-                    Z = torch.linalg.solve(A_f32, B_f32)
+                L = torch.linalg.cholesky(A_f32)
+                Z = torch.cholesky_solve(B_f32, L)
             else:
                 # Casting to fp32 as many torch linalg paths don't support bf16 on CUDA
                 Z = torch.linalg.solve(A_f32, B_f32)
@@ -339,7 +329,6 @@ def eval_solve_method(
     symmetrize_every: int,
     online_stop_tol: Optional[float],
     online_min_steps: int,
-    p1_torch_solve_backend: str,
     online_coeff_mode: str,
     online_coeff_min_rel_improve: float,
     online_coeff_min_ns_logwidth_rel_improve: float,
@@ -533,7 +522,6 @@ def eval_solve_method(
             symmetrize_every=symmetrize_every,
             online_stop_tol=online_stop_tol,
             online_min_steps=online_min_steps,
-            p1_torch_solve_backend=p1_torch_solve_backend,
             uncoupled_fn=uncoupled_fn,
             coupled_solve_fn=coupled_solve_fn,
             cheb_apply_fn=cheb_apply_fn,

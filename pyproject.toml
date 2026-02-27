@@ -1,9 +1,23 @@
 [project]
-name = "matrix-invsqrt"
-version = "0.1.0"
+name = "fast-matrix-inverse-roots"
+version = "0.2.0"
 description = "GPU-focused inverse p-th-root kernels for SPD matrices"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+    { name = "JiHa Kim" },
+]
+keywords = ["linear-algebra", "inverse-root", "preconditioning", "pytorch", "gpu"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
 dependencies = [
     "torch",
     "torchvision",
@@ -12,6 +26,11 @@ dependencies = [
     "triton-windows>=3.6.0.post25",
     "scipy>=1.17.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/JiHa-Kim/fast-matrix-inverse-roots"
+Repository = "https://github.com/JiHa-Kim/fast-matrix-inverse-roots"
+Documentation = "https://github.com/JiHa-Kim/fast-matrix-inverse-roots/tree/main/docs"
 
 [dependency-groups]
 dev = [

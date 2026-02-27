@@ -3,15 +3,14 @@ from __future__ import annotations
 import pytest
 import torch
 
-from fast_iroot import (
-    _quad_coeffs,
-    build_pe_schedules,
+from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
+from fast_iroot.coupled import (
     inverse_proot_pe_quadratic_coupled,
-    inverse_proot_pe_quadratic_uncoupled,
     inverse_solve_pe_quadratic_coupled,
-    precond_spd,
 )
 from fast_iroot.metrics import compute_quality_stats, iroot_relative_error
+from fast_iroot.precond import precond_spd
+from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 
 
 def _make_spd(

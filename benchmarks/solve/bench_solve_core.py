@@ -12,7 +12,7 @@ from fast_iroot.coeff_tuner import (
     plan_coupled_quadratic_newton_schedule,
     truncate_coupled_schedule_by_interval_error,
 )
-from fast_iroot import precond_spd
+from fast_iroot.precond import precond_spd
 from fast_iroot.chebyshev import (
     apply_inverse_chebyshev_with_coeffs,
     select_inverse_proot_chebyshev_minimax_auto,

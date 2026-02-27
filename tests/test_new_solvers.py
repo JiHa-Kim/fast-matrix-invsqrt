@@ -3,11 +3,11 @@ test_new_solvers.py — Correctness tests for NSRC solver.
 """
 
 
-import pytest
 import torch
 
-from fast_iroot import precond_spd, build_pe_schedules, _quad_coeffs
+from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
 from fast_iroot.nsrc import nsrc_solve, nsrc_solve_preconditioned, hybrid_pe_nsrc_solve
+from fast_iroot.precond import precond_spd
 
 
 def _make_spd(n: int, cond: float = 10.0, seed: int = 42) -> torch.Tensor:

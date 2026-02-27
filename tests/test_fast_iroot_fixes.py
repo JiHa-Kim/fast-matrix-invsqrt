@@ -7,33 +7,31 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import torch
 import pytest
 from fast_iroot.utils import _addmm_into
-from fast_iroot.coupled import (
-    inverse_sqrt_pe_quadratic,
-    inverse_solve_pe_quadratic_coupled,
-    inverse_proot_pe_quadratic_coupled,
-)
-from fast_iroot import (
+from fast_iroot.apply import (
     DualGramInverseApplyWorkspace,
     GramInverseApplyWorkspace,
     apply_inverse_root,
+    apply_inverse_root_auto,
     apply_inverse_root_gram_rhs_spd,
     apply_inverse_root_gram_spd,
-    apply_inverse_root_auto,
-    apply_inverse_sqrt_spd,
-    apply_inverse_sqrt_non_spd,
     apply_inverse_sqrt_gram_spd,
-    precond_gram_dual_spd,
-    build_pe_schedules,
-    inverse_proot_pe_quadratic_uncoupled,
-    precond_gram_spd,
-    precond_spd,
+    apply_inverse_sqrt_non_spd,
+    apply_inverse_sqrt_spd,
+)
+from fast_iroot.coeffs import build_pe_schedules
+from fast_iroot.coupled import (
+    inverse_proot_pe_quadratic_coupled,
+    inverse_sqrt_pe_quadratic,
+    inverse_solve_pe_quadratic_coupled,
 )
 from fast_iroot.metrics import (
-    isqrt_relative_error,
+    compute_quality_stats,
     exact_inverse_proot,
     iroot_relative_error,
-    compute_quality_stats,
+    isqrt_relative_error,
 )
+from fast_iroot.precond import precond_gram_dual_spd, precond_gram_spd, precond_spd
+from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 
 
 def test_addmm_into_multibatch_shape():

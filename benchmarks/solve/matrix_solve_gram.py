@@ -25,14 +25,9 @@ except ModuleNotFoundError:
 ensure_repo_root_on_path()
 
 from benchmarks.common import time_ms_repeat
-from fast_iroot import (
-    GRAM_PRECOND_MODES,
-    SPD_PRECOND_MODES,
-    GramInverseApplyWorkspace,
-    _quad_coeffs,
-    apply_inverse_root_gram_spd,
-    build_pe_schedules,
-)
+from fast_iroot.apply import GramInverseApplyWorkspace, apply_inverse_root_gram_spd
+from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
+from fast_iroot.precond import GRAM_PRECOND_MODES, SPD_PRECOND_MODES
 
 
 def _dtype_from_flag(dtype_flag: str, device: torch.device) -> torch.dtype:

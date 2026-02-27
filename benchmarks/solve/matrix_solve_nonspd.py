@@ -22,14 +22,11 @@ except ModuleNotFoundError:
 
 ensure_repo_root_on_path()
 
-from fast_iroot import (
-    _quad_coeffs,
-    build_pe_schedules,
-    inverse_proot_pe_quadratic_uncoupled,
-    inverse_solve_pe_quadratic_coupled,
-    apply_inverse_root_auto,
-)
+from fast_iroot.apply import apply_inverse_root_auto
+from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
+from fast_iroot.coupled import inverse_solve_pe_quadratic_coupled
 from fast_iroot.nonspd import NONSPD_PRECOND_MODES, precond_nonspd
+from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 from benchmarks.common import (
     make_nonspd_cases,
     median,

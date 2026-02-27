@@ -20,14 +20,11 @@ except ModuleNotFoundError:
 
 ensure_repo_root_on_path()
 
-from fast_iroot import (
-    SPD_PRECOND_MODES,
-    _quad_coeffs,
-    apply_inverse_proot_chebyshev,
-    build_pe_schedules,
-    inverse_proot_pe_quadratic_uncoupled,
-    inverse_solve_pe_quadratic_coupled,
-)
+from fast_iroot.chebyshev import apply_inverse_proot_chebyshev
+from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
+from fast_iroot.coupled import inverse_solve_pe_quadratic_coupled
+from fast_iroot.precond import SPD_PRECOND_MODES
+from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 from benchmarks.common import parse_shapes, make_spd_cases, maybe_compile
 from benchmarks.solve.bench_solve_core import (
     matrix_solve_methods,

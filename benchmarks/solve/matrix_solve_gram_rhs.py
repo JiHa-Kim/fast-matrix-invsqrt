@@ -25,16 +25,17 @@ except ModuleNotFoundError:
 ensure_repo_root_on_path()
 
 from benchmarks.common import parse_shapes, time_ms_repeat
-from fast_iroot import (
+from fast_iroot.apply import (
+    DualGramInverseApplyWorkspace,
+    GramInverseApplyWorkspace,
+    apply_inverse_root_gram_rhs_spd,
+    apply_inverse_root_gram_spd,
+)
+from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
+from fast_iroot.precond import (
     DUAL_GRAM_PRECOND_MODES,
     GRAM_PRECOND_MODES,
     SPD_PRECOND_MODES,
-    DualGramInverseApplyWorkspace,
-    GramInverseApplyWorkspace,
-    _quad_coeffs,
-    apply_inverse_root_gram_rhs_spd,
-    apply_inverse_root_gram_spd,
-    build_pe_schedules,
 )
 
 
@@ -227,4 +228,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

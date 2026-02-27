@@ -5,7 +5,7 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import torch
 
-from fast_iroot import PrecondStats, precond_spd
+from fast_iroot.precond import PrecondStats, precond_spd
 from fast_iroot.metrics import compute_quality_stats, iroot_relative_error
 
 from benchmarks.common import median, pctl, time_ms_repeat, time_ms_any

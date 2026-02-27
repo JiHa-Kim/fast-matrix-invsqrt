@@ -1,18 +1,15 @@
 import pytest
 import torch
 
-from fast_iroot import (
-    apply_inverse_proot_chebyshev,
-    inverse_proot_pe_quadratic_uncoupled,
-    _quad_coeffs,
-    build_pe_schedules,
-    precond_spd,
-)
 from fast_iroot.chebyshev import (
+    apply_inverse_proot_chebyshev,
     estimate_inverse_proot_chebyshev_error,
     select_inverse_proot_chebyshev_minimax_auto,
 )
+from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
 from fast_iroot.metrics import exact_inverse_proot
+from fast_iroot.precond import precond_spd
+from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 from benchmarks.common import _spd_from_eigs
 
 

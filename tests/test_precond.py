@@ -3,7 +3,7 @@ import math
 import pytest
 import torch
 
-from fast_iroot import precond_gram_dual_spd, precond_gram_spd, precond_spd
+from fast_iroot.precond import precond_gram_dual_spd, precond_gram_spd, precond_spd
 
 
 def _make_spd(n: int = 32, seed: int = 0) -> torch.Tensor:

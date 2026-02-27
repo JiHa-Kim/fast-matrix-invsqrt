@@ -21,14 +21,10 @@ except ModuleNotFoundError:
 
 ensure_repo_root_on_path()
 
-from fast_iroot import (
-    SPD_PRECOND_MODES,
-    _quad_coeffs,
-    build_pe_schedules,
-    inverse_proot_pe_quadratic_uncoupled,
-    inverse_proot_pe_quadratic_coupled,
-    precond_spd,
-)
+from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
+from fast_iroot.coupled import inverse_proot_pe_quadratic_coupled
+from fast_iroot.precond import SPD_PRECOND_MODES, precond_spd
+from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 from benchmarks.common import parse_shapes, make_spd_cases, maybe_compile
 from benchmarks.inverse_root.bench_iroot_core import (
     BenchResult,

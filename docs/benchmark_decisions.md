@@ -159,6 +159,50 @@ Key results:
 - Relative error unchanged in all matched cells (`relerr_ratio(B/A)=1.000`).
 - Conclusion: strong keep decision for CUDA-graph replay when using Chebyshev in this slice.
 
+## 2026-02-27: SPD `p=1` policy compare (`PE-Quad` vs Chebyshev+graph)
+
+Decision:
+- Keep current default policy (`PE-Quad-Coupled-Apply`) for SPD `p=1`.
+- Keep Chebyshev+graph as an optional contender method.
+
+Benchmark arguments:
+- `uv run python benchmarks/run_benchmarks.py --only "_spd_p1_klt_n_" --ab-extra-args-a="--methods PE-Quad-Coupled-Apply" --ab-extra-args-b="--methods Chebyshev-Apply --cheb-cuda-graph" --ab-label-a pe_quad --ab-label-b cheb_graph_on --no-ab-match-on-method --ab-out benchmark_results/runs/2026_02_27/ab_spd_p1_policy_cheb_graph_step10/report.md --manifest-out benchmark_results/runs/2026_02_27/ab_spd_p1_policy_cheb_graph_step10/manifest.json`
+
+Key results:
+- Mixed tradeoff: Chebyshev+graph faster in `5/6` cells but slower in one (`gaussian_spd, k=1`).
+- Accuracy was usually higher error for Chebyshev (`~1.14x` to `1.27x` relerr in most cells), though one cell improved.
+- Conclusion: not a strict default replacement despite strong speed potential; keep as optional method.
+
+## 2026-02-27: non-SPD `p=1` safety guards (`on` vs `off`)
+
+Decision:
+- Reject disabling safety guards as default.
+
+Benchmark arguments:
+- `uv run python benchmarks/run_benchmarks.py --only "non-SPD p=1 k<n" --ab-extra-args-a="--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8" --ab-extra-args-b="--nonspd-safe-fallback-tol 0 --nonspd-safe-early-y-tol 0" --ab-label-a safe_on --ab-label-b safe_off --ab-out benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_guards_step11/report.md --manifest-out benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_guards_step11/manifest.json`
+
+Key results:
+- Speed improved substantially with guards off.
+- But hard-case robustness collapsed (`similarity_posspec_hard` relerr hit `1.000e+00`).
+- Conclusion: guards are required for correctness robustness and must stay enabled.
+
+## 2026-02-27: non-SPD `p=1` final safety check diagonal gate
+
+Decision:
+- Reject and revert this optimization attempt.
+
+Why tested:
+- We tried gating the expensive final residual fallback check with a cheap diagonal proxy:
+  skip final residual check when `max|diag(Y)-1|` is below a threshold.
+
+Benchmark arguments:
+- `uv run python benchmarks/run_benchmarks.py --only "non-SPD p=1 k<n" --ab-extra-args-a="--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0" --ab-extra-args-b="--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0.2" --ab-label-a safe_baseline --ab-label-b safe_diag_gated --ab-out benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/report.md --manifest-out benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/manifest.json`
+
+Key results:
+- Mixed and often slower; no consistent speed benefit.
+- Accuracy stayed near parity, but performance variance/regressions were not acceptable.
+- Conclusion: no strict win, so the code change was reverted and archived.
+
 ## 2026-02-27: Dual Gram-RHS apply path (`apply_inverse_root_gram_rhs_spd`)
 
 Decision:

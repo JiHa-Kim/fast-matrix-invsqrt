@@ -1,0 +1,253 @@
+{
+  "ab_labels": {
+    "a": "safe_baseline",
+    "b": "safe_diag_gated"
+  },
+  "ab_match_on_method": true,
+  "args": {
+    "ab_baseline_rows_in": "",
+    "ab_extra_args_a": "--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0",
+    "ab_extra_args_b": "--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0.2",
+    "ab_label_a": "safe_baseline",
+    "ab_label_b": "safe_diag_gated",
+    "ab_match_on_method": true,
+    "ab_out": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/report.md",
+    "baseline_rows_out": "",
+    "dtype": "bf16",
+    "extra_args": "",
+    "integrity_checksums": true,
+    "manifest_out": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/manifest.json",
+    "markdown": true,
+    "only": "non-SPD p=1 k<n",
+    "out": "benchmark_results\\runs\\2026_02_27\\182427_solver_benchmarks\\solver_benchmarks.md",
+    "run_name": "solver_benchmarks",
+    "timing_reps": 5,
+    "timing_warmup_reps": 2,
+    "trials": 5
+  },
+  "argv": [
+    "--only",
+    "non-SPD p=1 k<n",
+    "--ab-extra-args-a=--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0",
+    "--ab-extra-args-b=--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0.2",
+    "--ab-label-a",
+    "safe_baseline",
+    "--ab-label-b",
+    "safe_diag_gated",
+    "--ab-out",
+    "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/report.md",
+    "--manifest-out",
+    "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/manifest.json"
+  ],
+  "extra_args": {
+    "a": [
+      "--nonspd-safe-fallback-tol",
+      "0.01",
+      "--nonspd-safe-early-y-tol",
+      "0.8",
+      "--nonspd-safe-final-diag-tol",
+      "0"
+    ],
+    "b": [
+      "--nonspd-safe-fallback-tol",
+      "0.01",
+      "--nonspd-safe-early-y-tol",
+      "0.8",
+      "--nonspd-safe-final-diag-tol",
+      "0.2"
+    ],
+    "base": []
+  },
+  "generated_at": "2026-02-27T18:24:47",
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "abb9fdaa95a7733b07f6b1d593d2b4283389d290",
+    "tracked_source_sha256": "89f4aa513477afa317e3ec77f055544ac7f00986743a109f5fc3e7a735b9038c"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "ab_markdown",
+  "only_filter": [
+    "non-SPD p=1 k<n"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/report.md",
+      "sha256": "48a14015cc7181c1ee5fca080b83c4d1b69a09afd0f4a22dfbecaad76333b0ee"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/report.md.sha256",
+      "sha256": "f17103e3d0c1372f8d4c606cb6178f5ec07eaab20e83be9caeec189ad88ec4c5"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>",
+  "repro_context": {
+    "args": {
+      "ab_baseline_rows_in": "",
+      "ab_extra_args_a": "--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0",
+      "ab_extra_args_b": "--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0.2",
+      "ab_label_a": "safe_baseline",
+      "ab_label_b": "safe_diag_gated",
+      "ab_match_on_method": true,
+      "ab_out": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/report.md",
+      "baseline_rows_out": "",
+      "dtype": "bf16",
+      "extra_args": "",
+      "integrity_checksums": true,
+      "manifest_out": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/manifest.json",
+      "markdown": true,
+      "only": "non-SPD p=1 k<n",
+      "out": "benchmark_results\\runs\\2026_02_27\\182427_solver_benchmarks\\solver_benchmarks.md",
+      "run_name": "solver_benchmarks",
+      "timing_reps": 5,
+      "timing_warmup_reps": 2,
+      "trials": 5
+    },
+    "argv": [
+      "--only",
+      "non-SPD p=1 k<n",
+      "--ab-extra-args-a=--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0",
+      "--ab-extra-args-b=--nonspd-safe-fallback-tol 0.01 --nonspd-safe-early-y-tol 0.8 --nonspd-safe-final-diag-tol 0.2",
+      "--ab-label-a",
+      "safe_baseline",
+      "--ab-label-b",
+      "safe_diag_gated",
+      "--ab-out",
+      "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/report.md",
+      "--manifest-out",
+      "benchmark_results/runs/2026_02_27/ab_nonspd_p1_safe_diag_gate_step12/manifest.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "a": [
+        "--nonspd-safe-fallback-tol",
+        "0.01",
+        "--nonspd-safe-early-y-tol",
+        "0.8",
+        "--nonspd-safe-final-diag-tol",
+        "0"
+      ],
+      "b": [
+        "--nonspd-safe-fallback-tol",
+        "0.01",
+        "--nonspd-safe-early-y-tol",
+        "0.8",
+        "--nonspd-safe-final-diag-tol",
+        "0.2"
+      ],
+      "base": []
+    },
+    "git": {
+      "branch": "main",
+      "dirty": true,
+      "head": "abb9fdaa95a7733b07f6b1d593d2b4283389d290",
+      "tracked_source_sha256": "89f4aa513477afa317e3ec77f055544ac7f00986743a109f5fc3e7a735b9038c"
+    },
+    "mode": "ab_markdown",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve_nonspd",
+          "--p",
+          "1",
+          "--sizes",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "nonspd",
+        "name": "non-SPD p=1 k<n"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "522e4ec7748ababd5804a838313391966e9415cf979289c2c3ee8e6451f9dabb",
+  "runs": [
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve_nonspd",
+        "--p",
+        "1",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--nonspd-safe-fallback-tol",
+        "0.01",
+        "--nonspd-safe-early-y-tol",
+        "0.8",
+        "--nonspd-safe-final-diag-tol",
+        "0"
+      ],
+      "kind": "nonspd",
+      "parsed_rows": 12,
+      "spec_name": "non-SPD p=1 k<n",
+      "stdout_sha256": "8f86f68e3ab061838f2bb8dac152edde7ba16adadb61012ab32203bfcc981e6c",
+      "variant": "A"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve_nonspd",
+        "--p",
+        "1",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--nonspd-safe-fallback-tol",
+        "0.01",
+        "--nonspd-safe-early-y-tol",
+        "0.8",
+        "--nonspd-safe-final-diag-tol",
+        "0.2"
+      ],
+      "kind": "nonspd",
+      "parsed_rows": 12,
+      "spec_name": "non-SPD p=1 k<n",
+      "stdout_sha256": "33e2b86affaaf03f09552e56915868f56809265edf2cfde59a0ef8bacd23fcb5",
+      "variant": "B"
+    }
+  ],
+  "spec_count": 1
+}

@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from fast_iroot import (
@@ -58,6 +59,14 @@ def test_solve_nonspd_smoke():
     assert torch.isfinite(Z).all()
     assert ws is not None
     assert isinstance(schedule_desc, str)
+
+
+def test_solve_nonspd_rejects_non_p1():
+    n, k = 8, 2
+    A = torch.randn(n, n)
+    B = torch.randn(n, k)
+    with pytest.raises(ValueError, match="p_val=1 only"):
+        solve_nonspd(A, B, p_val=2)
 
 
 def test_solve_gram_spd_smoke():

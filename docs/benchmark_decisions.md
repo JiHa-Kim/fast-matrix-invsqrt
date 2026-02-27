@@ -118,6 +118,20 @@ Key results:
 - Accuracy: Chebyshev relerr was higher in `5/6` cells (about `1.14x` to `1.27x` of PE), better in `1/6`.
 - Conclusion: mixed speed/accuracy tradeoff, so this remains an optional method for analysis, not a default replacement.
 
+## 2026-02-27: SPD `p=1` Chebyshev mode (`fixed` vs `minimax-auto`)
+
+Decision:
+- Keep `--cheb-mode fixed` as the recommended mode for SPD `p=1` benchmark usage.
+- Reject `minimax-auto` as a default for this slice.
+
+Benchmark arguments:
+- `uv run python benchmarks/run_benchmarks.py --only "_spd_p1_klt_n_" --ab-extra-args-a="--methods Chebyshev-Apply --cheb-mode fixed" --ab-extra-args-b="--methods Chebyshev-Apply --cheb-mode minimax-auto" --ab-label-a cheb_fixed --ab-label-b cheb_minimax_auto --ab-match-on-method --ab-out benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/report.md --manifest-out benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/manifest.json`
+
+Key results:
+- Mixed and mostly slower for `minimax-auto`: large regressions in most cells, including a severe outlier (`+176.7%` at `k=64, gaussian_spd`).
+- Accuracy differences were negligible (near-parity relerr ratios around `1.0`).
+- Conclusion: no performance justification to switch from fixed mode in this p=1 slice.
+
 ## 2026-02-27: Dual Gram-RHS apply path (`apply_inverse_root_gram_rhs_spd`)
 
 Decision:

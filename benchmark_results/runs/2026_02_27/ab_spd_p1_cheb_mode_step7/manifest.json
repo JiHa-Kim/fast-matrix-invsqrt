@@ -1,0 +1,243 @@
+{
+  "ab_labels": {
+    "a": "cheb_fixed",
+    "b": "cheb_minimax_auto"
+  },
+  "ab_match_on_method": true,
+  "args": {
+    "ab_baseline_rows_in": "",
+    "ab_extra_args_a": "--methods Chebyshev-Apply --cheb-mode fixed",
+    "ab_extra_args_b": "--methods Chebyshev-Apply --cheb-mode minimax-auto",
+    "ab_label_a": "cheb_fixed",
+    "ab_label_b": "cheb_minimax_auto",
+    "ab_match_on_method": true,
+    "ab_out": "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/report.md",
+    "baseline_rows_out": "",
+    "dtype": "bf16",
+    "extra_args": "",
+    "integrity_checksums": true,
+    "manifest_out": "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/manifest.json",
+    "markdown": true,
+    "only": "_spd_p1_klt_n_",
+    "out": "benchmark_results\\runs\\2026_02_27\\181744_solver_benchmarks\\solver_benchmarks.md",
+    "run_name": "solver_benchmarks",
+    "timing_reps": 5,
+    "timing_warmup_reps": 2,
+    "trials": 5
+  },
+  "argv": [
+    "--only",
+    "_spd_p1_klt_n_",
+    "--ab-extra-args-a=--methods Chebyshev-Apply --cheb-mode fixed",
+    "--ab-extra-args-b=--methods Chebyshev-Apply --cheb-mode minimax-auto",
+    "--ab-label-a",
+    "cheb_fixed",
+    "--ab-label-b",
+    "cheb_minimax_auto",
+    "--ab-match-on-method",
+    "--ab-out",
+    "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/report.md",
+    "--manifest-out",
+    "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/manifest.json"
+  ],
+  "extra_args": {
+    "a": [
+      "--methods",
+      "Chebyshev-Apply",
+      "--cheb-mode",
+      "fixed"
+    ],
+    "b": [
+      "--methods",
+      "Chebyshev-Apply",
+      "--cheb-mode",
+      "minimax-auto"
+    ],
+    "base": []
+  },
+  "generated_at": "2026-02-27T18:18:05",
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "5c5ea19373d80794aafdb2b38bc6268c4b9a999d",
+    "tracked_source_sha256": "54820ce883fe1f4195b3f8f1ce6569ed7c7e2e51898299522bf9506e949bee37"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "ab_markdown",
+  "only_filter": [
+    "_spd_p1_klt_n_"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/report.md",
+      "sha256": "9cdefe33e260baa1427567ecf6eec4207e67cb33795a5d556360c40afbcf078c"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/report.md.sha256",
+      "sha256": "d6f35b29defe100147e404fcc1c039ae2022acbe135e7ff98d867c1b0c0054da"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>",
+  "repro_context": {
+    "args": {
+      "ab_baseline_rows_in": "",
+      "ab_extra_args_a": "--methods Chebyshev-Apply --cheb-mode fixed",
+      "ab_extra_args_b": "--methods Chebyshev-Apply --cheb-mode minimax-auto",
+      "ab_label_a": "cheb_fixed",
+      "ab_label_b": "cheb_minimax_auto",
+      "ab_match_on_method": true,
+      "ab_out": "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/report.md",
+      "baseline_rows_out": "",
+      "dtype": "bf16",
+      "extra_args": "",
+      "integrity_checksums": true,
+      "manifest_out": "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/manifest.json",
+      "markdown": true,
+      "only": "_spd_p1_klt_n_",
+      "out": "benchmark_results\\runs\\2026_02_27\\181744_solver_benchmarks\\solver_benchmarks.md",
+      "run_name": "solver_benchmarks",
+      "timing_reps": 5,
+      "timing_warmup_reps": 2,
+      "trials": 5
+    },
+    "argv": [
+      "--only",
+      "_spd_p1_klt_n_",
+      "--ab-extra-args-a=--methods Chebyshev-Apply --cheb-mode fixed",
+      "--ab-extra-args-b=--methods Chebyshev-Apply --cheb-mode minimax-auto",
+      "--ab-label-a",
+      "cheb_fixed",
+      "--ab-label-b",
+      "cheb_minimax_auto",
+      "--ab-match-on-method",
+      "--ab-out",
+      "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/report.md",
+      "--manifest-out",
+      "benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_mode_step7/manifest.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "a": [
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-mode",
+        "fixed"
+      ],
+      "b": [
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-mode",
+        "minimax-auto"
+      ],
+      "base": []
+    },
+    "git": {
+      "branch": "main",
+      "dirty": true,
+      "head": "5c5ea19373d80794aafdb2b38bc6268c4b9a999d",
+      "tracked_source_sha256": "54820ce883fe1f4195b3f8f1ce6569ed7c7e2e51898299522bf9506e949bee37"
+    },
+    "mode": "ab_markdown",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "1",
+          "--sizes",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=1 k<n"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "26a57328942b413a31f771dd61081c640016f691dc5af91e8a63ecbd9339ece8",
+  "runs": [
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "1",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-mode",
+        "fixed"
+      ],
+      "kind": "spd",
+      "parsed_rows": 6,
+      "spec_name": "SPD p=1 k<n",
+      "stdout_sha256": "d1c623b812a1fbd62de8f29641c97bcbfeaf39b20e56bdf579c783e02493b183",
+      "variant": "A"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "1",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-mode",
+        "minimax-auto"
+      ],
+      "kind": "spd",
+      "parsed_rows": 6,
+      "spec_name": "SPD p=1 k<n",
+      "stdout_sha256": "a1e3e5f19e3301de7c916f218222a636f42c24d323772b7232aabdd534d02efb",
+      "variant": "B"
+    }
+  ],
+  "spec_count": 1
+}

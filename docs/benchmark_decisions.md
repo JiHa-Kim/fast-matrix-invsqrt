@@ -1,5 +1,21 @@
 # Benchmark Decisions
 
+## 2026-02-26: Staged minimax+Newton-tail schedule candidate (`p=2,4`)
+
+Decision:
+- Reject staged candidate (`greedy-minimax` early + forced inverse-Newton tail).
+- Keep `greedy-affine-opt` as default coupled schedule mode.
+
+Benchmark arguments:
+- `p=2`:
+  - `uv run python benchmarks/run_benchmarks.py --only "SPD p=2 k<n,SPD p=2 k=n=256,SPD p=2 k=n=512,SPD p=2 k=n=1024" --ab-extra-args-a="--online-coeff-mode greedy-affine-opt" --ab-extra-args-b="--online-coeff-mode staged-minimax-newton --online-coeff-staged-newton-tail 2" --ab-label-a greedy_affine_opt --ab-label-b staged_minimax_newton --ab-out benchmark_results/runs/2026_02_26/ab_onechange_staged_minimax_newton_p2/report.md --manifest-out benchmark_results/runs/2026_02_26/ab_onechange_staged_minimax_newton_p2/manifest.json`
+- `p=4`:
+  - `uv run python benchmarks/run_benchmarks.py --only "SPD p=4 k<n,SPD p=4 k=n=256,SPD p=4 k=n=512,SPD p=4 k=n=1024" --ab-extra-args-a="--online-coeff-mode greedy-affine-opt" --ab-extra-args-b="--online-coeff-mode staged-minimax-newton --online-coeff-staged-newton-tail 2" --ab-label-a greedy_affine_opt --ab-label-b staged_minimax_newton --ab-out benchmark_results/runs/2026_02_26/ab_onechange_staged_minimax_newton_p4/report.md --manifest-out benchmark_results/runs/2026_02_26/ab_onechange_staged_minimax_newton_p4/manifest.json`
+
+Key results (`PE-Quad-Coupled-Apply`):
+- `p=2`: improved (`-12.04%`) but with noticeable relerr drift on some cells.
+- `p=4`: regressed (`+7.66%`), with both `k<n` and `k=n` slower.
+
 ## 2026-02-26: Chebyshev CUDA graph on default path (`p=2,4`)
 
 Decision:

@@ -5,6 +5,7 @@ from fast_iroot.coeff_tuner import (
     affine_coeffs_from_b,
     affine_qmin,
     certify_positivity_quadratic,
+    coupled_apply_step_cost_units,
     coupled_apply_step_gemm_cost,
     fit_quadratic_local,
     interval_log_width,
@@ -154,6 +155,55 @@ def test_coupled_apply_step_gemm_cost_affine_saves_one_gemm():
         assert full - aff == 1
 
 
+def test_coupled_apply_step_cost_units_matches_gemm_cost_when_rhs_ratio_one():
+    # With rhs_to_n_ratio=1 and no rhs-direct terminal path, units match GEMM count.
+    for p in [1, 2, 3, 4, 7]:
+        full_units = coupled_apply_step_cost_units(
+            p,
+            affine_step=False,
+            include_y_update=True,
+            rhs_to_n_ratio=1.0,
+            terminal_rhs_direct=False,
+        )
+        aff_units = coupled_apply_step_cost_units(
+            p,
+            affine_step=True,
+            include_y_update=True,
+            rhs_to_n_ratio=1.0,
+            terminal_rhs_direct=False,
+        )
+        full_gemm = coupled_apply_step_gemm_cost(
+            p, affine_step=False, include_y_update=True
+        )
+        aff_gemm = coupled_apply_step_gemm_cost(
+            p, affine_step=True, include_y_update=True
+        )
+        assert math.isclose(full_units, float(full_gemm))
+        assert math.isclose(aff_units, float(aff_gemm))
+
+
+def test_coupled_apply_step_cost_units_terminal_rhs_direct_for_skinny_rhs():
+    # For terminal quadratic steps with k << n, rhs-direct should be much cheaper.
+    ratio = 1.0 / 64.0
+    dense_terminal = coupled_apply_step_cost_units(
+        4,
+        affine_step=False,
+        include_y_update=False,
+        rhs_to_n_ratio=ratio,
+        terminal_rhs_direct=False,
+    )
+    rhs_direct_terminal = coupled_apply_step_cost_units(
+        4,
+        affine_step=False,
+        include_y_update=False,
+        rhs_to_n_ratio=ratio,
+        terminal_rhs_direct=True,
+    )
+    assert math.isclose(dense_terminal, 1.0 + ratio)
+    assert math.isclose(rhs_direct_terminal, 2.0 * ratio)
+    assert rhs_direct_terminal < dense_terminal
+
+
 def test_plan_coupled_quadratic_newton_schedule_picks_newton_on_bad_base():
     base = [(1.0, 0.0, 0.0)] * 4  # identity map (no contraction)
     sched, meta = plan_coupled_quadratic_newton_schedule(
@@ -255,6 +305,21 @@ def test_plan_coupled_quadratic_affine_opt_schedule_reports_step_counts():
         meta["base_steps"] + meta["newton_steps"] + meta["affine_opt_steps"]
     )
     assert math.isclose(total_steps, 3.0)
+    assert math.isfinite(meta["pred_err_final"])
+
+
+def test_plan_coupled_quadratic_affine_opt_schedule_accepts_rhs_cost_model():
+    base = [(1.0, 0.0, 0.0)] * 3
+    sched, meta = plan_coupled_quadratic_affine_opt_schedule(
+        base,
+        p_val=2,
+        lo_init=0.2,
+        hi_init=1.0,
+        min_rel_improve=0.0,
+        rhs_to_n_ratio=(1.0 / 64.0),
+        terminal_rhs_direct=True,
+    )
+    assert len(sched) == 3
     assert math.isfinite(meta["pred_err_final"])
 
 

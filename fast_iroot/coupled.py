@@ -321,6 +321,7 @@ def inverse_proot_pe_quadratic_coupled(
     symmetrize_Y: bool = True,
     symmetrize_every: int = 1,
     terminal_last_step: bool = True,
+    terminal_tail_steps: int = 1,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
     online_stop_metric: str = "diag",
@@ -377,6 +378,11 @@ def inverse_proot_pe_quadratic_coupled(
         raise ValueError(
             f"post_correction_order must be 1 or 2, got {post_correction_order}"
         )
+    tail_steps = int(terminal_tail_steps)
+    if tail_steps < 0:
+        raise ValueError(
+            f"terminal_tail_steps must be >= 0, got {terminal_tail_steps}"
+        )
     if post_steps > 0:
         if not assume_spd:
             raise ValueError(
@@ -390,11 +396,16 @@ def inverse_proot_pe_quadratic_coupled(
         tail_abc = _tail_poly_coeffs_from_residual_binomial(p_val, post_order)
     else:
         tail_abc = (0.0, 0.0, 0.0)
+    # Preserve existing post-tail semantics: when post-correction is enabled,
+    # keep Y updates through the main loop.
+    if post_steps > 0:
+        tail_steps = 0
 
     # SPD-only p=2 fast path (symmetric sandwich update).
     if (
         p_val == 2
         and assume_spd
+        and ((not terminal_last_step) or tail_steps == 1)
         and online_stop_tol is None
         and online_metric == "diag"
         and stop_check_every == 1
@@ -421,6 +432,11 @@ def inverse_proot_pe_quadratic_coupled(
     coeffs = _quad_coeffs(abc_t)
 
     T = len(coeffs)
+    if not terminal_last_step:
+        tail_steps = 0
+    if tail_steps > T:
+        tail_steps = T
+    tail_start = T - tail_steps if tail_steps > 0 else T
     for t, (a, b, c) in enumerate(coeffs):
         affine_step = abs(float(c)) <= _AFFINE_C_EPS
         if affine_step and p_val == 1:
@@ -430,8 +446,9 @@ def inverse_proot_pe_quadratic_coupled(
             _matmul_into(ws.X, ws.B, ws.Xbuf)
         ws.X, ws.Xbuf = ws.Xbuf, ws.X
 
-        if terminal_last_step and (t == T - 1) and (post_steps == 0):
-            break
+        is_tail_frozen = bool(t >= tail_start)
+        if is_tail_frozen:
+            continue
 
         if affine_step and p_val == 1:
             _update_y_affine_p1(ws.Y, a=a, b=b, out=ws.Ybuf)
@@ -506,6 +523,7 @@ def inverse_solve_pe_quadratic_coupled(
     symmetrize_Y: bool = True,
     symmetrize_every: int = 1,
     terminal_last_step: bool = True,
+    terminal_tail_steps: int = 1,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
     online_stop_metric: str = "diag",
@@ -570,6 +588,11 @@ def inverse_solve_pe_quadratic_coupled(
         raise ValueError(
             f"post_correction_order must be 1 or 2, got {post_correction_order}"
         )
+    tail_steps = int(terminal_tail_steps)
+    if tail_steps < 0:
+        raise ValueError(
+            f"terminal_tail_steps must be >= 0, got {terminal_tail_steps}"
+        )
     if post_steps > 0:
         if not assume_spd:
             raise ValueError(
@@ -583,6 +606,10 @@ def inverse_solve_pe_quadratic_coupled(
         tail_abc = _tail_poly_coeffs_from_residual_binomial(p_val, post_order)
     else:
         tail_abc = (0.0, 0.0, 0.0)
+    # Preserve existing post-tail semantics: when post-correction is enabled,
+    # keep Y updates through the main loop.
+    if post_steps > 0:
+        tail_steps = 0
     if float(nonspd_adaptive_resid_tol) <= 0.0:
         raise ValueError(
             "nonspd_adaptive_resid_tol must be > 0, "
@@ -713,14 +740,23 @@ def inverse_solve_pe_quadratic_coupled(
         ws.Y, ws.Ybuf = ws.Ybuf, ws.Y
 
     T = len(coeffs)
+    if not terminal_last_step:
+        tail_steps = 0
+    if tail_steps > T:
+        tail_steps = T
+    tail_start = T - tail_steps if tail_steps > 0 else T
     for t, (a_base, b_base, c_base) in enumerate(coeffs):
         a = float(a_base)
         b = float(b_base)
         c = float(c_base)
+        is_tail_frozen = bool(t >= tail_start)
 
         if p_val == 1:
-            is_terminal = bool(terminal_last_step and (t == T - 1))
-            should_check = adaptive_active and (t % check_every == 0) and (not is_terminal)
+            should_check = (
+                adaptive_active
+                and (t % check_every == 0)
+                and (not is_tail_frozen)
+            )
 
             if should_check:
                 y_proxy_cur = _p1_y_proxy()
@@ -759,12 +795,9 @@ def inverse_solve_pe_quadratic_coupled(
                     else:
                         prev_proxy = y_proxy_newton
             else:
-                _apply_p1_step(a, b, c, terminal=is_terminal)
-                if adaptive_active and (t % check_every == 0) and (not is_terminal):
+                _apply_p1_step(a, b, c, terminal=is_tail_frozen)
+                if adaptive_active and (t % check_every == 0) and (not is_tail_frozen):
                     prev_proxy = _p1_y_proxy()
-
-            if is_terminal:
-                break
 
             if safe_early_active and t == 0:
                 # Cheap early divergence proxy for non-SPD p=1:
@@ -779,6 +812,7 @@ def inverse_solve_pe_quadratic_coupled(
                 online_stop_tol is not None
                 and (t + 1) >= online_min
                 and (t + 1) < T
+                and (not is_tail_frozen)
                 and ((t + 1) % stop_check_every == 0)
             ):
                 stop_err = _online_stop_error(
@@ -788,11 +822,10 @@ def inverse_solve_pe_quadratic_coupled(
                     break
             continue
 
-        is_terminal = bool(terminal_last_step and (t == T - 1))
         affine_step = abs(float(c)) <= _AFFINE_C_EPS
         use_rhs_direct_terminal = (
             (not affine_step)
-            and is_terminal
+            and is_tail_frozen
             and (ws.Z.shape[-1] < ws.Y.shape[-1])
         )
         if affine_step and (p_val == 1 or (p_val == 2 and assume_spd)):
@@ -814,11 +847,11 @@ def inverse_solve_pe_quadratic_coupled(
 
         # If terminal RHS-direct apply was used but we still need Y (e.g., post-tail),
         # materialize the current-step polynomial once for a correct final Y update.
-        if is_terminal and (post_steps > 0) and use_rhs_direct_terminal:
+        if (t == T - 1) and (post_steps > 0) and use_rhs_direct_terminal:
             _build_step_polynomial(ws.Y, a=a, b=b, c=c, out=ws.B)
 
-        if is_terminal and (post_steps == 0):
-            break
+        if is_tail_frozen:
+            continue
 
         if affine_step and p_val == 1:
             _update_y_affine_p1(ws.Y, a=a, b=b, out=ws.Ybuf)

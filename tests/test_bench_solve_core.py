@@ -3,6 +3,7 @@ import torch
 from benchmarks.solve.bench_solve_core import (
     _build_solve_runner,
     _can_use_cuda_graph_for_method,
+    _effective_cheb_fixed_degree,
     _naive_newton_preprocess,
     matrix_solve_methods,
 )
@@ -89,6 +90,21 @@ def test_naive_newton_preprocess_scales_fro_norm_and_output():
     assert abs(out_scale - 0.5) < 1e-6
 
 
+def test_effective_cheb_fixed_degree_caps_only_for_klt():
+    assert _effective_cheb_fixed_degree(
+        32, cheb_mode="fixed", n=1024, k=16, cheb_degree_klt=24
+    ) == 24
+    assert _effective_cheb_fixed_degree(
+        32, cheb_mode="fixed", n=1024, k=1024, cheb_degree_klt=24
+    ) == 32
+    assert _effective_cheb_fixed_degree(
+        32, cheb_mode="minimax-auto", n=1024, k=16, cheb_degree_klt=24
+    ) == 32
+    assert _effective_cheb_fixed_degree(
+        32, cheb_mode="fixed", n=1024, k=16, cheb_degree_klt=-1
+    ) == 32
+
+
 def test_inverse_newton_coupled_runner_uses_reference_settings():
     captured: dict[str, object] = {}
 
@@ -112,6 +128,7 @@ def test_inverse_newton_coupled_runner_uses_reference_settings():
         l_min=0.05,
         symmetrize_every=3,
         online_stop_tol=1e-3,
+        terminal_tail_steps=1,
         online_min_steps=4,
         online_stop_metric="fro",
         online_stop_check_every=5,
@@ -168,6 +185,7 @@ def test_inverse_newton_uncoupled_runner_uses_reference_settings():
         l_min=0.05,
         symmetrize_every=1,
         online_stop_tol=None,
+        terminal_tail_steps=1,
         online_min_steps=1,
         online_stop_metric="diag",
         online_stop_check_every=1,

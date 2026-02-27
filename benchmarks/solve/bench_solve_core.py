@@ -60,6 +60,23 @@ def matrix_solve_methods(p_val: int) -> List[str]:
     return methods
 
 
+def _effective_cheb_fixed_degree(
+    base_degree: int,
+    *,
+    cheb_mode: str,
+    n: int,
+    k: int,
+    cheb_degree_klt: int,
+) -> int:
+    """Return the fixed-mode Chebyshev degree after k<n cap policy."""
+    degree = int(base_degree)
+    mode = str(cheb_mode).strip().lower()
+    cap = int(cheb_degree_klt)
+    if mode == "fixed" and cap >= 0 and int(k) < int(n):
+        degree = min(degree, cap)
+    return degree
+
+
 def _naive_newton_preprocess(
     A_norm: torch.Tensor,
     *,
@@ -175,6 +192,7 @@ def _build_solve_runner(
     l_min: float,
     symmetrize_every: int,
     online_stop_tol: Optional[float],
+    terminal_tail_steps: int,
     online_min_steps: int,
     online_stop_metric: str,
     online_stop_check_every: int,
@@ -237,6 +255,7 @@ def _build_solve_runner(
                 symmetrize_Y=True,
                 symmetrize_every=symmetrize_every,
                 terminal_last_step=True,
+                terminal_tail_steps=terminal_tail_steps,
                 online_stop_tol=online_stop_tol,
                 online_min_steps=online_min_steps,
                 online_stop_metric=online_stop_metric,
@@ -263,6 +282,7 @@ def _build_solve_runner(
                 symmetrize_Y=False,
                 symmetrize_every=1,
                 terminal_last_step=False,
+                terminal_tail_steps=0,
                 online_stop_tol=None,
                 online_min_steps=1,
                 online_stop_metric="diag",
@@ -383,6 +403,7 @@ def eval_solve_method(
     method: str,
     pe_quad_coeffs: List[Tuple[float, float, float]],
     cheb_degree: int,
+    cheb_degree_klt: int,
     cheb_mode: str,
     cheb_candidate_degrees: Tuple[int, ...],
     cheb_error_grid_n: int,
@@ -393,12 +414,14 @@ def eval_solve_method(
     l_min: float,
     symmetrize_every: int,
     online_stop_tol: Optional[float],
+    terminal_tail_steps: int,
     online_min_steps: int,
     online_stop_metric: str,
     online_stop_check_every: int,
     post_correction_steps: int,
     post_correction_order: int,
     online_coeff_mode: str,
+    online_coeff_cost_model: str,
     online_coeff_min_rel_improve: float,
     online_coeff_min_ns_logwidth_rel_improve: float,
     online_coeff_target_interval_err: float,
@@ -447,7 +470,13 @@ def eval_solve_method(
             except Exception:
                 pass
 
-        cheb_degree_eff = int(cheb_degree)
+        cheb_degree_eff = _effective_cheb_fixed_degree(
+            int(cheb_degree),
+            cheb_mode=cheb_mode,
+            n=int(A_norm.shape[-1]),
+            k=int(B.shape[-1]),
+            cheb_degree_klt=int(cheb_degree_klt),
+        )
         cheb_coeffs_eff: Optional[Tuple[float, ...]] = None
         pe_step_coeffs_eff = list(pe_quad_coeffs)
         pe_newton_steps_eff = 0.0
@@ -484,6 +513,19 @@ def eval_solve_method(
                     lo_hint = max(lo_hint, float(prep.stats.gersh_lo))
                 except Exception:
                     pass
+            coeff_cost_mode = str(online_coeff_cost_model).strip().lower()
+            if coeff_cost_mode == "shape-aware":
+                rhs_ratio = float(B.shape[-1]) / float(A_norm.shape[-1])
+                use_terminal_rhs_direct = bool(B.shape[-1] < A_norm.shape[-1])
+            elif coeff_cost_mode == "gemm":
+                rhs_ratio = 1.0
+                use_terminal_rhs_direct = False
+            else:
+                raise ValueError(
+                    "Unknown online_coeff_cost_model: "
+                    f"'{online_coeff_cost_model}'. Supported modes are "
+                    "'gemm', 'shape-aware'."
+                )
             if online_coeff_mode == "greedy-newton":
                 pe_step_coeffs_eff, sched_meta = plan_coupled_quadratic_newton_schedule(
                     pe_step_coeffs_eff,
@@ -492,6 +534,8 @@ def eval_solve_method(
                     hi_init=1.0,
                     min_rel_improve=float(online_coeff_min_rel_improve),
                     terminal_last_step=True,
+                    rhs_to_n_ratio=rhs_ratio,
+                    terminal_rhs_direct=use_terminal_rhs_direct,
                 )
             elif online_coeff_mode == "greedy-minimax":
                 pe_step_coeffs_eff, sched_meta = plan_coupled_local_minimax_schedule(
@@ -504,6 +548,8 @@ def eval_solve_method(
                         online_coeff_min_ns_logwidth_rel_improve
                     ),
                     terminal_last_step=True,
+                    rhs_to_n_ratio=rhs_ratio,
+                    terminal_rhs_direct=use_terminal_rhs_direct,
                 )
             elif online_coeff_mode == "greedy-affine-opt":
                 pe_step_coeffs_eff, sched_meta = (
@@ -514,6 +560,8 @@ def eval_solve_method(
                         hi_init=1.0,
                         min_rel_improve=float(online_coeff_min_rel_improve),
                         terminal_last_step=True,
+                        rhs_to_n_ratio=rhs_ratio,
+                        terminal_rhs_direct=use_terminal_rhs_direct,
                     )
                 )
             else:
@@ -591,6 +639,7 @@ def eval_solve_method(
             l_min=l_min_eff,
             symmetrize_every=symmetrize_every,
             online_stop_tol=online_stop_tol,
+            terminal_tail_steps=terminal_tail_steps,
             online_min_steps=online_min_steps,
             online_stop_metric=online_stop_metric,
             online_stop_check_every=online_stop_check_every,

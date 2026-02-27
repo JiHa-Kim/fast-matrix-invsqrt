@@ -324,6 +324,59 @@ def coupled_apply_step_gemm_cost(
     return gemms
 
 
+def coupled_apply_step_cost_units(
+    p_val: int,
+    *,
+    affine_step: bool,
+    include_y_update: bool = True,
+    rhs_to_n_ratio: float = 1.0,
+    terminal_rhs_direct: bool = False,
+) -> float:
+    """Approximate per-step cost in normalized n^3 units.
+
+    This extends `coupled_apply_step_gemm_cost` with shape awareness:
+      - full n x n GEMM has unit cost 1
+      - rhs apply GEMM (n x n) @ (n x k) has cost (k/n)
+    and terminal RHS-direct apply modeling for quadratic steps (k<n), where
+    the kernel uses two rhs GEMMs and skips dense B materialization.
+    """
+    p_i = int(p_val)
+    if p_i <= 0:
+        raise ValueError(f"p_val must be >= 1, got {p_val}")
+
+    rhs_ratio = float(rhs_to_n_ratio)
+    if (not math.isfinite(rhs_ratio)) or rhs_ratio <= 0.0:
+        raise ValueError(
+            f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
+        )
+
+    is_terminal_rhs_direct = bool(terminal_rhs_direct) and (not include_y_update)
+    if is_terminal_rhs_direct and (not affine_step):
+        # Quadratic terminal RHS-direct path:
+        # out <- (aI + bY + cY^2)M via two rhs GEMMs; no dense B build.
+        build_units = 0.0
+        apply_units = 2.0 * rhs_ratio
+    else:
+        # Standard path: optional dense B build plus one rhs apply.
+        build_units = 0.0 if bool(affine_step) else 1.0
+        apply_units = rhs_ratio
+
+    y_units = 0.0
+    if include_y_update:
+        if p_i == 1:
+            y_units = 1.0
+        elif p_i == 2:
+            y_units = 2.0
+        elif p_i == 3:
+            y_units = 3.0
+        elif p_i % 2 == 0:
+            y_units = float(_bpow_gemm_cost(p_i // 2) + 2)
+        else:
+            y_units = float(_bpow_gemm_cost((p_i - 1) // 2) + 3)
+
+    return float(build_units + apply_units + y_units)
+
+
 def interval_error_to_identity(lo: float, hi: float) -> float:
     """Scalar interval error proxy used for schedule planning."""
     lo_f = float(lo)
@@ -652,6 +705,8 @@ def plan_coupled_local_minimax_schedule(
     min_rel_improve: float = 0.0,
     min_ns_logwidth_rel_improve: float = 0.0,
     terminal_last_step: bool = True,
+    rhs_to_n_ratio: float = 1.0,
+    terminal_rhs_direct: bool = False,
     q_floor: float = 1e-6,
 ) -> Tuple[List[Tuple[float, float, float]], Dict[str, float]]:
     """Greedy cost-aware planner with a local-basis minimax candidate.
@@ -677,6 +732,11 @@ def plan_coupled_local_minimax_schedule(
     p_i = int(p_val)
     if p_i <= 0:
         raise ValueError(f"p_val must be >= 1, got {p_val}")
+    rhs_ratio = float(rhs_to_n_ratio)
+    if (not math.isfinite(rhs_ratio)) or rhs_ratio <= 0.0:
+        raise ValueError(
+            f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
+        )
 
     lo = max(float(lo_init), 1e-12)
     hi = max(float(hi_init), lo * 1.0001)
@@ -692,7 +752,9 @@ def plan_coupled_local_minimax_schedule(
     minimax_eval_sum = 0.0
 
     for t, base_abc in enumerate(coeffs):
-        include_y_update = not (bool(terminal_last_step) and (t == len(coeffs) - 1))
+        is_terminal_step = bool(terminal_last_step) and (t == len(coeffs) - 1)
+        include_y_update = not is_terminal_step
+        use_rhs_direct = bool(terminal_rhs_direct) and is_terminal_step
         err_cur = max(interval_error_to_identity(lo, hi), eps)
 
         def _evaluate(abc: Tuple[float, float, float]) -> Tuple[float, float, float, float]:
@@ -706,10 +768,14 @@ def plan_coupled_local_minimax_schedule(
             lo2, hi2 = interval_update_quadratic_exact(abc, lo, hi, p_val=p_i)
             err2 = max(interval_error_to_identity(lo2, hi2), eps)
             affine = abs(float(c)) <= 1e-15
-            gemm = coupled_apply_step_gemm_cost(
-                p_i, affine_step=affine, include_y_update=include_y_update
+            cost_units = coupled_apply_step_cost_units(
+                p_i,
+                affine_step=affine,
+                include_y_update=include_y_update,
+                rhs_to_n_ratio=rhs_ratio,
+                terminal_rhs_direct=use_rhs_direct,
             )
-            score = (err2 / err_cur) ** (1.0 / float(max(gemm, 1)))
+            score = (err2 / err_cur) ** (1.0 / max(float(cost_units), eps))
             w2 = interval_log_width(lo2, hi2)
             return float(score), float(lo2), float(hi2), float(w2)
 
@@ -775,6 +841,8 @@ def plan_coupled_quadratic_newton_schedule(
     hi_init: float = 1.0,
     min_rel_improve: float = 0.0,
     terminal_last_step: bool = True,
+    rhs_to_n_ratio: float = 1.0,
+    terminal_rhs_direct: bool = False,
     odd_p_q_floor: float = 1e-6,
 ) -> Tuple[List[Tuple[float, float, float]], Dict[str, float]]:
     """Greedy cost-aware schedule planner for coupled PE apply.
@@ -796,6 +864,11 @@ def plan_coupled_quadratic_newton_schedule(
     p_i = int(p_val)
     if p_i <= 0:
         raise ValueError(f"p_val must be >= 1, got {p_val}")
+    rhs_ratio = float(rhs_to_n_ratio)
+    if (not math.isfinite(rhs_ratio)) or rhs_ratio <= 0.0:
+        raise ValueError(
+            f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
+        )
 
     lo = max(float(lo_init), 1e-12)
     hi = max(float(hi_init), lo * 1.0001)
@@ -812,7 +885,9 @@ def plan_coupled_quadratic_newton_schedule(
     improve_thr = float(min_rel_improve)
 
     for t, base_abc in enumerate(coeffs):
-        include_y_update = not (bool(terminal_last_step) and (t == len(coeffs) - 1))
+        is_terminal_step = bool(terminal_last_step) and (t == len(coeffs) - 1)
+        include_y_update = not is_terminal_step
+        use_rhs_direct = bool(terminal_rhs_direct) and is_terminal_step
         err_cur = max(interval_error_to_identity(lo, hi), eps)
 
         def _evaluate(abc: Tuple[float, float, float]) -> Tuple[float, float, float]:
@@ -826,11 +901,15 @@ def plan_coupled_quadratic_newton_schedule(
             lo2, hi2 = interval_update_quadratic_exact(abc, lo, hi, p_val=p_i)
             err2 = max(interval_error_to_identity(lo2, hi2), eps)
             affine = abs(float(c)) <= 1e-15
-            gemm = coupled_apply_step_gemm_cost(
-                p_i, affine_step=affine, include_y_update=include_y_update
+            cost_units = coupled_apply_step_cost_units(
+                p_i,
+                affine_step=affine,
+                include_y_update=include_y_update,
+                rhs_to_n_ratio=rhs_ratio,
+                terminal_rhs_direct=use_rhs_direct,
             )
-            # Smaller is better: predicted contraction normalized by GEMM count.
-            score = (err2 / err_cur) ** (1.0 / float(max(gemm, 1)))
+            # Smaller is better: predicted contraction normalized by compute units.
+            score = (err2 / err_cur) ** (1.0 / max(float(cost_units), eps))
             return float(score), float(lo2), float(hi2)
 
         score_base, lo_base, hi_base = _evaluate(base_abc)
@@ -874,6 +953,8 @@ def plan_coupled_quadratic_affine_opt_schedule(
     hi_init: float = 1.0,
     min_rel_improve: float = 0.0,
     terminal_last_step: bool = True,
+    rhs_to_n_ratio: float = 1.0,
+    terminal_rhs_direct: bool = False,
     q_floor: float = 1e-6,
 ) -> Tuple[List[Tuple[float, float, float]], Dict[str, float]]:
     """Greedy cost-aware planner with interval-optimal affine candidate.
@@ -892,6 +973,11 @@ def plan_coupled_quadratic_affine_opt_schedule(
     p_i = int(p_val)
     if p_i <= 0:
         raise ValueError(f"p_val must be >= 1, got {p_val}")
+    rhs_ratio = float(rhs_to_n_ratio)
+    if (not math.isfinite(rhs_ratio)) or rhs_ratio <= 0.0:
+        raise ValueError(
+            f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
+        )
 
     lo = max(float(lo_init), 1e-12)
     hi = max(float(hi_init), lo * 1.0001)
@@ -906,17 +992,23 @@ def plan_coupled_quadratic_affine_opt_schedule(
     improve_thr = float(min_rel_improve)
 
     for t, base_abc in enumerate(coeffs):
-        include_y_update = not (bool(terminal_last_step) and (t == len(coeffs) - 1))
+        is_terminal_step = bool(terminal_last_step) and (t == len(coeffs) - 1)
+        include_y_update = not is_terminal_step
+        use_rhs_direct = bool(terminal_rhs_direct) and is_terminal_step
         err_cur = max(interval_error_to_identity(lo, hi), eps)
 
         def _score_from_interval(
             lo2: float, hi2: float, *, affine_step: bool
         ) -> float:
             err2 = max(interval_error_to_identity(lo2, hi2), eps)
-            gemm = coupled_apply_step_gemm_cost(
-                p_i, affine_step=affine_step, include_y_update=include_y_update
+            cost_units = coupled_apply_step_cost_units(
+                p_i,
+                affine_step=affine_step,
+                include_y_update=include_y_update,
+                rhs_to_n_ratio=rhs_ratio,
+                terminal_rhs_direct=use_rhs_direct,
             )
-            return float((err2 / err_cur) ** (1.0 / float(max(gemm, 1))))
+            return float((err2 / err_cur) ** (1.0 / max(float(cost_units), eps)))
 
         def _evaluate_quad(
             abc: Tuple[float, float, float]

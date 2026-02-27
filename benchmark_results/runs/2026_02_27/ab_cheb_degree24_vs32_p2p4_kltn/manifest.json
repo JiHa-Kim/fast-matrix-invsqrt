@@ -1,0 +1,333 @@
+{
+  "ab_labels": {
+    "a": "cheb32",
+    "b": "cheb24"
+  },
+  "ab_match_on_method": true,
+  "args": {
+    "ab_baseline_rows_in": "",
+    "ab_extra_args_a": "--methods Chebyshev-Apply --cheb-degree 32",
+    "ab_extra_args_b": "--methods Chebyshev-Apply --cheb-degree 24",
+    "ab_label_a": "cheb32",
+    "ab_label_b": "cheb24",
+    "ab_match_on_method": true,
+    "ab_out": "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/report.md",
+    "baseline_rows_out": "",
+    "dtype": "bf16",
+    "extra_args": "",
+    "integrity_checksums": true,
+    "manifest_out": "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/manifest.json",
+    "markdown": false,
+    "only": "SPD p=2 k<n,SPD p=4 k<n",
+    "out": "benchmark_results\\runs\\20260226_211905_solver_benchmarks\\solver_benchmarks.md",
+    "timing_reps": 5,
+    "timing_warmup_reps": 2,
+    "trials": 5
+  },
+  "argv": [
+    "--only",
+    "SPD p=2 k<n,SPD p=4 k<n",
+    "--ab-extra-args-a",
+    "--methods Chebyshev-Apply --cheb-degree 32",
+    "--ab-extra-args-b",
+    "--methods Chebyshev-Apply --cheb-degree 24",
+    "--ab-label-a",
+    "cheb32",
+    "--ab-label-b",
+    "cheb24",
+    "--ab-out",
+    "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/report.md",
+    "--manifest-out",
+    "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/manifest.json"
+  ],
+  "extra_args": {
+    "a": [
+      "--methods",
+      "Chebyshev-Apply",
+      "--cheb-degree",
+      "32"
+    ],
+    "b": [
+      "--methods",
+      "Chebyshev-Apply",
+      "--cheb-degree",
+      "24"
+    ],
+    "base": []
+  },
+  "generated_at": "2026-02-26T21:19:45",
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "bb1189f388fedccfb0adb2f1b8880a98660d08f2",
+    "tracked_source_sha256": "418af94621865c6fed0b4a0ff756d6692b47214f29e8d615c6bd6465e29022d3"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "ab_markdown",
+  "only_filter": [
+    "SPD p=2 k<n",
+    "SPD p=4 k<n"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/report.md",
+      "sha256": "d178e963692c4f560fd13a786f55b63e6aa7837767e9d599574964b1089890c7"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/report.md.sha256",
+      "sha256": "4b4b9296381073f8fac7e2d343c05d4f48bbbcc02e6f1405f8a0f9400df69ad4"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>",
+  "repro_context": {
+    "args": {
+      "ab_baseline_rows_in": "",
+      "ab_extra_args_a": "--methods Chebyshev-Apply --cheb-degree 32",
+      "ab_extra_args_b": "--methods Chebyshev-Apply --cheb-degree 24",
+      "ab_label_a": "cheb32",
+      "ab_label_b": "cheb24",
+      "ab_match_on_method": true,
+      "ab_out": "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/report.md",
+      "baseline_rows_out": "",
+      "dtype": "bf16",
+      "extra_args": "",
+      "integrity_checksums": true,
+      "manifest_out": "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/manifest.json",
+      "markdown": false,
+      "only": "SPD p=2 k<n,SPD p=4 k<n",
+      "out": "benchmark_results\\runs\\20260226_211905_solver_benchmarks\\solver_benchmarks.md",
+      "timing_reps": 5,
+      "timing_warmup_reps": 2,
+      "trials": 5
+    },
+    "argv": [
+      "--only",
+      "SPD p=2 k<n,SPD p=4 k<n",
+      "--ab-extra-args-a",
+      "--methods Chebyshev-Apply --cheb-degree 32",
+      "--ab-extra-args-b",
+      "--methods Chebyshev-Apply --cheb-degree 24",
+      "--ab-label-a",
+      "cheb32",
+      "--ab-label-b",
+      "cheb24",
+      "--ab-out",
+      "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/report.md",
+      "--manifest-out",
+      "benchmark_results/runs/2026_02_27/ab_cheb_degree24_vs32_p2p4_kltn/manifest.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "a": [
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-degree",
+        "32"
+      ],
+      "b": [
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-degree",
+        "24"
+      ],
+      "base": []
+    },
+    "git": {
+      "branch": "main",
+      "dirty": true,
+      "head": "bb1189f388fedccfb0adb2f1b8880a98660d08f2",
+      "tracked_source_sha256": "418af94621865c6fed0b4a0ff756d6692b47214f29e8d615c6bd6465e29022d3"
+    },
+    "mode": "ab_markdown",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "2",
+          "--sizes",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=2 k<n"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "4",
+          "--sizes",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=4 k<n"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "2fb7ad8fe0f537f93f327e19b1400a0396e67cf904507a85dad07db55d1efb38",
+  "runs": [
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-degree",
+        "32"
+      ],
+      "kind": "spd",
+      "parsed_rows": 6,
+      "spec_name": "SPD p=2 k<n",
+      "stdout_sha256": "8d55a1a5ad3931e7da0c67d986ebe8c0db1447a51b1788a058e8595102398a42",
+      "variant": "A"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "4",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-degree",
+        "32"
+      ],
+      "kind": "spd",
+      "parsed_rows": 6,
+      "spec_name": "SPD p=4 k<n",
+      "stdout_sha256": "d3c88ae5b023bff30ec29eae1388d34f9718ab71b7d40fc5ba5a7c08b2bd2e9d",
+      "variant": "A"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-degree",
+        "24"
+      ],
+      "kind": "spd",
+      "parsed_rows": 6,
+      "spec_name": "SPD p=2 k<n",
+      "stdout_sha256": "54c7518adc9a558b9b7fe9d1e3aba63f1067d602b2adc0e047fcceb5ab8bf953",
+      "variant": "B"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "4",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--methods",
+        "Chebyshev-Apply",
+        "--cheb-degree",
+        "24"
+      ],
+      "kind": "spd",
+      "parsed_rows": 6,
+      "spec_name": "SPD p=4 k<n",
+      "stdout_sha256": "1387a10f20cab51da5f42b3ce2a839abb2a16ea2aae6de40a5d119fa9eaf4da1",
+      "variant": "B"
+    }
+  ],
+  "spec_count": 2
+}

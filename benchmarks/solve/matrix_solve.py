@@ -126,6 +126,15 @@ def main():
         "--cheb-degree", type=int, default=32, help="Degree for Chebyshev polynomial"
     )
     p.add_argument(
+        "--cheb-degree-klt",
+        type=int,
+        default=24,
+        help=(
+            "When --cheb-mode=fixed and k<n, cap effective Chebyshev degree to this "
+            "value; set -1 to disable."
+        ),
+    )
+    p.add_argument(
         "--cheb-mode",
         type=str,
         default="fixed",
@@ -197,6 +206,17 @@ def main():
         ),
     )
     p.add_argument(
+        "--online-coeff-cost-model",
+        type=str,
+        default="shape-aware",
+        choices=["gemm", "shape-aware"],
+        help=(
+            "Cost model used by coupled PE online coefficient planning: "
+            "'gemm' matches legacy equal-GEMM weighting, "
+            "'shape-aware' uses k/n-weighted rhs costs and terminal rhs-direct modeling."
+        ),
+    )
+    p.add_argument(
         "--online-coeff-min-rel-improve",
         type=float,
         default=0.0,
@@ -259,6 +279,15 @@ def main():
         ),
     )
     p.add_argument(
+        "--terminal-tail-steps",
+        type=int,
+        default=1,
+        help=(
+            "Number of final PE steps to run in terminal RHS-only mode "
+            "(skip Y update). Default 1 preserves existing behavior."
+        ),
+    )
+    p.add_argument(
         "--online-min-steps",
         type=int,
         default=2,
@@ -293,6 +322,10 @@ def main():
         )
     if int(args.cheb_degree) < 0:
         raise ValueError(f"--cheb-degree must be >= 0, got {args.cheb_degree}")
+    if int(args.cheb_degree_klt) < -1:
+        raise ValueError(
+            f"--cheb-degree-klt must be >= -1, got {args.cheb_degree_klt}"
+        )
     if int(args.cheb_error_grid) < 257:
         raise ValueError(
             f"--cheb-error-grid must be >= 257, got {args.cheb_error_grid}"
@@ -303,6 +336,10 @@ def main():
         )
     if float(args.online_stop_tol) < 0.0:
         raise ValueError(f"--online-stop-tol must be >= 0, got {args.online_stop_tol}")
+    if int(args.terminal_tail_steps) < 0:
+        raise ValueError(
+            f"--terminal-tail-steps must be >= 0, got {args.terminal_tail_steps}"
+        )
     if int(args.online_min_steps) < 1:
         raise ValueError(
             f"--online-min-steps must be >= 1, got {args.online_min_steps}"
@@ -364,6 +401,7 @@ def main():
     sizes = parse_shapes(args.sizes)
     p_val = args.p
     online_coeff_mode = str(args.online_coeff_mode)
+    online_coeff_cost_model = str(args.online_coeff_cost_model)
     cases = _parse_case_csv(args.cases)
     methods = _parse_methods_csv(str(args.methods), matrix_solve_methods(p_val))
 
@@ -393,11 +431,14 @@ def main():
                 print(
                     f"precond={args.precond} | l_target={args.l_target} | p={p_val} | "
                     f"ruiz_iters={args.precond_ruiz_iters} | "
-                    f"cheb_deg={args.cheb_degree} | cheb_mode={args.cheb_mode} | "
+                    f"cheb_deg={args.cheb_degree} | cheb_deg_klt={args.cheb_degree_klt} | "
+                    f"cheb_mode={args.cheb_mode} | "
                     f"symEvery={args.symmetrize_every} | "
                     f"online_coeff_mode={online_coeff_mode} | "
+                    f"online_coeff_cost_model={online_coeff_cost_model} | "
                     f"online_coeff_target_err={args.online_coeff_target_interval_err} | "
                     f"online_stop_tol={args.online_stop_tol} | "
+                    f"terminal_tail_steps={args.terminal_tail_steps} | "
                     f"online_stop_metric={args.online_stop_metric} | "
                     f"post_correction_steps={args.post_correction_steps} | "
                     f"cuda_graph={bool(args.cuda_graph)} | "
@@ -435,6 +476,7 @@ def main():
                                 method=name,
                                 pe_quad_coeffs=pe_quad_coeffs,
                                 cheb_degree=args.cheb_degree,
+                                cheb_degree_klt=args.cheb_degree_klt,
                                 cheb_mode=args.cheb_mode,
                                 cheb_candidate_degrees=cheb_candidate_degrees,
                                 cheb_error_grid_n=args.cheb_error_grid,
@@ -445,12 +487,14 @@ def main():
                                 l_min=args.l_target,
                                 symmetrize_every=args.symmetrize_every,
                                 online_stop_tol=online_stop_tol,
+                                terminal_tail_steps=args.terminal_tail_steps,
                                 online_min_steps=args.online_min_steps,
                                 online_stop_metric=args.online_stop_metric,
                                 online_stop_check_every=args.online_stop_check_every,
                                 post_correction_steps=args.post_correction_steps,
                                 post_correction_order=args.post_correction_order,
                                 online_coeff_mode=online_coeff_mode,
+                                online_coeff_cost_model=online_coeff_cost_model,
                                 online_coeff_min_rel_improve=args.online_coeff_min_rel_improve,
                                 online_coeff_min_ns_logwidth_rel_improve=(
                                     args.online_coeff_min_ns_logwidth_rel_improve

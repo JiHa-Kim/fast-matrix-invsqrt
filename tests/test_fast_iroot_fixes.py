@@ -298,6 +298,22 @@ def test_inverse_solve_online_stop_validation():
         )
 
 
+def test_inverse_solve_terminal_tail_steps_validation():
+    A = torch.randn(6, 6)
+    A = (A @ A.mT) / 6 + torch.eye(6) * 0.1
+    M = torch.randn(6, 3)
+    abc_t = [(1.5, -0.5, 0.0)]
+
+    with pytest.raises(ValueError, match="terminal_tail_steps"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=2,
+            terminal_tail_steps=-1,
+        )
+
+
 def test_post_correction_validation():
     n = 6
     A = torch.randn(n, n)
@@ -421,6 +437,60 @@ def test_inverse_solve_quadratic_terminal_step_matches_manual_apply():
     Z_ref = B @ M
 
     assert torch.allclose(Z, Z_ref, atol=1e-6, rtol=1e-6)
+
+
+def test_inverse_solve_terminal_tail_steps_two_freezes_last_two_steps():
+    n = 7
+    torch.manual_seed(323)
+    A = torch.randn(n, n)
+    A = (A @ A.mT) / n + torch.eye(n) * 0.1
+    M = torch.randn(n, 3)
+    abc_t = [(1.4, -0.4, 0.0), (1.3, -0.3, 0.0)]
+
+    Z, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=abc_t,
+        p_val=2,
+        terminal_last_step=True,
+        terminal_tail_steps=2,
+    )
+
+    def _affine_step(a: float, b: float) -> torch.Tensor:
+        B = b * A.clone()
+        B.diagonal().add_(a)
+        return B
+
+    B0 = _affine_step(*abc_t[0][:2])
+    B1 = _affine_step(*abc_t[1][:2])
+    Z_ref = B1 @ (B0 @ M)
+    assert torch.allclose(Z, Z_ref, atol=1e-6, rtol=1e-6)
+
+
+def test_inverse_solve_terminal_tail_steps_zero_matches_no_terminal_shortcut():
+    n = 8
+    torch.manual_seed(324)
+    A = torch.randn(n, n)
+    A = (A @ A.mT) / n + torch.eye(n) * 0.1
+    M = torch.randn(n, 4)
+    abc_t = [(1.5, -0.5, 0.0), (1.3, -0.3, 0.0)]
+
+    Z_zero, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=abc_t,
+        p_val=2,
+        terminal_last_step=True,
+        terminal_tail_steps=0,
+    )
+    Z_full, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=abc_t,
+        p_val=2,
+        terminal_last_step=False,
+    )
+    assert torch.allclose(Z_zero, Z_full, atol=1e-5, rtol=1e-5)
 
 
 def test_apply_inverse_root_auto_direct_matches_apply_inverse_root():

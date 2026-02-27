@@ -152,3 +152,30 @@ Benchmark arguments (p=4 run):
 Key results:
 - `p=2`: `PE-Quad-Coupled-Apply` improved from `117.617 ms` to `82.896 ms` across 12 cells (`~1.42x` faster, `~29.5%` lower total ms), with relerr ratio `B/A ~= 1.029`.
 - `p=4`: `PE-Quad-Coupled-Apply` improved from `135.321 ms` to `106.090 ms` across 12 cells (`~1.28x` faster, `~21.6%` lower total ms), with relerr ratio `B/A ~= 0.959`.
+
+## 2026-02-27: non-SPD `p=1` smooth damping prototype (branch-light stability)
+
+Decision:
+- Reject as default (and revert prototype code).
+- Keep current non-SPD safety policy (`adaptive` / safe fallback guards) for now.
+
+Why tested:
+- We explored a branch-light alternative to adaptive branch switching:
+  per-step smooth damping of PE coefficients based on cheap `Y` proxy metrics.
+
+Benchmark commands (focused):
+- Baseline:
+  - `uv run python -m benchmarks.solve.matrix_solve_nonspd --sizes 1024 --k 64 --cases gaussian_shifted,nonnormal_upper,similarity_posspec --methods PE-Quad-Coupled-Apply --trials 3 --timing-reps 3 --timing-warmup-reps 1 --dtype bf16`
+- Smooth damping (aggressive):
+  - `uv run python -m benchmarks.solve.matrix_solve_nonspd --sizes 1024 --k 64 --cases gaussian_shifted,nonnormal_upper,similarity_posspec --methods PE-Quad-Coupled-Apply --trials 3 --timing-reps 3 --timing-warmup-reps 1 --dtype bf16 --nonspd-smooth-damping --nonspd-smooth-damping-gain 1.0 --nonspd-smooth-damping-min 0.3 --nonspd-smooth-damping-metric diag`
+- Smooth damping (mild):
+  - `uv run python -m benchmarks.solve.matrix_solve_nonspd --sizes 1024 --k 64 --cases gaussian_shifted,nonnormal_upper,similarity_posspec --methods PE-Quad-Coupled-Apply --trials 3 --timing-reps 3 --timing-warmup-reps 1 --dtype bf16 --nonspd-smooth-damping --nonspd-smooth-damping-gain 0.1 --nonspd-smooth-damping-min 0.8 --nonspd-smooth-damping-metric diag`
+- Hard case check:
+  - `uv run python -m benchmarks.solve.matrix_solve_nonspd --sizes 1024 --k 64 --cases similarity_posspec_hard --methods PE-Quad-Coupled-Apply --trials 3 --timing-reps 3 --timing-warmup-reps 1 --dtype bf16`
+  - `uv run python -m benchmarks.solve.matrix_solve_nonspd --sizes 1024 --k 64 --cases similarity_posspec_hard --methods PE-Quad-Coupled-Apply --trials 3 --timing-reps 3 --timing-warmup-reps 1 --dtype bf16 --nonspd-smooth-damping --nonspd-smooth-damping-gain 0.1 --nonspd-smooth-damping-min 0.8 --nonspd-smooth-damping-metric diag`
+
+Key results:
+- Aggressive damping (`gain=1.0`, `min=0.3`) regressed both speed and relerr on normal non-SPD cases.
+- Mild damping (`gain=0.1`, `min=0.8`) was mostly neutral/slightly mixed on normal cases.
+- Hard case `similarity_posspec_hard` remained at `relerr = 1.000e+00` with and without damping (no fundamental stability win).
+- Conclusion: this mechanism is not strong enough to replace current safety branching and not worth keeping as a default path.

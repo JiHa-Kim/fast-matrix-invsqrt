@@ -222,6 +222,8 @@ def _build_runner(
                 online_stop_tol=None,
                 online_min_steps=1,
                 assume_spd=False,
+                nonspd_safe_fallback_tol=nonspd_safe_fallback_tol,
+                nonspd_safe_early_y_tol=nonspd_safe_early_y_tol,
             )
             return Zn
 

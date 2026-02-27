@@ -5,9 +5,9 @@ benchmarks/run_benchmarks.py
 Runs the maintained solver benchmark matrix.
 
 Modes:
-- default: writes per-run .txt logs under
+- default: writes one organized markdown report file (--out)
+- --no-markdown: writes per-run .txt logs under
   benchmark_results/runs/<timestamp>_solver_benchmarks/*_solve_logs/
-- --markdown: writes one organized markdown report file (--out)
 """
 
 from __future__ import annotations
@@ -663,7 +663,15 @@ def main() -> None:
             "without editing this script."
         ),
     )
-    parser.add_argument("--markdown", action="store_true", help="Write one markdown report instead of per-run txt files")
+    parser.add_argument(
+        "--markdown",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Write one markdown report (default). "
+            "Use --no-markdown to write per-run txt logs instead."
+        ),
+    )
     parser.add_argument(
         "--out",
         type=str,

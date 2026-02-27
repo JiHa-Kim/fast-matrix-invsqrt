@@ -1,5 +1,21 @@
 # Benchmark Decisions
 
+## 2026-02-26: Chebyshev mode `fixed` vs `minimax-auto` for `p=2,4`
+
+Decision:
+- Keep `--cheb-mode fixed` as the maintained default for `p=2,4` benchmark runs.
+- Reject `minimax-auto` as a default policy under the tested matrix (`k<n` and `k=n`).
+
+Benchmark arguments:
+- `p=2`:
+  - `uv run python benchmarks/run_benchmarks.py --only "SPD p=2 k<n,SPD p=2 k=n=256,SPD p=2 k=n=512,SPD p=2 k=n=1024,SPD p=2 k=n=2048" --ab-extra-args-a="--cheb-mode fixed" --ab-extra-args-b="--cheb-mode minimax-auto" --ab-label-a cheb_fixed --ab-label-b cheb_minimax_auto --ab-out benchmark_results/runs/2026_02_26/ab_onechange_cheb_mode_p2/report.md --manifest-out benchmark_results/runs/2026_02_26/ab_onechange_cheb_mode_p2/manifest.json`
+- `p=4`:
+  - `uv run python benchmarks/run_benchmarks.py --only "SPD p=4 k<n,SPD p=4 k=n=256,SPD p=4 k=n=512,SPD p=4 k=n=1024,SPD p=4 k=n=2048" --ab-extra-args-a="--cheb-mode fixed" --ab-extra-args-b="--cheb-mode minimax-auto" --ab-label-a cheb_fixed --ab-label-b cheb_minimax_auto --ab-out benchmark_results/runs/2026_02_26/ab_onechange_cheb_mode_p4/report.md --manifest-out benchmark_results/runs/2026_02_26/ab_onechange_cheb_mode_p4/manifest.json`
+
+Key results (`Chebyshev-Apply`):
+- `p=2`: near-neutral aggregate (`-0.08%`), but `k<n` regressed (`+1.57%`); relerr unchanged.
+- `p=4`: aggregate regression (`+2.05%`), with regressions for both `k<n` (`+5.66%`) and `k=n` (`+0.57%`); relerr unchanged.
+
 ## 2026-02-26: Chebyshev CUDA graph replay for `p=2,4`
 
 Decision:

@@ -179,3 +179,23 @@ Key results:
 - Mild damping (`gain=0.1`, `min=0.8`) was mostly neutral/slightly mixed on normal cases.
 - Hard case `similarity_posspec_hard` remained at `relerr = 1.000e+00` with and without damping (no fundamental stability win).
 - Conclusion: this mechanism is not strong enough to replace current safety branching and not worth keeping as a default path.
+
+## 2026-02-27: fused-addmm implementation optimizations (Clenshaw and RHS-terminal)
+
+Decision:
+- Reject `fused-addmm` optimizations for default path.
+- Keep existing `_matmul_into` + elementwise `add_`/`mul_` sequence.
+
+Why tested:
+- Attempted to reduce kernel launch overhead by fusing matmuls with linear combinations using `torch.addmm` in `apply_inverse_chebyshev_with_coeffs` and `_apply_quadratic_left_rhs_terminal`.
+
+Benchmark arguments:
+- Baseline: `155131_fused_addmm_baseline`
+- A/B Test: `155300_fused_addmm_ab_test`
+- command: `uv run python -m benchmarks.run_benchmarks --markdown --ab-baseline-rows-in baseline_rows.json --trials 5 --timing-reps 5 --only "p=2,p=4"`
+
+Key results:
+- `p=2` aggregate speed: `-8.32%` total ms (win).
+- `p=4` aggregate speed: `+1.35%` total ms (regression/neutral).
+- Accuracy regression: Consistent `relerr_ratio (B/A)` of `1.18x` to `1.33x` across most `p=2,4` cells in `bf16`.
+- Conclusion: While `addmm` reduces kernel launches, it appears to introduce accumulation noise in `bf16` that regresses relative error by ~20-30%. Since there is no "essentially strict win" on both speed and accuracy (especially for `p=4`), the change is rejected.

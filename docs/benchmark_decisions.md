@@ -40,6 +40,29 @@ Key results:
 - Accuracy was also mixed (some cells improved, some worsened).
 - Conclusion: unsuitable as a maintained default; archived for record only.
 
+## 2026-02-27: non-SPD `p=1` freeze-then-refine (`PE -> NSRC`) policy
+
+Decision:
+- Reject and archive as default behavior.
+- Revert benchmark-gated policy wiring from active code.
+
+Why tested:
+- We evaluated a two-phase non-SPD `p=1` policy:
+  build a frozen preconditioner with a few PE steps, then run additive NSRC refinement
+  (with the same final residual fallback tolerance used by baseline).
+
+Benchmark arguments:
+- Focused A/B on maintained non-SPD `p=1 k<n` slice:
+  - `uv run python benchmarks/run_benchmarks.py --only "non-SPD p=1 k<n" --ab-extra-args-a="--no-p1-freeze-refine" --ab-extra-args-b="--p1-freeze-refine --p1-freeze-pe-steps 2 --p1-freeze-ref-steps 3" --ab-label-a baseline --ab-label-b freeze_refine --ab-out benchmark_results/runs/2026_02_27/ab_nonspd_p1_freeze_refine_step3/report.md --manifest-out benchmark_results/runs/2026_02_27/ab_nonspd_p1_freeze_refine_step3/manifest.json`
+
+Key results:
+- Not a strict win: speed and accuracy were both mixed by case.
+- Several cells regressed in total ms (notably `nonnormal_upper` and `*_hard` cases),
+  while some cells were neutral/slightly faster.
+- Accuracy improved on `gaussian_shifted` and `nonnormal_upper` cells but worsened on
+  `similarity_posspec`; hard-case accuracy stayed unchanged due fallback.
+- Conclusion: this configuration is not robustly better in the maintained matrix and is archived.
+
 ## 2026-02-27: Dual Gram-RHS apply path (`apply_inverse_root_gram_rhs_spd`)
 
 Decision:

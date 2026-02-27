@@ -146,6 +146,19 @@ Key results:
 - Relerr stayed near parity (ratios close to `1.0`) but timing stability was not reliable enough for policy change.
 - Conclusion: do not switch k<n cap from `24` to `16` on this evidence.
 
+## 2026-02-27: SPD `p=1` Chebyshev CUDA graph replay (`off` vs `on`)
+
+Decision:
+- Keep `--cheb-cuda-graph` enabled for the optional SPD `p=1` Chebyshev path.
+
+Benchmark arguments:
+- `uv run python benchmarks/run_benchmarks.py --only "_spd_p1_klt_n_" --ab-extra-args-a="--methods Chebyshev-Apply --no-cheb-cuda-graph" --ab-extra-args-b="--methods Chebyshev-Apply --cheb-cuda-graph" --ab-label-a cheb_graph_off --ab-label-b cheb_graph_on --ab-match-on-method --ab-out benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_cuda_graph_step9/report.md --manifest-out benchmark_results/runs/2026_02_27/ab_spd_p1_cheb_cuda_graph_step9/manifest.json`
+
+Key results:
+- Strict speed win in all `6/6` cells (total ms deltas from `-13.5%` to `-66.0%`).
+- Relative error unchanged in all matched cells (`relerr_ratio(B/A)=1.000`).
+- Conclusion: strong keep decision for CUDA-graph replay when using Chebyshev in this slice.
+
 ## 2026-02-27: Dual Gram-RHS apply path (`apply_inverse_root_gram_rhs_spd`)
 
 Decision:

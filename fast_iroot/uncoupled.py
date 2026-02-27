@@ -3,7 +3,7 @@ from typing import Optional, Sequence, Tuple
 
 import torch
 
-from .coeffs import _quad_coeffs
+from .coeffs import _quad_coeffs_hot
 from .utils import (
     _bpow_times_y,
     _addmm_into,
@@ -64,7 +64,7 @@ def inverse_proot_pe_quadratic_uncoupled(
 
     ws.X.zero_()
     ws.X.diagonal(dim1=-2, dim2=-1).fill_(1)
-    coeffs = _quad_coeffs(abc_t)
+    coeffs = _quad_coeffs_hot(abc_t)
 
     for a, b, c in coeffs:
         if p_val == 1:

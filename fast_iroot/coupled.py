@@ -12,7 +12,7 @@ from .utils import (
     _validate_p_val,
     _check_square,
 )
-from .coeffs import _quad_coeffs
+from .coeffs import _quad_coeffs_hot
 
 _AFFINE_C_EPS = 1e-15
 
@@ -290,7 +290,7 @@ def inverse_sqrt_pe_quadratic(
     ws.X.zero_()
     ws.X.diagonal(dim1=-2, dim2=-1).fill_(1)
     ws.Y.copy_(A_norm)
-    coeffs = _quad_coeffs(abc_t)
+    coeffs = _quad_coeffs_hot(abc_t)
 
     T = len(coeffs)
     for t, (a, b, c) in enumerate(coeffs):
@@ -429,7 +429,7 @@ def inverse_proot_pe_quadratic_coupled(
     ws.X.zero_()
     ws.X.diagonal(dim1=-2, dim2=-1).fill_(1)
     ws.Y.copy_(A_norm)
-    coeffs = _quad_coeffs(abc_t)
+    coeffs = _quad_coeffs_hot(abc_t)
 
     T = len(coeffs)
     if not terminal_last_step:
@@ -655,7 +655,7 @@ def inverse_solve_pe_quadratic_coupled(
 
     ws.Z.copy_(M_norm)
     ws.Y.copy_(A_norm)
-    coeffs = _quad_coeffs(abc_t)
+    coeffs = _quad_coeffs_hot(abc_t)
     adaptive_active = bool(nonspd_adaptive) and (p_val == 1) and (not assume_spd)
     safe_early_active = (
         (p_val == 1)

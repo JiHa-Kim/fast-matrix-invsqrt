@@ -24,10 +24,43 @@ def _quad_coeffs(
 
     if len(abc_t) == 0:
         raise ValueError("abc_t must contain at least one (a,b,c) coefficient triple")
+    # O(1) fast path for the hottest call pattern:
+    # callers pass the already-normalized list[tuple[float,float,float]] from
+    # a prior _quad_coeffs(...) conversion.
+    if isinstance(abc_t, list):
+        first = abc_t[0]
+        if len(first) == 3 and all(isinstance(x, float) for x in first):
+            return abc_t
+        for item in abc_t:
+            if len(item) != 3:
+                raise ValueError(f"Each item in abc_t must be a triple, got {item}")
+            if not all(isinstance(x, float) for x in item):
+                return [(float(a), float(b), float(c)) for (a, b, c) in abc_t]
+        return abc_t
     for item in abc_t:
         if len(item) != 3:
             raise ValueError(f"Each item in abc_t must be a triple, got {item}")
     return [(float(a), float(b), float(c)) for (a, b, c) in abc_t]
+
+
+def _quad_coeffs_hot(
+    abc_t: Sequence[Tuple[float, float, float]] | torch.Tensor,
+) -> List[Tuple[float, float, float]]:
+    """Cheap per-call coefficient accessor for kernel hot loops.
+
+    Accepts pre-normalized Python lists with minimal validation, and falls back
+    to full normalization for tensor/tuple inputs.
+    """
+    if isinstance(abc_t, list):
+        if len(abc_t) == 0:
+            raise ValueError(
+                "abc_t must contain at least one (a,b,c) coefficient triple"
+            )
+        first = abc_t[0]
+        if len(first) != 3:
+            raise ValueError(f"Each item in abc_t must be a triple, got {first}")
+        return abc_t
+    return _quad_coeffs(abc_t)
 
 
 def build_pe_schedules(

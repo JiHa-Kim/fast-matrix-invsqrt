@@ -206,7 +206,7 @@ def hybrid_pe_nsrc_solve(
         (Z, ws) where Z ≈ A_norm⁻¹ B.
     """
     from .coupled import inverse_proot_pe_quadratic_coupled
-    from .coeffs import _quad_coeffs
+    from .coeffs import _quad_coeffs_hot
 
     _check_square(A_norm)
     n = A_norm.shape[-1]
@@ -218,7 +218,7 @@ def hybrid_pe_nsrc_solve(
         raise ValueError(f"ref_steps must be >= 0, got {ref_steps}")
 
     # Parse and truncate coefficients to pe_steps
-    coeffs = _quad_coeffs(abc_t)
+    coeffs = _quad_coeffs_hot(abc_t)
     if len(coeffs) < pe_steps:
         raise ValueError(
             f"abc_t has {len(coeffs)} triples but pe_steps={pe_steps} requested"

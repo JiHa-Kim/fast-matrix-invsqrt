@@ -271,7 +271,7 @@ def _build_specs(
 ) -> list[RunSpec]:
     specs: list[RunSpec] = []
 
-    # SPD, p in {1,2,4}, k<n (n={1024,2048}, k={1,16,64})
+    # SPD, p in {1,2,4}, k<n (n={1024}, k={1,16,64})
     for p_val in (1, 2, 4):
         cmd = [
             "uv",
@@ -282,7 +282,7 @@ def _build_specs(
             "--p",
             str(p_val),
             "--sizes",
-            "1024,2048",
+            "1024",
             "--k",
             "1,16,64",
             "--trials",
@@ -301,14 +301,14 @@ def _build_specs(
                 cmd=cmd,
                 txt_out=os.path.join(
                     spd_dir,
-                    f"{ts}_spd_p{p_val}_klt_n_sizes1024_2048_k1_16_64.txt",
+                    f"{ts}_spd_p{p_val}_klt_n_sizes1024_k1_16_64.txt",
                 ),
             )
         )
 
-    # SPD, p in {1,2,4}, k=n for n in {256,512,1024,2048}
+    # SPD, p in {1,2,4}, k=n for n in {256,512,1024}
     for p_val in (1, 2, 4):
-        for n_val in (256, 512, 1024, 2048):
+        for n_val in (256, 512, 1024):
             cmd = [
                 "uv",
                 "run",
@@ -342,7 +342,7 @@ def _build_specs(
                 )
             )
 
-    # non-SPD p=1, k<n
+    # non-SPD p=1, k<n (n={1024}, k={1,16,64})
     cmd = [
         "uv",
         "run",
@@ -352,7 +352,7 @@ def _build_specs(
         "--p",
         "1",
         "--sizes",
-        "1024,2048",
+        "1024",
         "--k",
         "1,16,64",
         "--trials",
@@ -371,13 +371,13 @@ def _build_specs(
             cmd=cmd,
             txt_out=os.path.join(
                 nonspd_dir,
-                f"{ts}_nonspd_p1_klt_n_sizes1024_2048_k1_16_64.txt",
+                f"{ts}_nonspd_p1_klt_n_sizes1024_k1_16_64.txt",
             ),
         )
     )
 
-    # non-SPD p=1, k=n
-    for n_val in (256, 512, 1024, 2048):
+    # non-SPD p=1, k=n for n in {256,512,1024}
+    for n_val in (256, 512, 1024):
         cmd = [
             "uv",
             "run",

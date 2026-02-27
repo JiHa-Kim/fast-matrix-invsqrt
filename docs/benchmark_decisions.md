@@ -19,6 +19,27 @@ Key results:
 - Runtime regressed materially across all measured cells (roughly `+9%` to `+156%` total ms).
 - Conclusion: no robustness gain in this matrix with clear cost regression, so it is archived and not kept in active code.
 
+## 2026-02-27: non-SPD `p=1` affine-only schedule policy
+
+Decision:
+- Reject and archive as a default policy.
+- Revert the experimental schedule-planner/CLI wiring from active code.
+
+Why tested:
+- We evaluated an affine-only schedule policy for non-SPD `p=1` coupled apply:
+  disable quadratic PE steps and select only among affine candidates
+  (inverse-Newton and interval-optimal affine).
+
+Benchmark arguments:
+- Focused A/B on maintained non-SPD `p=1 k<n` slice:
+  - `uv run python benchmarks/run_benchmarks.py --only "non-SPD p=1 k<n" --ab-extra-args-a="--no-p1-affine-only-schedule" --ab-extra-args-b="--p1-affine-only-schedule" --ab-label-a baseline --ab-label-b affine_only --ab-out benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/report.md --manifest-out benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/manifest.json`
+
+Key results:
+- Not a strict win: behavior was highly mixed.
+- Large regressions in many cells (often around `+250%` total ms), with a few speed wins on specific cases.
+- Accuracy was also mixed (some cells improved, some worsened).
+- Conclusion: unsuitable as a maintained default; archived for record only.
+
 ## 2026-02-27: Dual Gram-RHS apply path (`apply_inverse_root_gram_rhs_spd`)
 
 Decision:

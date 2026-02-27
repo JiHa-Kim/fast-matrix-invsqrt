@@ -1,0 +1,223 @@
+{
+  "ab_labels": {
+    "a": "baseline",
+    "b": "affine_only"
+  },
+  "ab_match_on_method": true,
+  "args": {
+    "ab_baseline_rows_in": "",
+    "ab_extra_args_a": "--no-p1-affine-only-schedule",
+    "ab_extra_args_b": "--p1-affine-only-schedule",
+    "ab_label_a": "baseline",
+    "ab_label_b": "affine_only",
+    "ab_match_on_method": true,
+    "ab_out": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/report.md",
+    "baseline_rows_out": "",
+    "dtype": "bf16",
+    "extra_args": "",
+    "integrity_checksums": true,
+    "manifest_out": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/manifest.json",
+    "markdown": true,
+    "only": "non-SPD p=1 k<n",
+    "out": "benchmark_results\\runs\\2026_02_27\\180714_solver_benchmarks\\solver_benchmarks.md",
+    "run_name": "solver_benchmarks",
+    "timing_reps": 5,
+    "timing_warmup_reps": 2,
+    "trials": 5
+  },
+  "argv": [
+    "--only",
+    "non-SPD p=1 k<n",
+    "--ab-extra-args-a=--no-p1-affine-only-schedule",
+    "--ab-extra-args-b=--p1-affine-only-schedule",
+    "--ab-label-a",
+    "baseline",
+    "--ab-label-b",
+    "affine_only",
+    "--ab-out",
+    "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/report.md",
+    "--manifest-out",
+    "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/manifest.json"
+  ],
+  "extra_args": {
+    "a": [
+      "--no-p1-affine-only-schedule"
+    ],
+    "b": [
+      "--p1-affine-only-schedule"
+    ],
+    "base": []
+  },
+  "generated_at": "2026-02-27T18:07:35",
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "426d9945943004aa1809271a0cbdbd8f3016caa3",
+    "tracked_source_sha256": "e24831ef943e878f24a76eb20127656942da383c8aeffc558075a2f9a5efb8dc"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "ab_markdown",
+  "only_filter": [
+    "non-SPD p=1 k<n"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/report.md",
+      "sha256": "3518e6d183ae64c22f31587fb190a629c6e3f1c7999976c5cc7861c914a3f46b"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/report.md.sha256",
+      "sha256": "63c3f37b902ffcd02bc1c01b213756c46027af0c57b68c6de373294f01ba1ded"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>",
+  "repro_context": {
+    "args": {
+      "ab_baseline_rows_in": "",
+      "ab_extra_args_a": "--no-p1-affine-only-schedule",
+      "ab_extra_args_b": "--p1-affine-only-schedule",
+      "ab_label_a": "baseline",
+      "ab_label_b": "affine_only",
+      "ab_match_on_method": true,
+      "ab_out": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/report.md",
+      "baseline_rows_out": "",
+      "dtype": "bf16",
+      "extra_args": "",
+      "integrity_checksums": true,
+      "manifest_out": "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/manifest.json",
+      "markdown": true,
+      "only": "non-SPD p=1 k<n",
+      "out": "benchmark_results\\runs\\2026_02_27\\180714_solver_benchmarks\\solver_benchmarks.md",
+      "run_name": "solver_benchmarks",
+      "timing_reps": 5,
+      "timing_warmup_reps": 2,
+      "trials": 5
+    },
+    "argv": [
+      "--only",
+      "non-SPD p=1 k<n",
+      "--ab-extra-args-a=--no-p1-affine-only-schedule",
+      "--ab-extra-args-b=--p1-affine-only-schedule",
+      "--ab-label-a",
+      "baseline",
+      "--ab-label-b",
+      "affine_only",
+      "--ab-out",
+      "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/report.md",
+      "--manifest-out",
+      "benchmark_results/runs/2026_02_27/ab_nonspd_p1_affine_only_step2/manifest.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "a": [
+        "--no-p1-affine-only-schedule"
+      ],
+      "b": [
+        "--p1-affine-only-schedule"
+      ],
+      "base": []
+    },
+    "git": {
+      "branch": "main",
+      "dirty": true,
+      "head": "426d9945943004aa1809271a0cbdbd8f3016caa3",
+      "tracked_source_sha256": "e24831ef943e878f24a76eb20127656942da383c8aeffc558075a2f9a5efb8dc"
+    },
+    "mode": "ab_markdown",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve_nonspd",
+          "--p",
+          "1",
+          "--sizes",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "nonspd",
+        "name": "non-SPD p=1 k<n"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "cad601cd8862f2d8d443c40f405a4a90f061036bee00af20fa304e7c60335533",
+  "runs": [
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve_nonspd",
+        "--p",
+        "1",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--no-p1-affine-only-schedule"
+      ],
+      "kind": "nonspd",
+      "parsed_rows": 12,
+      "spec_name": "non-SPD p=1 k<n",
+      "stdout_sha256": "5097e98ac4bbddeaf7347a18294121e30172064049c2704aecba835782037092",
+      "variant": "A"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve_nonspd",
+        "--p",
+        "1",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16",
+        "--p1-affine-only-schedule"
+      ],
+      "kind": "nonspd",
+      "parsed_rows": 12,
+      "spec_name": "non-SPD p=1 k<n",
+      "stdout_sha256": "ff28cc59150a7647a9e46f0b991a125b4245ac8a25693832fa8560016ec1e980",
+      "variant": "B"
+    }
+  ],
+  "spec_count": 1
+}

@@ -167,6 +167,7 @@ def prepare_solve_inputs(
                 ruiz_iters=precond_ruiz_iters,
                 ridge_rel=ridge_rel,
                 l_target=l_target,
+                compute_rho_proxy=False,
             ),
             device,
         )

@@ -69,6 +69,7 @@ def precond_spd(
     lambda_max_est: str = "row_sum",
     lambda_max_power_iters: int = 8,
     lambda_max_safety: float = 1.02,
+    compute_rho_proxy: bool = True,
 ) -> Tuple[torch.Tensor, PrecondStats]:
     """
     Preconditions a symmetric positive definite (SPD) matrix.
@@ -154,15 +155,18 @@ def precond_spd(
     off4 = abs_row_sum4 - diag4.abs()
     g_lo_final = (diag4 - off4).min(dim=-1)[0]  # shape: batch
 
-    # -------- rho proxy (per batch) --------
-    diag_mean = A_norm.float().diagonal(dim1=-2, dim2=-1).mean(dim=-1).clamp_min(1e-12)
-    max_row = A_norm.float().abs().sum(dim=-1).max(dim=-1)[0].clamp_min(1e-12)
-    rho = max_row / diag_mean  # shape: batch
-
-    # -------- FIX: conservative batch aggregation for auto-policy safety --------
+    # -------- conservative batch aggregation for auto-policy safety --------
     # If you pick ONE method for the whole batch, use worst-case stats.
     g_lo_scalar = float(g_lo_final.float().min().item())
-    rho_proxy = float(rho.float().max().item())
+    if bool(compute_rho_proxy):
+        diag_mean = (
+            A_norm.float().diagonal(dim1=-2, dim2=-1).mean(dim=-1).clamp_min(1e-12)
+        )
+        max_row = A_norm.float().abs().sum(dim=-1).max(dim=-1)[0].clamp_min(1e-12)
+        rho = max_row / diag_mean  # shape: batch
+        rho_proxy = float(rho.float().max().item())
+    else:
+        rho_proxy = float("nan")
     # Note: kappa_proxy is a heuristic for method selection, not a true \kappa(A).
     kappa_proxy = 1.0 / max(g_lo_scalar, 1e-6)
 
@@ -185,6 +189,7 @@ def precond_gram_spd(
     lambda_max_est: str = "row_sum",
     lambda_max_power_iters: int = 8,
     lambda_max_safety: float = 1.02,
+    compute_rho_proxy: bool = True,
 ) -> Tuple[torch.Tensor, PrecondStats]:
     """
     Preconditions an SPD Gram matrix formed from feature matrix `G`, where
@@ -229,4 +234,5 @@ def precond_gram_spd(
         lambda_max_est=lambda_max_est,
         lambda_max_power_iters=lambda_max_power_iters,
         lambda_max_safety=lambda_max_safety,
+        compute_rho_proxy=compute_rho_proxy,
     )

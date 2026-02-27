@@ -1,3 +1,5 @@
+import math
+
 import pytest
 import torch
 
@@ -28,6 +30,17 @@ def test_precond_spd_ruiz_iters_validation():
     A = _make_spd()
     with pytest.raises(ValueError, match="ruiz_iters"):
         precond_spd(A, mode="ruiz", ruiz_iters=0)
+
+
+def test_precond_spd_can_skip_rho_proxy():
+    A = _make_spd()
+    A_norm, stats = precond_spd(
+        A, mode="jacobi", l_target=0.05, compute_rho_proxy=False
+    )
+    assert A_norm.shape == A.shape
+    assert stats.gersh_lo > 0.0
+    assert stats.kappa_proxy > 0.0
+    assert math.isnan(stats.rho_proxy)
 
 
 def test_precond_gram_col_norm_matches_jacobi_plus_none():

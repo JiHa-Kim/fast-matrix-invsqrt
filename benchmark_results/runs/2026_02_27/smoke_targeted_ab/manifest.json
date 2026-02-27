@@ -1,0 +1,245 @@
+{
+  "ab_labels": {
+    "a": "baseline_cached",
+    "b": "candidate"
+  },
+  "ab_match_on_method": false,
+  "args": {
+    "ab_baseline_rows_in": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json",
+    "ab_extra_args_a": "",
+    "ab_extra_args_b": "--methods PE-Quad-Coupled-Apply --sizes 128 --k 1 --cases gaussian_spd",
+    "ab_label_a": "baseline_cached",
+    "ab_label_b": "candidate",
+    "ab_match_on_method": false,
+    "ab_out": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/report.md",
+    "baseline_rows_out": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/baseline_rows_echo.json",
+    "dtype": "bf16",
+    "extra_args": "",
+    "integrity_checksums": true,
+    "manifest_out": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/manifest.json",
+    "markdown": false,
+    "only": "SPD p=2 k<n",
+    "out": "benchmark_results\\runs\\20260226_203952_solver_benchmarks\\solver_benchmarks.md",
+    "timing_reps": 1,
+    "timing_warmup_reps": 0,
+    "trials": 1
+  },
+  "argv": [
+    "--trials",
+    "1",
+    "--timing-reps",
+    "1",
+    "--timing-warmup-reps",
+    "0",
+    "--only",
+    "SPD p=2 k<n",
+    "--ab-baseline-rows-in",
+    "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json",
+    "--ab-label-a",
+    "baseline_cached",
+    "--ab-label-b",
+    "candidate",
+    "--no-ab-match-on-method",
+    "--ab-extra-args-b",
+    "--methods PE-Quad-Coupled-Apply --sizes 128 --k 1 --cases gaussian_spd",
+    "--ab-out",
+    "benchmark_results/runs/2026_02_27/smoke_targeted_ab/report.md",
+    "--manifest-out",
+    "benchmark_results/runs/2026_02_27/smoke_targeted_ab/manifest.json",
+    "--baseline-rows-out",
+    "benchmark_results/runs/2026_02_27/smoke_targeted_ab/baseline_rows_echo.json"
+  ],
+  "extra_args": {
+    "a": [],
+    "b": [
+      "--methods",
+      "PE-Quad-Coupled-Apply",
+      "--sizes",
+      "128",
+      "--k",
+      "1",
+      "--cases",
+      "gaussian_spd"
+    ],
+    "base": []
+  },
+  "generated_at": "2026-02-26T20:39:59",
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "497ef31f274e602f329d6dd329bdf3e8569f3df1",
+    "tracked_source_sha256": "cf3547d538786b98b56d3859bf133d165d87a2c7752f22b2651626152960bd58"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "ab_markdown",
+  "only_filter": [
+    "SPD p=2 k<n"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/report.md",
+      "sha256": "5d364353d6ce54f1b07b556d304b7b99f307b5400981e3d153615fb7417aab03"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/report.md.sha256",
+      "sha256": "af687c78a372d769817fa39b94b066cad1ef6a4d1892c655f80721054dc96f07"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/baseline_rows_echo.json",
+      "sha256": "76a1cca10f2830b3548fc5652bae7ab9a50713107cbb723c8122c3a72c36513e"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/baseline_rows_echo.json.sha256",
+      "sha256": "1c0085a3529452149a9026fa5a8edf0f22811f9c0474cbf2866c74072cce5405"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>",
+  "repro_context": {
+    "args": {
+      "ab_baseline_rows_in": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json",
+      "ab_extra_args_a": "",
+      "ab_extra_args_b": "--methods PE-Quad-Coupled-Apply --sizes 128 --k 1 --cases gaussian_spd",
+      "ab_label_a": "baseline_cached",
+      "ab_label_b": "candidate",
+      "ab_match_on_method": false,
+      "ab_out": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/report.md",
+      "baseline_rows_out": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/baseline_rows_echo.json",
+      "dtype": "bf16",
+      "extra_args": "",
+      "integrity_checksums": true,
+      "manifest_out": "benchmark_results/runs/2026_02_27/smoke_targeted_ab/manifest.json",
+      "markdown": false,
+      "only": "SPD p=2 k<n",
+      "out": "benchmark_results\\runs\\20260226_203952_solver_benchmarks\\solver_benchmarks.md",
+      "timing_reps": 1,
+      "timing_warmup_reps": 0,
+      "trials": 1
+    },
+    "argv": [
+      "--trials",
+      "1",
+      "--timing-reps",
+      "1",
+      "--timing-warmup-reps",
+      "0",
+      "--only",
+      "SPD p=2 k<n",
+      "--ab-baseline-rows-in",
+      "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json",
+      "--ab-label-a",
+      "baseline_cached",
+      "--ab-label-b",
+      "candidate",
+      "--no-ab-match-on-method",
+      "--ab-extra-args-b",
+      "--methods PE-Quad-Coupled-Apply --sizes 128 --k 1 --cases gaussian_spd",
+      "--ab-out",
+      "benchmark_results/runs/2026_02_27/smoke_targeted_ab/report.md",
+      "--manifest-out",
+      "benchmark_results/runs/2026_02_27/smoke_targeted_ab/manifest.json",
+      "--baseline-rows-out",
+      "benchmark_results/runs/2026_02_27/smoke_targeted_ab/baseline_rows_echo.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "a": [],
+      "b": [
+        "--methods",
+        "PE-Quad-Coupled-Apply",
+        "--sizes",
+        "128",
+        "--k",
+        "1",
+        "--cases",
+        "gaussian_spd"
+      ],
+      "base": []
+    },
+    "git": {
+      "branch": "main",
+      "dirty": true,
+      "head": "497ef31f274e602f329d6dd329bdf3e8569f3df1",
+      "tracked_source_sha256": "cf3547d538786b98b56d3859bf133d165d87a2c7752f22b2651626152960bd58"
+    },
+    "mode": "ab_markdown",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "2",
+          "--sizes",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "1",
+          "--timing-reps",
+          "1",
+          "--timing-warmup-reps",
+          "0",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=2 k<n"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "ac4632f01399cb5d62f5a9b9e8c76721db3659b014d2e8d1824291ddfc0f0b22",
+  "runs": [
+    {
+      "parsed_rows": 1,
+      "rows_cache_path": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json",
+      "source": "rows_cache",
+      "variant": "A"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "1",
+        "--timing-reps",
+        "1",
+        "--timing-warmup-reps",
+        "0",
+        "--dtype",
+        "bf16",
+        "--methods",
+        "PE-Quad-Coupled-Apply",
+        "--sizes",
+        "128",
+        "--k",
+        "1",
+        "--cases",
+        "gaussian_spd"
+      ],
+      "kind": "spd",
+      "parsed_rows": 1,
+      "spec_name": "SPD p=2 k<n",
+      "stdout_sha256": "95d961a4c902fb05a4eadb88ad33d403c91a335194fa5e3c6d2f7abc4a43a851",
+      "variant": "B"
+    }
+  ],
+  "spec_count": 1
+}

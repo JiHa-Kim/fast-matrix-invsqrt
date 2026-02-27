@@ -1,0 +1,271 @@
+{
+  "generated_at": "2026-02-26T20:53:18",
+  "row_count": 24,
+  "rows": [
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 2.366,
+      "k": 1,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 2,
+      "relerr": 0.2598,
+      "total_ms": 5.05
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 2.354,
+      "k": 1,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 2,
+      "relerr": 0.2617,
+      "total_ms": 3.799
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 2.423,
+      "k": 16,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 2,
+      "relerr": 0.2598,
+      "total_ms": 4.007
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 2.333,
+      "k": 16,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 2,
+      "relerr": 0.2617,
+      "total_ms": 3.972
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 2.323,
+      "k": 64,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 2,
+      "relerr": 0.2598,
+      "total_ms": 4.036
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 2.121,
+      "k": 64,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 2,
+      "relerr": 0.2598,
+      "total_ms": 3.763
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 3.039,
+      "k": 1,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 4,
+      "relerr": 0.1045,
+      "total_ms": 4.832
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 2.659,
+      "k": 1,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 4,
+      "relerr": 0.1035,
+      "total_ms": 4.021
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 2.783,
+      "k": 16,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 4,
+      "relerr": 0.104,
+      "total_ms": 5.633
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 2.579,
+      "k": 16,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 4,
+      "relerr": 0.1035,
+      "total_ms": 4.448
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 2.713,
+      "k": 64,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 4,
+      "relerr": 0.104,
+      "total_ms": 4.045
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 2.634,
+      "k": 64,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 4,
+      "relerr": 0.1035,
+      "total_ms": 5.717
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 0.908,
+      "k": 256,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 256,
+      "p": 2,
+      "relerr": 0.1123,
+      "total_ms": 2.444
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 0.984,
+      "k": 256,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 256,
+      "p": 2,
+      "relerr": 0.1118,
+      "total_ms": 2.392
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 0.923,
+      "k": 512,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 512,
+      "p": 2,
+      "relerr": 0.1826,
+      "total_ms": 2.744
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 1.269,
+      "k": 512,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 512,
+      "p": 2,
+      "relerr": 0.1807,
+      "total_ms": 2.655
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 3.165,
+      "k": 1024,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 2,
+      "relerr": 0.2598,
+      "total_ms": 5.031
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 2.801,
+      "k": 1024,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 2,
+      "relerr": 0.2617,
+      "total_ms": 4.192
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 1.324,
+      "k": 256,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 256,
+      "p": 4,
+      "relerr": 0.03613,
+      "total_ms": 3.649
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 1.454,
+      "k": 256,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 256,
+      "p": 4,
+      "relerr": 0.03589,
+      "total_ms": 3.176
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 1.335,
+      "k": 512,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 512,
+      "p": 4,
+      "relerr": 0.06177,
+      "total_ms": 3.223
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 1.417,
+      "k": 512,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 512,
+      "p": 4,
+      "relerr": 0.06128,
+      "total_ms": 4.327
+    },
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 3.76,
+      "k": 1024,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 4,
+      "relerr": 0.1045,
+      "total_ms": 6.791
+    },
+    {
+      "case": "illcond_1e6",
+      "iter_ms": 3.333,
+      "k": 1024,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 1024,
+      "p": 4,
+      "relerr": 0.1035,
+      "total_ms": 6.331
+    }
+  ],
+  "schema": "solver_benchmark_rows.v1"
+}

@@ -30,6 +30,10 @@ def apply_inverse(
     terminal_last_step: bool = True,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
+    online_stop_metric: str = "diag",
+    online_stop_check_every: int = 1,
+    post_correction_steps: int = 0,
+    post_correction_order: int = 2,
     assume_spd: bool = True,
     nonspd_adaptive: bool = False,
     nonspd_adaptive_resid_tol: float = 1.0,
@@ -60,6 +64,10 @@ def apply_inverse(
         terminal_last_step=terminal_last_step,
         online_stop_tol=online_stop_tol,
         online_min_steps=online_min_steps,
+        online_stop_metric=online_stop_metric,
+        online_stop_check_every=online_stop_check_every,
+        post_correction_steps=post_correction_steps,
+        post_correction_order=post_correction_order,
         assume_spd=assume_spd,
         nonspd_adaptive=nonspd_adaptive,
         nonspd_adaptive_resid_tol=nonspd_adaptive_resid_tol,
@@ -82,6 +90,10 @@ def apply_inverse_root(
     terminal_last_step: bool = True,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
+    online_stop_metric: str = "diag",
+    online_stop_check_every: int = 1,
+    post_correction_steps: int = 0,
+    post_correction_order: int = 2,
     assume_spd: bool = True,
     nonspd_adaptive: bool = False,
     nonspd_adaptive_resid_tol: float = 1.0,
@@ -108,6 +120,10 @@ def apply_inverse_root(
         terminal_last_step=terminal_last_step,
         online_stop_tol=online_stop_tol,
         online_min_steps=online_min_steps,
+        online_stop_metric=online_stop_metric,
+        online_stop_check_every=online_stop_check_every,
+        post_correction_steps=post_correction_steps,
+        post_correction_order=post_correction_order,
         assume_spd=assume_spd,
         nonspd_adaptive=nonspd_adaptive,
         nonspd_adaptive_resid_tol=nonspd_adaptive_resid_tol,
@@ -132,6 +148,10 @@ def apply_inverse_root_auto(
     terminal_last_step: bool = True,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
+    online_stop_metric: str = "diag",
+    online_stop_check_every: int = 1,
+    post_correction_steps: int = 0,
+    post_correction_order: int = 2,
     assume_spd: bool = True,
     nonspd_adaptive: bool = False,
     nonspd_adaptive_resid_tol: float = 1.0,
@@ -173,6 +193,10 @@ def apply_inverse_root_auto(
             terminal_last_step=terminal_last_step,
             online_stop_tol=online_stop_tol,
             online_min_steps=online_min_steps,
+            online_stop_metric=online_stop_metric,
+            online_stop_check_every=online_stop_check_every,
+            post_correction_steps=post_correction_steps,
+            post_correction_order=post_correction_order,
             assume_spd=assume_spd,
         )
         return Xn @ M_norm, ws
@@ -207,6 +231,10 @@ def apply_inverse_root_auto(
         terminal_last_step=terminal_last_step,
         online_stop_tol=online_stop_tol,
         online_min_steps=online_min_steps,
+        online_stop_metric=online_stop_metric,
+        online_stop_check_every=online_stop_check_every,
+        post_correction_steps=post_correction_steps,
+        post_correction_order=post_correction_order,
         assume_spd=assume_spd,
         nonspd_adaptive=nonspd_adaptive,
         nonspd_adaptive_resid_tol=nonspd_adaptive_resid_tol,
@@ -229,6 +257,10 @@ def apply_inverse_sqrt_spd(
     terminal_last_step: bool = True,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
+    online_stop_metric: str = "diag",
+    online_stop_check_every: int = 1,
+    post_correction_steps: int = 0,
+    post_correction_order: int = 2,
 ) -> Tuple[torch.Tensor, InverseSolveWorkspaceCoupled]:
     """Dedicated SPD p=2 apply path."""
     return apply_inverse_root(
@@ -242,6 +274,10 @@ def apply_inverse_sqrt_spd(
         terminal_last_step=terminal_last_step,
         online_stop_tol=online_stop_tol,
         online_min_steps=online_min_steps,
+        online_stop_metric=online_stop_metric,
+        online_stop_check_every=online_stop_check_every,
+        post_correction_steps=post_correction_steps,
+        post_correction_order=post_correction_order,
         assume_spd=True,
     )
 
@@ -255,6 +291,10 @@ def apply_inverse_sqrt_non_spd(
     terminal_last_step: bool = True,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
+    online_stop_metric: str = "diag",
+    online_stop_check_every: int = 1,
+    post_correction_steps: int = 0,
+    post_correction_order: int = 2,
 ) -> Tuple[torch.Tensor, InverseSolveWorkspaceCoupled]:
     """Dedicated non-SPD p=2 apply path (no symmetry assumptions)."""
     return apply_inverse_root(
@@ -268,6 +308,10 @@ def apply_inverse_sqrt_non_spd(
         terminal_last_step=terminal_last_step,
         online_stop_tol=online_stop_tol,
         online_min_steps=online_min_steps,
+        online_stop_metric=online_stop_metric,
+        online_stop_check_every=online_stop_check_every,
+        post_correction_steps=post_correction_steps,
+        post_correction_order=post_correction_order,
         assume_spd=False,
     )
 
@@ -292,6 +336,10 @@ def apply_inverse_sqrt_gram_spd(
     terminal_last_step: bool = True,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
+    online_stop_metric: str = "diag",
+    online_stop_check_every: int = 1,
+    post_correction_steps: int = 0,
+    post_correction_order: int = 2,
 ) -> Tuple[torch.Tensor, InverseSolveWorkspaceCoupled, PrecondStats]:
     """Gram-matrix SPD p=2 apply path: precondition A=G^T G, then apply inverse sqrt."""
     A_norm, stats = precond_gram_spd(
@@ -316,5 +364,9 @@ def apply_inverse_sqrt_gram_spd(
         terminal_last_step=terminal_last_step,
         online_stop_tol=online_stop_tol,
         online_min_steps=online_min_steps,
+        online_stop_metric=online_stop_metric,
+        online_stop_check_every=online_stop_check_every,
+        post_correction_steps=post_correction_steps,
+        post_correction_order=post_correction_order,
     )
     return Z, ws, stats

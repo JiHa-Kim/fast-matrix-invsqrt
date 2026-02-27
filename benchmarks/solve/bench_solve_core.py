@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Tuple
 
@@ -57,6 +58,29 @@ def matrix_solve_methods(p_val: int) -> List[str]:
     else:
         methods.extend(P_GT1_SPD_EXTRA_METHODS)
     return methods
+
+
+def _naive_newton_preprocess(
+    A_norm: torch.Tensor,
+    *,
+    p_val: int,
+) -> Tuple[torch.Tensor, float]:
+    """Vanilla Newton-Schulz reference scaling.
+
+    Scale by ||A||_F so lambda_max(A_scaled) <= 1 for SPD matrices.
+    Returns (A_scaled, output_scale) where output_scale multiplies the final
+    inverse-p-root apply result to map back to the original scaling.
+    """
+    fro = torch.linalg.matrix_norm(A_norm, ord="fro")
+    if fro.ndim == 0:
+        alpha = float(fro.item())
+    else:
+        alpha = float(torch.max(fro).item())
+    if (not math.isfinite(alpha)) or alpha <= 0.0:
+        alpha = 1.0
+    A_scaled = A_norm / float(alpha)
+    out_scale = float(alpha) ** (-1.0 / float(p_val))
+    return A_scaled, out_scale
 
 
 def _build_cuda_graph_replay(
@@ -152,6 +176,10 @@ def _build_solve_runner(
     symmetrize_every: int,
     online_stop_tol: Optional[float],
     online_min_steps: int,
+    online_stop_metric: str,
+    online_stop_check_every: int,
+    post_correction_steps: int,
+    post_correction_order: int,
     uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
     cheb_apply_fn: Callable[..., Tuple[torch.Tensor, object]],
@@ -180,14 +208,18 @@ def _build_solve_runner(
 
         def run(A_norm: torch.Tensor, B: torch.Tensor):
             nonlocal ws_unc
+            A_ref, out_scale = _naive_newton_preprocess(A_norm, p_val=p_val)
             Xn, ws_unc = uncoupled_fn(
-                A_norm,
+                A_ref,
                 abc_t=inv_newton_coeffs,
                 p_val=p_val,
                 ws=ws_unc,
-                symmetrize_X=True,
+                symmetrize_X=False,
             )
-            return Xn @ B
+            Z = Xn @ B
+            if out_scale != 1.0:
+                Z = Z * out_scale
+            return Z
 
         return run
 
@@ -207,6 +239,10 @@ def _build_solve_runner(
                 terminal_last_step=True,
                 online_stop_tol=online_stop_tol,
                 online_min_steps=online_min_steps,
+                online_stop_metric=online_stop_metric,
+                online_stop_check_every=online_stop_check_every,
+                post_correction_steps=post_correction_steps,
+                post_correction_order=post_correction_order,
             )
             return Zn
 
@@ -217,18 +253,25 @@ def _build_solve_runner(
 
         def run(A_norm: torch.Tensor, B: torch.Tensor):
             nonlocal ws_cpl
+            A_ref, out_scale = _naive_newton_preprocess(A_norm, p_val=p_val)
             Zn, ws_cpl = coupled_solve_fn(
-                A_norm,
+                A_ref,
                 B,
                 abc_t=inv_newton_coeffs,
                 p_val=p_val,
                 ws=ws_cpl,
-                symmetrize_Y=True,
-                symmetrize_every=symmetrize_every,
-                terminal_last_step=True,
-                online_stop_tol=online_stop_tol,
-                online_min_steps=online_min_steps,
+                symmetrize_Y=False,
+                symmetrize_every=1,
+                terminal_last_step=False,
+                online_stop_tol=None,
+                online_min_steps=1,
+                online_stop_metric="diag",
+                online_stop_check_every=1,
+                post_correction_steps=0,
+                post_correction_order=2,
             )
+            if out_scale != 1.0:
+                Zn = Zn * out_scale
             return Zn
 
         return run
@@ -351,6 +394,10 @@ def eval_solve_method(
     symmetrize_every: int,
     online_stop_tol: Optional[float],
     online_min_steps: int,
+    online_stop_metric: str,
+    online_stop_check_every: int,
+    post_correction_steps: int,
+    post_correction_order: int,
     online_coeff_mode: str,
     online_coeff_min_rel_improve: float,
     online_coeff_min_ns_logwidth_rel_improve: float,
@@ -545,6 +592,10 @@ def eval_solve_method(
             symmetrize_every=symmetrize_every,
             online_stop_tol=online_stop_tol,
             online_min_steps=online_min_steps,
+            online_stop_metric=online_stop_metric,
+            online_stop_check_every=online_stop_check_every,
+            post_correction_steps=post_correction_steps,
+            post_correction_order=post_correction_order,
             uncoupled_fn=uncoupled_fn,
             coupled_solve_fn=coupled_solve_fn,
             cheb_apply_fn=cheb_apply_fn,

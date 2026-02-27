@@ -116,6 +116,44 @@ def _parse_case_csv(spec: str) -> List[str]:
     return vals
 
 
+def _parse_methods_csv(spec: str, available: Sequence[str]) -> List[str]:
+    toks = [tok.strip() for tok in str(spec).split(",") if tok.strip()]
+    if not toks:
+        return list(available)
+    unknown = [m for m in toks if m not in available]
+    if unknown:
+        raise ValueError(
+            "Unknown method(s) in --methods: "
+            f"{unknown}. Available: {list(available)}"
+        )
+    out: List[str] = []
+    seen: set[str] = set()
+    for m in toks:
+        if m in seen:
+            continue
+        seen.add(m)
+        out.append(m)
+    return out
+
+
+def _naive_newton_preprocess(
+    A_norm: torch.Tensor,
+    *,
+    p_val: int = 1,
+) -> Tuple[torch.Tensor, float]:
+    """Vanilla Newton-Schulz reference scaling for non-SPD benchmarks."""
+    fro = torch.linalg.matrix_norm(A_norm, ord="fro")
+    if fro.ndim == 0:
+        alpha = float(fro.item())
+    else:
+        alpha = float(torch.max(fro).item())
+    if (not math.isfinite(alpha)) or alpha <= 0.0:
+        alpha = 1.0
+    A_scaled = A_norm / float(alpha)
+    out_scale = float(alpha) ** (-1.0 / float(p_val))
+    return A_scaled, out_scale
+
+
 def _build_runner(
     method: str,
     pe_coeffs: Sequence[Tuple[float, float, float]],
@@ -151,15 +189,19 @@ def _build_runner(
 
         def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
             nonlocal ws_unc
+            A_ref, out_scale = _naive_newton_preprocess(A_norm, p_val=1)
             Xn, ws_unc = uncoupled_fn(
-                A_norm,
+                A_ref,
                 abc_t=inv_newton_coeffs,
                 p_val=1,
                 ws=ws_unc,
                 symmetrize_X=False,
                 assume_spd=False,
             )
-            return Xn @ B
+            Z = Xn @ B
+            if out_scale != 1.0:
+                Z = Z * out_scale
+            return Z
 
         return run
 
@@ -190,19 +232,22 @@ def _build_runner(
 
         def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
             nonlocal ws_cpl
+            A_ref, out_scale = _naive_newton_preprocess(A_norm, p_val=1)
             Zn, ws_cpl = coupled_solve_fn(
-                A_norm,
+                A_ref,
                 B,
                 abc_t=inv_newton_coeffs,
                 p_val=1,
                 ws=ws_cpl,
                 symmetrize_Y=False,
                 symmetrize_every=1,
-                terminal_last_step=True,
+                terminal_last_step=False,
                 online_stop_tol=None,
                 online_min_steps=1,
                 assume_spd=False,
             )
+            if out_scale != 1.0:
+                Zn = Zn * out_scale
             return Zn
 
         return run
@@ -392,6 +437,16 @@ def main():
         default="gaussian_shifted,nonnormal_upper,similarity_posspec,similarity_posspec_hard",
         help="Comma-separated non-SPD cases",
     )
+    p.add_argument(
+        "--methods",
+        type=str,
+        default="PE-Quad-Coupled-Apply",
+        help=(
+            "Optional comma-separated method subset. Defaults to best target method "
+            "only (`PE-Quad-Coupled-Apply`). "
+            "Example: 'PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply'"
+        ),
+    )
     p.add_argument("--dtype", type=str, default="bf16", choices=["fp32", "bf16"])
     p.add_argument(
         "--precond",
@@ -523,6 +578,7 @@ def main():
 
     sizes = parse_shapes(args.sizes)
     cases = _parse_case_csv(args.cases)
+    methods = _parse_methods_csv(args.methods, METHODS)
     pe_quad_t, coeff_desc = build_pe_schedules(
         l_target=0.05,
         device=device,
@@ -551,6 +607,7 @@ def main():
                     f"p=1 | precond={args.precond} | precond_ruiz_iters={args.precond_ruiz_iters} | "
                     f"compile={args.compile} | timing_reps={args.timing_reps} | "
                     f"timing_warmup_reps={args.timing_warmup_reps} | "
+                    f"methods={','.join(methods)} | "
                     f"adapt(resid_tol={args.nonspd_adaptive_resid_tol}, "
                     f"growth_tol={args.nonspd_adaptive_growth_tol}, "
                     f"check_every={args.nonspd_adaptive_check_every}, "
@@ -575,7 +632,7 @@ def main():
                     Z_true = compute_ground_truth(prepared_inputs)
 
                     rows: List[Tuple[str, NonSpdBenchResult]] = []
-                    for method in METHODS:
+                    for method in methods:
                         try:
                             rr = eval_method(
                                 prepared_inputs=prepared_inputs,

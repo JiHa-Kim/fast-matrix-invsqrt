@@ -53,6 +53,26 @@ def _parse_case_csv(csv: str) -> list[str]:
     return vals
 
 
+def _parse_methods_csv(spec: str, available: list[str]) -> list[str]:
+    toks = [tok.strip() for tok in str(spec).split(",") if tok.strip()]
+    if not toks:
+        return list(available)
+    unknown = [m for m in toks if m not in available]
+    if unknown:
+        raise ValueError(
+            "Unknown method(s) in --methods: "
+            f"{unknown}. Available: {available}"
+        )
+    out: list[str] = []
+    seen: set[str] = set()
+    for m in toks:
+        if m in seen:
+            continue
+        seen.add(m)
+        out.append(m)
+    return out
+
+
 def main():
     p = argparse.ArgumentParser(
         description="Benchmark inverse-p-th-root Solve (Z = A^{-1/p} B)"
@@ -69,6 +89,16 @@ def main():
         type=str,
         default="gaussian_spd,illcond_1e6",
         help="Comma-separated SPD case names",
+    )
+    p.add_argument(
+        "--methods",
+        type=str,
+        default="PE-Quad-Coupled-Apply",
+        help=(
+            "Optional comma-separated method subset. Defaults to best target method "
+            "only (`PE-Quad-Coupled-Apply`). "
+            "Example: 'PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply'"
+        ),
     )
     p.add_argument("--dtype", type=str, default="bf16", choices=["fp32", "bf16"])
     p.add_argument(
@@ -211,10 +241,46 @@ def main():
         ),
     )
     p.add_argument(
+        "--online-stop-metric",
+        type=str,
+        default="diag",
+        choices=["diag", "fro"],
+        help=(
+            "Metric used for coupled online early-stop when --online-stop-tol > 0: "
+            "'diag' uses max|diag(Y)-1|, 'fro' uses ||Y-I||_F/sqrt(n)."
+        ),
+    )
+    p.add_argument(
+        "--online-stop-check-every",
+        type=int,
+        default=1,
+        help=(
+            "Evaluate the online early-stop metric every k non-terminal PE steps (k>=1)."
+        ),
+    )
+    p.add_argument(
         "--online-min-steps",
         type=int,
         default=2,
         help="Minimum number of coupled PE steps before online early-stop is allowed.",
+    )
+    p.add_argument(
+        "--post-correction-steps",
+        type=int,
+        default=0,
+        help=(
+            "Optional number of RHS-only residual-binomial post-correction passes for "
+            "coupled apply (currently supported for SPD p=2,4)."
+        ),
+    )
+    p.add_argument(
+        "--post-correction-order",
+        type=int,
+        default=2,
+        choices=[1, 2],
+        help=(
+            "Residual-binomial post-correction order: 1 (affine) or 2 (quadratic)."
+        ),
     )
     args = p.parse_args()
     if int(args.symmetrize_every) < 1:
@@ -240,6 +306,16 @@ def main():
     if int(args.online_min_steps) < 1:
         raise ValueError(
             f"--online-min-steps must be >= 1, got {args.online_min_steps}"
+        )
+    if int(args.online_stop_check_every) < 1:
+        raise ValueError(
+            "--online-stop-check-every must be >= 1, "
+            f"got {args.online_stop_check_every}"
+        )
+    if int(args.post_correction_steps) < 0:
+        raise ValueError(
+            "--post-correction-steps must be >= 0, "
+            f"got {args.post_correction_steps}"
         )
     if int(args.timing_warmup_reps) < 0:
         raise ValueError(
@@ -289,6 +365,7 @@ def main():
     p_val = args.p
     online_coeff_mode = str(args.online_coeff_mode)
     cases = _parse_case_csv(args.cases)
+    methods = _parse_methods_csv(str(args.methods), matrix_solve_methods(p_val))
 
     pe_quad_t, coeff_desc = build_pe_schedules(
         l_target=args.l_target,
@@ -321,7 +398,10 @@ def main():
                     f"online_coeff_mode={online_coeff_mode} | "
                     f"online_coeff_target_err={args.online_coeff_target_interval_err} | "
                     f"online_stop_tol={args.online_stop_tol} | "
-                    f"cuda_graph={bool(args.cuda_graph)}"
+                    f"online_stop_metric={args.online_stop_metric} | "
+                    f"post_correction_steps={args.post_correction_steps} | "
+                    f"cuda_graph={bool(args.cuda_graph)} | "
+                    f"methods={','.join(methods)}"
                 )
 
                 for case in cases:
@@ -345,7 +425,7 @@ def main():
                     Z_true = compute_ground_truth(prepared_inputs, p_val)
                     rows = []
 
-                    for name in matrix_solve_methods(p_val):
+                    for name in methods:
                         try:
                             rr = eval_solve_method(
                                 prepared_inputs=prepared_inputs,
@@ -366,6 +446,10 @@ def main():
                                 symmetrize_every=args.symmetrize_every,
                                 online_stop_tol=online_stop_tol,
                                 online_min_steps=args.online_min_steps,
+                                online_stop_metric=args.online_stop_metric,
+                                online_stop_check_every=args.online_stop_check_every,
+                                post_correction_steps=args.post_correction_steps,
+                                post_correction_order=args.post_correction_order,
                                 online_coeff_mode=online_coeff_mode,
                                 online_coeff_min_rel_improve=args.online_coeff_min_rel_improve,
                                 online_coeff_min_ns_logwidth_rel_improve=(

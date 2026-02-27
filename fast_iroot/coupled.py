@@ -42,6 +42,57 @@ class InverseSolveWorkspaceCoupled:
 IsqrtWorkspaceCoupled = IrootWorkspaceCoupled
 
 
+def _tail_poly_coeffs_from_residual_binomial(
+    p_val: int,
+    order: int,
+) -> Tuple[float, float, float]:
+    """Return q(Y)=a+bY+cY^2 from a local binomial tail in E=(I-Y).
+
+    Uses:
+      (I-E)^(-1/p) ≈ 1 + a1 E + a2 E^2, where
+      a1 = 1/p and a2 = (1/p)(1/p + 1)/2.
+    """
+    p_i = int(p_val)
+    if p_i <= 0:
+        raise ValueError(f"p_val must be >= 1, got {p_val}")
+    ord_i = int(order)
+    if ord_i not in (1, 2):
+        raise ValueError(f"order must be 1 or 2, got {order}")
+
+    inv_p = 1.0 / float(p_i)
+    if ord_i == 1:
+        return (1.0 + inv_p, -inv_p, 0.0)
+
+    a2 = 0.5 * inv_p * (1.0 + inv_p)
+    a = 1.0 + inv_p + a2
+    b = -(inv_p + 2.0 * a2)
+    c = a2
+    return (float(a), float(b), float(c))
+
+
+@torch.no_grad()
+def _online_stop_error(
+    Y: torch.Tensor,
+    *,
+    metric: str,
+    scratch: torch.Tensor,
+) -> float:
+    """Compute a scalar Y-to-I proximity metric for online early stopping."""
+    m = str(metric)
+    if m == "diag":
+        diag = Y.diagonal(dim1=-2, dim2=-1)
+        return float(torch.max(torch.abs(diag - 1.0)).item())
+    if m == "fro":
+        scratch.copy_(Y)
+        scratch.diagonal(dim1=-2, dim2=-1).sub_(1.0)
+        fro = torch.linalg.matrix_norm(scratch, ord="fro")
+        scaled = fro / math.sqrt(float(Y.shape[-1]))
+        return float(torch.max(scaled).item())
+    raise ValueError(
+        f"online_stop_metric must be 'diag' or 'fro', got '{metric}'"
+    )
+
+
 @torch.no_grad()
 def _build_step_polynomial(
     Y: torch.Tensor, *, a: float, b: float, c: float, out: torch.Tensor
@@ -272,6 +323,10 @@ def inverse_proot_pe_quadratic_coupled(
     terminal_last_step: bool = True,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
+    online_stop_metric: str = "diag",
+    online_stop_check_every: int = 1,
+    post_correction_steps: int = 0,
+    post_correction_order: int = 2,
     assume_spd: bool = True,
 ) -> Tuple[torch.Tensor, IrootWorkspaceCoupled]:
     """Coupled quadratic PE iteration for general p (inverse p-th root).
@@ -301,9 +356,50 @@ def inverse_proot_pe_quadratic_coupled(
     online_min = int(online_min_steps)
     if online_min < 1:
         raise ValueError(f"online_min_steps must be >= 1, got {online_min_steps}")
+    online_metric = str(online_stop_metric).strip().lower()
+    if online_metric not in ("diag", "fro"):
+        raise ValueError(
+            "online_stop_metric must be 'diag' or 'fro', "
+            f"got '{online_stop_metric}'"
+        )
+    stop_check_every = int(online_stop_check_every)
+    if stop_check_every < 1:
+        raise ValueError(
+            f"online_stop_check_every must be >= 1, got {online_stop_check_every}"
+        )
+    post_steps = int(post_correction_steps)
+    if post_steps < 0:
+        raise ValueError(
+            f"post_correction_steps must be >= 0, got {post_correction_steps}"
+        )
+    post_order = int(post_correction_order)
+    if post_order not in (1, 2):
+        raise ValueError(
+            f"post_correction_order must be 1 or 2, got {post_correction_order}"
+        )
+    if post_steps > 0:
+        if not assume_spd:
+            raise ValueError(
+                "post-correction tail requires assume_spd=True for stability"
+            )
+        if int(p_val) not in (2, 4):
+            raise ValueError(
+                "post-correction tail currently supports p_val in {2,4}, "
+                f"got {p_val}"
+            )
+        tail_abc = _tail_poly_coeffs_from_residual_binomial(p_val, post_order)
+    else:
+        tail_abc = (0.0, 0.0, 0.0)
 
     # SPD-only p=2 fast path (symmetric sandwich update).
-    if p_val == 2 and assume_spd:
+    if (
+        p_val == 2
+        and assume_spd
+        and online_stop_tol is None
+        and online_metric == "diag"
+        and stop_check_every == 1
+        and post_steps == 0
+    ):
         X, ws2 = inverse_sqrt_pe_quadratic(
             A_norm,
             abc_t=abc_t,
@@ -334,7 +430,7 @@ def inverse_proot_pe_quadratic_coupled(
             _matmul_into(ws.X, ws.B, ws.Xbuf)
         ws.X, ws.Xbuf = ws.Xbuf, ws.X
 
-        if terminal_last_step and (t == T - 1):
+        if terminal_last_step and (t == T - 1) and (post_steps == 0):
             break
 
         if affine_step and p_val == 1:
@@ -378,11 +474,24 @@ def inverse_proot_pe_quadratic_coupled(
             online_stop_tol is not None
             and (t + 1) >= online_min
             and (t + 1) < T
+            and ((t + 1) % stop_check_every == 0)
         ):
-            diag = ws.Y.diagonal(dim1=-2, dim2=-1)
-            diag_err = torch.max(torch.abs(diag - 1.0))
-            if float(diag_err) <= float(online_stop_tol):
+            stop_err = _online_stop_error(
+                ws.Y, metric=online_metric, scratch=ws.B2
+            )
+            if stop_err <= float(online_stop_tol):
                 break
+
+    if post_steps > 0:
+        a_tail, b_tail, c_tail = tail_abc
+        for _ in range(post_steps):
+            affine_tail = abs(float(c_tail)) <= _AFFINE_C_EPS
+            if affine_tail:
+                _apply_affine_right(ws.X, ws.Y, a=a_tail, b=b_tail, out=ws.Xbuf)
+            else:
+                _build_step_polynomial(ws.Y, a=a_tail, b=b_tail, c=c_tail, out=ws.B)
+                _matmul_into(ws.X, ws.B, ws.Xbuf)
+            ws.X, ws.Xbuf = ws.Xbuf, ws.X
 
     return ws.X, ws
 
@@ -399,6 +508,10 @@ def inverse_solve_pe_quadratic_coupled(
     terminal_last_step: bool = True,
     online_stop_tol: Optional[float] = None,
     online_min_steps: int = 2,
+    online_stop_metric: str = "diag",
+    online_stop_check_every: int = 1,
+    post_correction_steps: int = 0,
+    post_correction_order: int = 2,
     assume_spd: bool = True,
     nonspd_adaptive: bool = False,
     nonspd_adaptive_resid_tol: float = 1.0,
@@ -436,6 +549,40 @@ def inverse_solve_pe_quadratic_coupled(
     online_min = int(online_min_steps)
     if online_min < 1:
         raise ValueError(f"online_min_steps must be >= 1, got {online_min_steps}")
+    online_metric = str(online_stop_metric).strip().lower()
+    if online_metric not in ("diag", "fro"):
+        raise ValueError(
+            "online_stop_metric must be 'diag' or 'fro', "
+            f"got '{online_stop_metric}'"
+        )
+    stop_check_every = int(online_stop_check_every)
+    if stop_check_every < 1:
+        raise ValueError(
+            f"online_stop_check_every must be >= 1, got {online_stop_check_every}"
+        )
+    post_steps = int(post_correction_steps)
+    if post_steps < 0:
+        raise ValueError(
+            f"post_correction_steps must be >= 0, got {post_correction_steps}"
+        )
+    post_order = int(post_correction_order)
+    if post_order not in (1, 2):
+        raise ValueError(
+            f"post_correction_order must be 1 or 2, got {post_correction_order}"
+        )
+    if post_steps > 0:
+        if not assume_spd:
+            raise ValueError(
+                "post-correction tail requires assume_spd=True for stability"
+            )
+        if int(p_val) not in (2, 4):
+            raise ValueError(
+                "post-correction tail currently supports p_val in {2,4}, "
+                f"got {p_val}"
+            )
+        tail_abc = _tail_poly_coeffs_from_residual_binomial(p_val, post_order)
+    else:
+        tail_abc = (0.0, 0.0, 0.0)
     if float(nonspd_adaptive_resid_tol) <= 0.0:
         raise ValueError(
             "nonspd_adaptive_resid_tol must be > 0, "
@@ -632,10 +779,12 @@ def inverse_solve_pe_quadratic_coupled(
                 online_stop_tol is not None
                 and (t + 1) >= online_min
                 and (t + 1) < T
+                and ((t + 1) % stop_check_every == 0)
             ):
-                diag = ws.Y.diagonal(dim1=-2, dim2=-1)
-                diag_err = torch.max(torch.abs(diag - 1.0))
-                if float(diag_err) <= float(online_stop_tol):
+                stop_err = _online_stop_error(
+                    ws.Y, metric=online_metric, scratch=ws.B2
+                )
+                if stop_err <= float(online_stop_tol):
                     break
             continue
 
@@ -663,7 +812,12 @@ def inverse_solve_pe_quadratic_coupled(
             _matmul_into(ws.B, ws.Z, ws.Zbuf)
         ws.Z, ws.Zbuf = ws.Zbuf, ws.Z
 
-        if is_terminal:
+        # If terminal RHS-direct apply was used but we still need Y (e.g., post-tail),
+        # materialize the current-step polynomial once for a correct final Y update.
+        if is_terminal and (post_steps > 0) and use_rhs_direct_terminal:
+            _build_step_polynomial(ws.Y, a=a, b=b, c=c, out=ws.B)
+
+        if is_terminal and (post_steps == 0):
             break
 
         if affine_step and p_val == 1:
@@ -713,11 +867,31 @@ def inverse_solve_pe_quadratic_coupled(
             online_stop_tol is not None
             and (t + 1) >= online_min
             and (t + 1) < T
+            and ((t + 1) % stop_check_every == 0)
         ):
-            diag = ws.Y.diagonal(dim1=-2, dim2=-1)
-            diag_err = torch.max(torch.abs(diag - 1.0))
-            if float(diag_err) <= float(online_stop_tol):
+            stop_err = _online_stop_error(
+                ws.Y, metric=online_metric, scratch=ws.B2
+            )
+            if stop_err <= float(online_stop_tol):
                 break
+
+    if post_steps > 0:
+        a_tail, b_tail, c_tail = tail_abc
+        for _ in range(post_steps):
+            affine_tail = abs(float(c_tail)) <= _AFFINE_C_EPS
+            if affine_tail:
+                _apply_affine_left(ws.Y, ws.Z, a=a_tail, b=b_tail, out=ws.Zbuf)
+            else:
+                _apply_quadratic_left_rhs_terminal(
+                    ws.Y,
+                    ws.Z,
+                    a=a_tail,
+                    b=b_tail,
+                    c=c_tail,
+                    tmp_rhs=ws.Ztmp,
+                    out=ws.Zbuf,
+                )
+            ws.Z, ws.Zbuf = ws.Zbuf, ws.Z
 
     if (p_val == 1) and (not assume_spd) and (nonspd_safe_fallback_tol is not None):
         num = torch.linalg.matrix_norm(A_norm @ ws.Z - M_norm, ord="fro")

@@ -1,0 +1,215 @@
+{
+  "args": {
+    "ab_baseline_rows_in": "",
+    "ab_extra_args_a": "",
+    "ab_extra_args_b": "",
+    "ab_label_a": "A",
+    "ab_label_b": "B",
+    "ab_out": "benchmark_results\\runs\\20260226_203807_solver_benchmarks\\solver_benchmarks_ab.md",
+    "baseline_rows_out": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json",
+    "dtype": "bf16",
+    "extra_args": "--methods Inverse-Newton-Coupled-Apply --sizes 128 --k 1 --cases gaussian_spd",
+    "integrity_checksums": true,
+    "manifest_out": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/manifest.json",
+    "markdown": true,
+    "only": "SPD p=2 k<n",
+    "out": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/report.md",
+    "timing_reps": 1,
+    "timing_warmup_reps": 0,
+    "trials": 1
+  },
+  "argv": [
+    "--markdown",
+    "--trials",
+    "1",
+    "--timing-reps",
+    "1",
+    "--timing-warmup-reps",
+    "0",
+    "--only",
+    "SPD p=2 k<n",
+    "--extra-args",
+    "--methods Inverse-Newton-Coupled-Apply --sizes 128 --k 1 --cases gaussian_spd",
+    "--out",
+    "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/report.md",
+    "--manifest-out",
+    "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/manifest.json",
+    "--baseline-rows-out",
+    "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json"
+  ],
+  "extra_args": {
+    "base": [
+      "--methods",
+      "Inverse-Newton-Coupled-Apply",
+      "--sizes",
+      "128",
+      "--k",
+      "1",
+      "--cases",
+      "gaussian_spd"
+    ]
+  },
+  "generated_at": "2026-02-26T20:38:15",
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "497ef31f274e602f329d6dd329bdf3e8569f3df1",
+    "tracked_source_sha256": "326bf1b042fb6e08ae49d0762afae00780a4707b3f7c0220198f078d3293ed25"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "markdown",
+  "only_filter": [
+    "SPD p=2 k<n"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/report.md",
+      "sha256": "59e46390e4e62f84786cf278dc954064aa55a97b7c54a0d79ea7ab1737516154"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/report.md.sha256",
+      "sha256": "11db6125b9f11047e16f4d1fe638010c2171ff6e9e496a09517a94de6dfed943"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json",
+      "sha256": "302ac984a2324571b640f31a08d1d9cab5f7d01a0362faff08180328da121980"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json.sha256",
+      "sha256": "912a146ad262931c6e4dd0c6b27291ea545c510c38362f6b488c58ad8078435b"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>",
+  "repro_context": {
+    "args": {
+      "ab_baseline_rows_in": "",
+      "ab_extra_args_a": "",
+      "ab_extra_args_b": "",
+      "ab_label_a": "A",
+      "ab_label_b": "B",
+      "ab_out": "benchmark_results\\runs\\20260226_203807_solver_benchmarks\\solver_benchmarks_ab.md",
+      "baseline_rows_out": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json",
+      "dtype": "bf16",
+      "extra_args": "--methods Inverse-Newton-Coupled-Apply --sizes 128 --k 1 --cases gaussian_spd",
+      "integrity_checksums": true,
+      "manifest_out": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/manifest.json",
+      "markdown": true,
+      "only": "SPD p=2 k<n",
+      "out": "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/report.md",
+      "timing_reps": 1,
+      "timing_warmup_reps": 0,
+      "trials": 1
+    },
+    "argv": [
+      "--markdown",
+      "--trials",
+      "1",
+      "--timing-reps",
+      "1",
+      "--timing-warmup-reps",
+      "0",
+      "--only",
+      "SPD p=2 k<n",
+      "--extra-args",
+      "--methods Inverse-Newton-Coupled-Apply --sizes 128 --k 1 --cases gaussian_spd",
+      "--out",
+      "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/report.md",
+      "--manifest-out",
+      "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/manifest.json",
+      "--baseline-rows-out",
+      "benchmark_results/runs/2026_02_27/smoke_targeted_baseline/baseline_rows.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "base": [
+        "--methods",
+        "Inverse-Newton-Coupled-Apply",
+        "--sizes",
+        "128",
+        "--k",
+        "1",
+        "--cases",
+        "gaussian_spd"
+      ]
+    },
+    "git": {
+      "branch": "main",
+      "dirty": true,
+      "head": "497ef31f274e602f329d6dd329bdf3e8569f3df1",
+      "tracked_source_sha256": "326bf1b042fb6e08ae49d0762afae00780a4707b3f7c0220198f078d3293ed25"
+    },
+    "mode": "markdown",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve",
+          "--p",
+          "2",
+          "--sizes",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "1",
+          "--timing-reps",
+          "1",
+          "--timing-warmup-reps",
+          "0",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "SPD p=2 k<n"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "d34439b83ebd992447efc728a65c7d0d35c300a0e6623be6efdd7076325ae7da",
+  "runs": [
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve",
+        "--p",
+        "2",
+        "--sizes",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "1",
+        "--timing-reps",
+        "1",
+        "--timing-warmup-reps",
+        "0",
+        "--dtype",
+        "bf16",
+        "--methods",
+        "Inverse-Newton-Coupled-Apply",
+        "--sizes",
+        "128",
+        "--k",
+        "1",
+        "--cases",
+        "gaussian_spd"
+      ],
+      "kind": "spd",
+      "parsed_rows": 1,
+      "spec_name": "SPD p=2 k<n",
+      "stdout_sha256": "f48ed2ae9c0cb8ac5e4b0a02da4f4c30506da90bdd863d82aa0f908b5b79c963"
+    }
+  ],
+  "spec_count": 1
+}

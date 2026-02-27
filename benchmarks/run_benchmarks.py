@@ -37,9 +37,7 @@ class RunSpec:
     txt_out: str
 
 
-def _ensure_dirs(*dirs: str) -> None:
-    for d in dirs:
-        os.makedirs(d, exist_ok=True)
+ParsedRow = tuple[str, int, int, int, str, str, float, float, float]
 
 
 def _run_and_capture(cmd: list[str]) -> str:
@@ -67,13 +65,75 @@ def _run_and_write_txt(cmd: list[str], out_path: str) -> None:
 
 
 def _write_text_file(path: str, text: str) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    dir_name = os.path.dirname(path)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
 
 
 def _write_json_file(path: str, payload: dict[str, Any]) -> None:
     _write_text_file(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def _load_json_file(path: str) -> Any:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _row_to_dict(row: ParsedRow) -> dict[str, Any]:
+    kind, p_val, n, k, case_name, method, total_ms, iter_ms, relerr = row
+    return {
+        "kind": kind,
+        "p": int(p_val),
+        "n": int(n),
+        "k": int(k),
+        "case": case_name,
+        "method": method,
+        "total_ms": float(total_ms),
+        "iter_ms": float(iter_ms),
+        "relerr": float(relerr),
+    }
+
+
+def _row_from_dict(obj: Any) -> ParsedRow:
+    if not isinstance(obj, dict):
+        raise ValueError("row entry must be an object")
+    return (
+        str(obj["kind"]),
+        int(obj["p"]),
+        int(obj["n"]),
+        int(obj["k"]),
+        str(obj["case"]),
+        str(obj["method"]),
+        float(obj["total_ms"]),
+        float(obj["iter_ms"]),
+        float(obj["relerr"]),
+    )
+
+
+def _write_rows_cache(path: str, rows: list[ParsedRow]) -> None:
+    payload = {
+        "schema": "solver_benchmark_rows.v1",
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "row_count": len(rows),
+        "rows": [_row_to_dict(r) for r in rows],
+    }
+    _write_json_file(path, payload)
+
+
+def _load_rows_cache(path: str) -> list[ParsedRow]:
+    payload = _load_json_file(path)
+    if isinstance(payload, dict):
+        rows_raw = payload.get("rows")
+    else:
+        rows_raw = payload
+    if not isinstance(rows_raw, list):
+        raise ValueError(f"Invalid rows cache format: expected list at {path}")
+    rows: list[ParsedRow] = []
+    for obj in rows_raw:
+        rows.append(_row_from_dict(obj))
+    return rows
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -414,15 +474,15 @@ def _build_specs(
     return specs
 
 
-def _parse_rows(
-    raw: str, kind: str
-) -> list[tuple[str, int, int, str, str, float, float, float]]:
-    rows: list[tuple[str, int, int, str, str, float, float, float]] = []
+def _parse_rows(raw: str, kind: str) -> list[ParsedRow]:
+    rows: list[ParsedRow] = []
+    current_p = -1
     current_n = -1
     current_k = -1
     current_case = ""
 
     hdr_re = re.compile(r"==\s+(?:SPD|Non-SPD)\s+Size\s+(\d+)x\1\s+\|\s+RHS\s+\1x(\d+)")
+    p_re = re.compile(r"\bp\s*=\s*(\d+)\b")
     case_re = re.compile(r"^--\s+case\s+([^\s]+)\s+--")
     line_re = re.compile(
         r"^(.*?)\s+(\d+\.\d+)\s+ms\s+\(pre\s+(\d+\.\d+)\s+\+\s+iter\s+(\d+\.\d+)\).*?"
@@ -438,6 +498,10 @@ def _parse_rows(
             current_n = int(hm.group(1))
             current_k = int(hm.group(2))
             continue
+        pm = p_re.search(line)
+        if pm:
+            current_p = int(pm.group(1))
+            continue
         cm = case_re.match(line)
         if cm:
             current_case = cm.group(1)
@@ -451,6 +515,7 @@ def _parse_rows(
             rows.append(
                 (
                     kind,
+                    current_p,
                     current_n,
                     current_k,
                     current_case,
@@ -464,36 +529,53 @@ def _parse_rows(
     return rows
 
 
-def _to_markdown(all_rows: list[tuple[str, int, int, str, str, float, float, float]]) -> str:
+def _to_markdown(all_rows: list[ParsedRow]) -> str:
     out: list[str] = []
     out.append("# Solver Benchmark Report")
     out.append("")
     out.append(f"Generated: {datetime.now().isoformat(timespec='seconds')}")
     out.append("")
-    out.append("| kind | n | k | case | method | total_ms | iter_ms | relerr |")
-    out.append("|---|---:|---:|---|---|---:|---:|---:|")
+    out.append("| kind | p | n | k | case | method | total_ms | iter_ms | relerr |")
+    out.append("|---|---:|---:|---:|---|---|---:|---:|---:|")
 
-    for row in sorted(all_rows, key=lambda r: (r[0], r[1], r[2], r[3], r[4])):
-        kind, n, k, case_name, method, total_ms, iter_ms, relerr = row
+    for row in sorted(all_rows, key=lambda r: (r[0], r[1], r[2], r[3], r[4], r[5])):
+        kind, p_val, n, k, case_name, method, total_ms, iter_ms, relerr = row
         out.append(
-            f"| {kind} | {n} | {k} | {case_name} | {method} | {total_ms:.3f} | {iter_ms:.3f} | {relerr:.3e} |"
+            f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method} | {total_ms:.3f} | {iter_ms:.3f} | {relerr:.3e} |"
         )
     out.append("")
     return "\n".join(out)
 
 
 def _to_markdown_ab(
-    rows_a: list[tuple[str, int, int, str, str, float, float, float]],
-    rows_b: list[tuple[str, int, int, str, str, float, float, float]],
+    rows_a: list[ParsedRow],
+    rows_b: list[ParsedRow],
     *,
     label_a: str,
     label_b: str,
+    match_on_method: bool,
 ) -> str:
-    def _key(row: tuple[str, int, int, str, str, float, float, float]):
+    def _key_method(row: ParsedRow):
+        return row[0], row[1], row[2], row[3], row[4], row[5]
+
+    def _key_case(row: ParsedRow):
         return row[0], row[1], row[2], row[3], row[4]
 
-    map_a = {_key(r): r for r in rows_a}
-    map_b = {_key(r): r for r in rows_b}
+    def _build_index(rows: list[ParsedRow], use_method_key: bool) -> dict[Any, ParsedRow]:
+        out: dict[Any, ParsedRow] = {}
+        for r in rows:
+            key = _key_method(r) if use_method_key else _key_case(r)
+            if key in out:
+                raise RuntimeError(
+                    "A/B compare has duplicate rows per match key. "
+                    "Use --methods to keep one method per side, or enable "
+                    "--ab-match-on-method when comparing like-for-like methods."
+                )
+            out[key] = r
+        return out
+
+    map_a = _build_index(rows_a, use_method_key=match_on_method)
+    map_b = _build_index(rows_b, use_method_key=match_on_method)
     keys = sorted(set(map_a.keys()) & set(map_b.keys()))
     if len(keys) == 0:
         raise RuntimeError(
@@ -508,28 +590,51 @@ def _to_markdown_ab(
     out.append(f"A: {label_a}")
     out.append(f"B: {label_b}")
     out.append("")
-    out.append(
-        "| kind | n | k | case | method | "
-        f"{label_a}_total_ms | {label_b}_total_ms | delta_ms(B-A) | delta_pct | "
-        f"{label_a}_iter_ms | {label_b}_iter_ms | "
-        f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) |"
-    )
-    out.append("|---|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    if match_on_method:
+        out.append(
+            "| kind | p | n | k | case | method | "
+            f"{label_a}_total_ms | {label_b}_total_ms | delta_ms(B-A) | delta_pct | "
+            f"{label_a}_iter_ms | {label_b}_iter_ms | "
+            f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) |"
+        )
+        out.append(
+            "|---|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+        )
+    else:
+        out.append(
+            "| kind | p | n | k | case | "
+            f"{label_a}_method | {label_b}_method | "
+            f"{label_a}_total_ms | {label_b}_total_ms | delta_ms(B-A) | delta_pct | "
+            f"{label_a}_iter_ms | {label_b}_iter_ms | "
+            f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) |"
+        )
+        out.append(
+            "|---|---:|---:|---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+        )
 
     for key in keys:
         ra = map_a[key]
         rb = map_b[key]
-        kind, n, k, case_name, method = key
-        a_total, a_iter, a_rel = ra[5], ra[6], ra[7]
-        b_total, b_iter, b_rel = rb[5], rb[6], rb[7]
+        kind, p_val, n, k, case_name = ra[0], ra[1], ra[2], ra[3], ra[4]
+        method_a = ra[5]
+        method_b = rb[5]
+        a_total, a_iter, a_rel = ra[6], ra[7], ra[8]
+        b_total, b_iter, b_rel = rb[6], rb[7], rb[8]
         d_ms = b_total - a_total
         d_pct = (100.0 * d_ms / a_total) if a_total != 0 else float("nan")
         rel_ratio = (b_rel / a_rel) if a_rel != 0 else float("nan")
-        out.append(
-            f"| {kind} | {n} | {k} | {case_name} | {method} | "
-            f"{a_total:.3f} | {b_total:.3f} | {d_ms:.3f} | {d_pct:.2f}% | "
-            f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} |"
-        )
+        if match_on_method:
+            out.append(
+                f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method_a} | "
+                f"{a_total:.3f} | {b_total:.3f} | {d_ms:.3f} | {d_pct:.2f}% | "
+                f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} |"
+            )
+        else:
+            out.append(
+                f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method_a} | {method_b} | "
+                f"{a_total:.3f} | {b_total:.3f} | {d_ms:.3f} | {d_pct:.2f}% | "
+                f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} |"
+            )
     out.append("")
     return "\n".join(out)
 
@@ -590,10 +695,39 @@ def main() -> None:
         help="Display label for B-side runs in A/B markdown report.",
     )
     parser.add_argument(
+        "--ab-match-on-method",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "A/B row matching key policy. "
+            "When true (default), rows are matched by kind+p+n+k+case+method. "
+            "When false, match by kind+p+n+k+case so A and B may use different methods "
+            "(use --methods to keep one method per side)."
+        ),
+    )
+    parser.add_argument(
         "--ab-out",
         type=str,
         default="",
         help="Output markdown path used for A/B compare mode.",
+    )
+    parser.add_argument(
+        "--ab-baseline-rows-in",
+        type=str,
+        default="",
+        help=(
+            "Optional JSON rows cache path used as A-side in A/B mode. "
+            "When provided, A-side benchmark commands are skipped."
+        ),
+    )
+    parser.add_argument(
+        "--baseline-rows-out",
+        type=str,
+        default="",
+        help=(
+            "Optional JSON rows cache path to write parsed rows for future reuse "
+            "(for example as --ab-baseline-rows-in in later runs)."
+        ),
     )
     parser.add_argument(
         "--manifest-out",
@@ -626,7 +760,6 @@ def main() -> None:
     run_dir_abs = os.path.join(REPO_ROOT, run_dir_rel)
     spd_dir_abs = os.path.join(run_dir_abs, "spd_solve_logs")
     nonspd_dir_abs = os.path.join(run_dir_abs, "nonspd_solve_logs")
-    _ensure_dirs(spd_dir_abs, nonspd_dir_abs)
 
     if not str(args.out).strip():
         args.out = os.path.join(run_dir_rel, "solver_benchmarks.md")
@@ -649,7 +782,13 @@ def main() -> None:
         raise ValueError("No benchmark specs matched --only filter")
 
     base_extra_args = _split_extra_args(args.extra_args)
-    ab_mode = bool(str(args.ab_extra_args_a).strip() or str(args.ab_extra_args_b).strip())
+    ab_baseline_rows_in = str(args.ab_baseline_rows_in).strip()
+    baseline_rows_out = str(args.baseline_rows_out).strip()
+    ab_mode = bool(
+        str(args.ab_extra_args_a).strip()
+        or str(args.ab_extra_args_b).strip()
+        or ab_baseline_rows_in
+    )
     integrity_checksums = bool(args.integrity_checksums)
 
     manifest_path = os.path.join(REPO_ROOT, str(args.manifest_out))
@@ -659,26 +798,39 @@ def main() -> None:
         a_extra = base_extra_args + _split_extra_args(args.ab_extra_args_a)
         b_extra = base_extra_args + _split_extra_args(args.ab_extra_args_b)
 
-        rows_a: list[tuple[str, int, int, str, str, float, float, float]] = []
-        rows_b: list[tuple[str, int, int, str, str, float, float, float]] = []
+        rows_a: list[ParsedRow] = []
+        rows_b: list[ParsedRow] = []
         run_records: list[dict[str, Any]] = []
 
-        for spec in specs:
-            cmd_a = spec.cmd + a_extra
-            raw_a = _run_and_capture(cmd_a)
-            rows_a_spec = _parse_rows(raw_a, spec.kind)
-            rows_a.extend(rows_a_spec)
+        if ab_baseline_rows_in:
+            baseline_in_path = os.path.join(REPO_ROOT, ab_baseline_rows_in)
+            rows_a = _load_rows_cache(baseline_in_path)
             run_records.append(
                 {
-                    "spec_name": spec.name,
-                    "kind": spec.kind,
                     "variant": "A",
-                    "cmd": cmd_a,
-                    "stdout_sha256": _sha256_text(raw_a),
-                    "parsed_rows": len(rows_a_spec),
+                    "source": "rows_cache",
+                    "rows_cache_path": _rel(baseline_in_path),
+                    "parsed_rows": len(rows_a),
                 }
             )
+        else:
+            for spec in specs:
+                cmd_a = spec.cmd + a_extra
+                raw_a = _run_and_capture(cmd_a)
+                rows_a_spec = _parse_rows(raw_a, spec.kind)
+                rows_a.extend(rows_a_spec)
+                run_records.append(
+                    {
+                        "spec_name": spec.name,
+                        "kind": spec.kind,
+                        "variant": "A",
+                        "cmd": cmd_a,
+                        "stdout_sha256": _sha256_text(raw_a),
+                        "parsed_rows": len(rows_a_spec),
+                    }
+                )
 
+        for spec in specs:
             cmd_b = spec.cmd + b_extra
             raw_b = _run_and_capture(cmd_b)
             rows_b_spec = _parse_rows(raw_b, spec.kind)
@@ -705,6 +857,7 @@ def main() -> None:
             rows_b,
             label_a=str(args.ab_label_a),
             label_b=str(args.ab_label_b),
+            match_on_method=bool(args.ab_match_on_method),
         )
         _write_text_file(out_path, md_text)
         out_sidecar: str | None = None
@@ -712,6 +865,16 @@ def main() -> None:
         if integrity_checksums:
             out_sha = _sha256_file(out_path)
             out_sidecar = _write_sha256_sidecar(out_path, out_sha)
+        baseline_rows_path_abs: str | None = None
+        baseline_rows_sidecar: str | None = None
+        if baseline_rows_out:
+            baseline_rows_path_abs = os.path.join(REPO_ROOT, baseline_rows_out)
+            _write_rows_cache(baseline_rows_path_abs, rows_a)
+            if integrity_checksums:
+                baseline_rows_sha = _sha256_file(baseline_rows_path_abs)
+                baseline_rows_sidecar = _write_sha256_sidecar(
+                    baseline_rows_path_abs, baseline_rows_sha
+                )
 
         manifest = _base_manifest(args, mode="ab_markdown")
         manifest["spec_count"] = len(specs)
@@ -725,6 +888,7 @@ def main() -> None:
             "a": str(args.ab_label_a),
             "b": str(args.ab_label_b),
         }
+        manifest["ab_match_on_method"] = bool(args.ab_match_on_method)
         manifest["runs"] = run_records
         repro = _repro_context(
             mode="ab_markdown",
@@ -748,6 +912,18 @@ def main() -> None:
                     "sha256": _sha256_file(out_sidecar),
                 }
             )
+        if baseline_rows_path_abs is not None:
+            row_out_rec: dict[str, Any] = {"path": _rel(baseline_rows_path_abs)}
+            if integrity_checksums:
+                row_out_rec["sha256"] = _sha256_file(baseline_rows_path_abs)
+            manifest["outputs"].append(row_out_rec)
+            if integrity_checksums and baseline_rows_sidecar is not None:
+                manifest["outputs"].append(
+                    {
+                        "path": _rel(baseline_rows_sidecar),
+                        "sha256": _sha256_file(baseline_rows_sidecar),
+                    }
+                )
         _write_json_file(manifest_path, manifest)
         repro_sidecar = _write_repro_fingerprint_sidecar(
             manifest_path, manifest["repro_fingerprint_sha256"]
@@ -760,12 +936,16 @@ def main() -> None:
             )
 
         print(f"Wrote A/B markdown report: {out_path}")
+        if baseline_rows_path_abs is not None:
+            print(f"Wrote baseline rows cache: {baseline_rows_path_abs}")
         print(f"Repro fingerprint: {manifest['repro_fingerprint_sha256']}")
         print(f"Wrote manifest: {manifest_path}")
         print(f"Wrote reproducibility checksum: {repro_sidecar}")
         if integrity_checksums:
             if out_sidecar is not None:
                 print(f"Wrote output integrity checksum: {out_sidecar}")
+            if baseline_rows_sidecar is not None:
+                print(f"Wrote baseline rows integrity checksum: {baseline_rows_sidecar}")
             if manifest_integrity_sidecar is not None:
                 print(f"Wrote manifest integrity checksum: {manifest_integrity_sidecar}")
         return
@@ -773,9 +953,12 @@ def main() -> None:
     if not args.markdown:
         run_records: list[dict[str, Any]] = []
         out_records: list[dict[str, str]] = []
+        all_rows: list[ParsedRow] = []
         for spec in specs:
             cmd = spec.cmd + base_extra_args
             raw = _run_and_capture(cmd)
+            rows = _parse_rows(raw, spec.kind)
+            all_rows.extend(rows)
             print(f"Logging to: {spec.txt_out}")
             _write_text_file(spec.txt_out, raw)
             out_sha: str | None = None
@@ -790,6 +973,7 @@ def main() -> None:
                     "cmd": cmd,
                     "stdout_sha256": _sha256_text(raw),
                     "output_path": _rel(spec.txt_out),
+                    "parsed_rows": len(rows),
                 }
             )
             out_rec: dict[str, str] = {"path": _rel(spec.txt_out)}
@@ -804,6 +988,26 @@ def main() -> None:
                     }
                 )
             out_records.append(out_rec)
+
+        baseline_rows_path_abs: str | None = None
+        baseline_rows_sidecar: str | None = None
+        if baseline_rows_out:
+            baseline_rows_path_abs = os.path.join(REPO_ROOT, baseline_rows_out)
+            _write_rows_cache(baseline_rows_path_abs, all_rows)
+            row_out_rec: dict[str, str] = {"path": _rel(baseline_rows_path_abs)}
+            if integrity_checksums:
+                row_sha = _sha256_file(baseline_rows_path_abs)
+                row_out_rec["sha256"] = row_sha
+                baseline_rows_sidecar = _write_sha256_sidecar(
+                    baseline_rows_path_abs, row_sha
+                )
+                out_records.append(
+                    {
+                        "path": _rel(baseline_rows_sidecar),
+                        "sha256": _sha256_file(baseline_rows_sidecar),
+                    }
+                )
+            out_records.append(row_out_rec)
 
         manifest = _base_manifest(args, mode="raw_logs")
         manifest["spec_count"] = len(specs)
@@ -832,12 +1036,16 @@ def main() -> None:
             )
         print(f"Repro fingerprint: {manifest['repro_fingerprint_sha256']}")
         print(f"Wrote manifest: {manifest_path}")
+        if baseline_rows_path_abs is not None:
+            print(f"Wrote baseline rows cache: {baseline_rows_path_abs}")
         print(f"Wrote reproducibility checksum: {repro_sidecar}")
         if integrity_checksums and manifest_integrity_sidecar is not None:
             print(f"Wrote manifest integrity checksum: {manifest_integrity_sidecar}")
+        if integrity_checksums and baseline_rows_sidecar is not None:
+            print(f"Wrote baseline rows integrity checksum: {baseline_rows_sidecar}")
         return
 
-    all_rows: list[tuple[str, int, int, str, str, float, float, float]] = []
+    all_rows: list[ParsedRow] = []
     run_records = []
     for spec in specs:
         cmd = spec.cmd + base_extra_args
@@ -866,6 +1074,16 @@ def main() -> None:
     if integrity_checksums:
         out_sha = _sha256_file(out_path)
         out_sidecar = _write_sha256_sidecar(out_path, out_sha)
+    baseline_rows_path_abs: str | None = None
+    baseline_rows_sidecar: str | None = None
+    if baseline_rows_out:
+        baseline_rows_path_abs = os.path.join(REPO_ROOT, baseline_rows_out)
+        _write_rows_cache(baseline_rows_path_abs, all_rows)
+        if integrity_checksums:
+            baseline_rows_sha = _sha256_file(baseline_rows_path_abs)
+            baseline_rows_sidecar = _write_sha256_sidecar(
+                baseline_rows_path_abs, baseline_rows_sha
+            )
 
     manifest = _base_manifest(args, mode="markdown")
     manifest["spec_count"] = len(specs)
@@ -890,6 +1108,18 @@ def main() -> None:
                 "sha256": _sha256_file(out_sidecar),
             }
         )
+    if baseline_rows_path_abs is not None:
+        row_out_rec: dict[str, Any] = {"path": _rel(baseline_rows_path_abs)}
+        if integrity_checksums:
+            row_out_rec["sha256"] = _sha256_file(baseline_rows_path_abs)
+        manifest["outputs"].append(row_out_rec)
+        if integrity_checksums and baseline_rows_sidecar is not None:
+            manifest["outputs"].append(
+                {
+                    "path": _rel(baseline_rows_sidecar),
+                    "sha256": _sha256_file(baseline_rows_sidecar),
+                }
+            )
     _write_json_file(manifest_path, manifest)
     repro_sidecar = _write_repro_fingerprint_sidecar(
         manifest_path, manifest["repro_fingerprint_sha256"]
@@ -900,12 +1130,16 @@ def main() -> None:
         manifest_integrity_sidecar = _write_sha256_sidecar(manifest_path, manifest_sha)
 
     print(f"Wrote markdown report: {out_path}")
+    if baseline_rows_path_abs is not None:
+        print(f"Wrote baseline rows cache: {baseline_rows_path_abs}")
     print(f"Repro fingerprint: {manifest['repro_fingerprint_sha256']}")
     print(f"Wrote manifest: {manifest_path}")
     print(f"Wrote reproducibility checksum: {repro_sidecar}")
     if integrity_checksums:
         if out_sidecar is not None:
             print(f"Wrote output integrity checksum: {out_sidecar}")
+        if baseline_rows_sidecar is not None:
+            print(f"Wrote baseline rows integrity checksum: {baseline_rows_sidecar}")
         if manifest_integrity_sidecar is not None:
             print(f"Wrote manifest integrity checksum: {manifest_integrity_sidecar}")
 

@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-02-26T20:38:15",
+  "row_count": 1,
+  "rows": [
+    {
+      "case": "gaussian_spd",
+      "iter_ms": 3675.461,
+      "k": 1,
+      "kind": "spd",
+      "method": "Inverse-Newton-Coupled-Apply",
+      "n": 128,
+      "p": 2,
+      "relerr": 0.003876,
+      "total_ms": 3769.732
+    }
+  ],
+  "schema": "solver_benchmark_rows.v1"
+}

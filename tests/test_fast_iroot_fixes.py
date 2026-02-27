@@ -222,6 +222,38 @@ def test_inverse_solve_online_early_stop_matches_single_step():
     assert torch.allclose(Z_online, Z_single, atol=1e-5, rtol=1e-5)
 
 
+def test_inverse_solve_online_early_stop_fro_matches_single_step():
+    n = 8
+    torch.manual_seed(124)
+    A = torch.randn(n, n)
+    A = (A @ A.mT) / n + torch.eye(n) * 0.1
+    M = torch.randn(n, n // 2)
+
+    abc_t = [
+        (1.5, -0.5, 0.0),
+        (1.4, -0.4, 0.0),
+        (1.3, -0.3, 0.0),
+    ]
+
+    Z_online, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=abc_t,
+        p_val=2,
+        online_stop_tol=1e9,
+        online_min_steps=1,
+        online_stop_metric="fro",
+    )
+    Z_single, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=[abc_t[0]],
+        p_val=2,
+    )
+
+    assert torch.allclose(Z_online, Z_single, atol=1e-5, rtol=1e-5)
+
+
 def test_inverse_solve_online_stop_validation():
     A = torch.randn(6, 6)
     A = (A @ A.mT) / 6 + torch.eye(6) * 0.1
@@ -246,6 +278,101 @@ def test_inverse_solve_online_stop_validation():
             online_stop_tol=1e-3,
             online_min_steps=0,
         )
+
+    with pytest.raises(ValueError, match="online_stop_metric"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=2,
+            online_stop_metric="bad",
+        )
+
+    with pytest.raises(ValueError, match="online_stop_check_every"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=2,
+            online_stop_check_every=0,
+        )
+
+
+def test_post_correction_validation():
+    n = 6
+    A = torch.randn(n, n)
+    A = (A @ A.mT) / n + torch.eye(n) * 0.1
+    M = torch.randn(n, 3)
+    abc_t = [(1.5, -0.5, 0.0)]
+
+    with pytest.raises(ValueError, match="post_correction_steps"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=2,
+            post_correction_steps=-1,
+        )
+
+    with pytest.raises(ValueError, match="post_correction_order"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=2,
+            post_correction_order=3,
+        )
+
+    with pytest.raises(ValueError, match="supports p_val in \\{2,4\\}"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=3,
+            post_correction_steps=1,
+        )
+
+    with pytest.raises(ValueError, match="assume_spd=True"):
+        inverse_solve_pe_quadratic_coupled(
+            A,
+            M,
+            abc_t=abc_t,
+            p_val=2,
+            assume_spd=False,
+            symmetrize_Y=False,
+            post_correction_steps=1,
+        )
+
+
+def test_post_correction_tail_improves_p4_apply():
+    torch.manual_seed(1)
+    n = 10
+    A = torch.randn(n, n)
+    A = (A @ A.mT) / n + torch.eye(n) * 0.2
+    M = torch.randn(n, 4)
+    abc_t = [(1.25, -0.25, 0.0)]
+
+    Z_base, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=abc_t,
+        p_val=4,
+        post_correction_steps=0,
+    )
+    Z_tail, _ = inverse_solve_pe_quadratic_coupled(
+        A,
+        M,
+        abc_t=abc_t,
+        p_val=4,
+        post_correction_steps=1,
+        post_correction_order=2,
+    )
+    X_ref = exact_inverse_proot(A, p_val=4)
+    Z_ref = X_ref @ M
+
+    err_base = torch.linalg.matrix_norm(Z_base - Z_ref) / torch.linalg.matrix_norm(Z_ref)
+    err_tail = torch.linalg.matrix_norm(Z_tail - Z_ref) / torch.linalg.matrix_norm(Z_ref)
+    assert float(err_tail) < float(err_base)
 
 
 def test_inverse_solve_affine_step_matches_manual_apply():

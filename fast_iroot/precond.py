@@ -8,6 +8,7 @@ from .utils import _check_square
 
 SPD_PRECOND_MODES: tuple[str, ...] = ("none", "frob", "aol", "jacobi", "ruiz")
 GRAM_PRECOND_MODES: tuple[str, ...] = ("none", "col-norm")
+DUAL_GRAM_PRECOND_MODES: tuple[str, ...] = ("none", "row-norm")
 
 
 @dataclass
@@ -222,6 +223,68 @@ def precond_gram_spd(
     else:
         raise ValueError(
             f"unknown gram preconditioner: {gram_mode}. Supported modes are {GRAM_PRECOND_MODES}."
+        )
+
+    return precond_spd(
+        A_gram,
+        mode=mode,
+        eps=eps,
+        ruiz_iters=ruiz_iters,
+        ridge_rel=ridge_rel,
+        l_target=l_target,
+        lambda_max_est=lambda_max_est,
+        lambda_max_power_iters=lambda_max_power_iters,
+        lambda_max_safety=lambda_max_safety,
+        compute_rho_proxy=compute_rho_proxy,
+    )
+
+
+@torch.no_grad()
+def precond_gram_dual_spd(
+    G: torch.Tensor,
+    gram_mode: str = "row-norm",
+    mode: str = "none",
+    eps: float = 1e-12,
+    ruiz_iters: int = 2,
+    ridge_rel: float = 0.0,
+    l_target: float = 0.05,
+    lambda_max_est: str = "row_sum",
+    lambda_max_power_iters: int = 8,
+    lambda_max_safety: float = 1.02,
+    compute_rho_proxy: bool = True,
+) -> Tuple[torch.Tensor, PrecondStats]:
+    """
+    Preconditions a dual SPD Gram matrix formed from feature matrix `G`, where
+    `A_dual = G G^T`.
+
+    `gram_mode="row-norm"` applies the same transform as scaling rows of `G`
+    by inverse row-norms, then forming `A_dual`.
+    """
+    if G.is_complex():
+        raise ValueError("precond_gram_dual_spd does not support complex tensors")
+    if G.dim() < 2:
+        raise ValueError(
+            "precond_gram_dual_spd expects tensor with dim >= 2, "
+            f"got shape {tuple(G.shape)}"
+        )
+
+    A_dual = G @ G.mT
+
+    if gram_mode == "none":
+        A_gram = A_dual
+    elif gram_mode == "row-norm":
+        diag = A_dual.diagonal(dim1=-2, dim2=-1)
+        if (diag <= float(eps)).any():
+            raise ValueError(
+                "precond_gram_dual_spd requires non-zero row norms "
+                "for gram_mode='row-norm'"
+            )
+        d = torch.rsqrt(diag.clamp_min(float(eps)))
+        A_gram = (d.unsqueeze(-1) * A_dual) * d.unsqueeze(-2)
+    else:
+        raise ValueError(
+            "unknown dual gram preconditioner: "
+            f"{gram_mode}. Supported modes are {DUAL_GRAM_PRECOND_MODES}."
         )
 
     return precond_spd(

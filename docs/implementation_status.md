@@ -9,11 +9,13 @@ This page distinguishes what is already implemented from what is still missing t
 
 - Coupled and uncoupled quadratic PE inverse-root kernels (`fast_iroot/coupled.py`, `fast_iroot/uncoupled.py`).
 - Apply variants for `Z = A^{-1/p}B`, including SPD/non-SPD controls and workspace reuse (`fast_iroot/coupled.py`, `fast_iroot/apply.py`).
+- Dual Gram-RHS apply path for `Z = (G^T G)^{-1/p} G^T B` using `G G^T` in dual space, with dedicated workspace caching (`fast_iroot/apply.py`, `fast_iroot/precond.py`).
 - SPD-specialized fast path for `p=2` in coupled updates (`inverse_sqrt_pe_quadratic`).
 - Online scheduling hooks for coupled PE (greedy-newton, greedy-minimax local alpha, greedy-affine-opt) and interval-error schedule trimming (`fast_iroot/coeff_tuner.py`, `benchmarks/solve/matrix_solve.py`).
 - Optional coupled apply post-correction tail (residual-binomial, RHS-only) for SPD `p=2,4`, plus configurable online stop metrics (`diag` / normalized `fro`) and check cadence (`fast_iroot/coupled.py`, `fast_iroot/apply.py`, `benchmarks/solve/matrix_solve.py`).
 - Chebyshev direct-apply with Clenshaw recurrence (`apply_inverse_proot_chebyshev`) and minimax-auto degree selection (`fast_iroot/chebyshev.py`).
 - SPD preconditioning/scaling modes: `none`, `frob`, `aol`, `jacobi`, `ruiz`, plus ridge and Gershgorin-based floor targeting (`fast_iroot/precond.py`).
+- Dual Gram SPD preconditioning for `A_dual = G G^T` with `row-norm` mode (`fast_iroot/precond.py`).
 - Non-SPD safety mechanisms for `p=1` solve paths (adaptive inverse-Newton fallback and optional exact solve fallback) (`fast_iroot/coupled.py`).
 - `p=1` hybrid PE+NSRC solve path for small-`k/n` settings (`fast_iroot/nsrc.py`, `fast_iroot/apply.py`).
 

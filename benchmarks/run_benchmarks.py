@@ -508,6 +508,44 @@ def _build_specs(
             )
         )
 
+    # Gram RHS (M = G^T B) specialized path compare: primal vs dual
+    # Uses the same standard timing/trial defaults as the main suite.
+    for p_val in (2, 4):
+        cmd = [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "benchmarks.solve.matrix_solve_gram_rhs",
+            "--p",
+            str(p_val),
+            "--m",
+            "256",
+            "--n",
+            "1024",
+            "--k",
+            "1,16,64",
+            "--trials",
+            str(trials),
+            "--timing-reps",
+            str(timing_reps),
+            "--timing-warmup-reps",
+            str(warmup_reps),
+            "--dtype",
+            dtype,
+        ]
+        specs.append(
+            RunSpec(
+                name=f"GRAM RHS p={p_val} m<n",
+                kind="spd",
+                cmd=cmd,
+                txt_out=os.path.join(
+                    spd_dir,
+                    f"{ts}_gram_rhs_p{p_val}_m256_n1024_k1_16_64.txt",
+                ),
+            )
+        )
+
     return specs
 
 

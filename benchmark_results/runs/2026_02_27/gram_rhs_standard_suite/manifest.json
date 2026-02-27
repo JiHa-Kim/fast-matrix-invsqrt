@@ -1,0 +1,225 @@
+{
+  "args": {
+    "ab_baseline_rows_in": "",
+    "ab_extra_args_a": "",
+    "ab_extra_args_b": "",
+    "ab_label_a": "A",
+    "ab_label_b": "B",
+    "ab_match_on_method": true,
+    "ab_out": "benchmark_results\\runs\\2026_02_27\\173744_solver_benchmarks\\solver_benchmarks_ab.md",
+    "baseline_rows_out": "",
+    "dtype": "bf16",
+    "extra_args": "",
+    "integrity_checksums": true,
+    "manifest_out": "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/manifest.json",
+    "markdown": true,
+    "only": "GRAM RHS",
+    "out": "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/report.md",
+    "run_name": "solver_benchmarks",
+    "timing_reps": 5,
+    "timing_warmup_reps": 2,
+    "trials": 5
+  },
+  "argv": [
+    "--only",
+    "GRAM RHS",
+    "--markdown",
+    "--out",
+    "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/report.md",
+    "--manifest-out",
+    "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/manifest.json"
+  ],
+  "extra_args": {
+    "base": []
+  },
+  "generated_at": "2026-02-27T17:37:55",
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "92d3e667d3c123b9ca4fdc23ff8d661a7c4bf4ad",
+    "tracked_source_sha256": "f200d6f8be8819ac42bbdf714c663a0091338f32131905e8743c432baf25b513"
+  },
+  "hash_algorithm": "sha256",
+  "hostname": "laptop12",
+  "integrity_checksums_enabled": true,
+  "mode": "markdown",
+  "only_filter": [
+    "GRAM RHS"
+  ],
+  "outputs": [
+    {
+      "path": "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/report.md",
+      "sha256": "8ed88182496714b8ba959d0292c120f6111638a7a0928e5089fb81b92cb1a9cb"
+    },
+    {
+      "path": "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/report.md.sha256",
+      "sha256": "bd03e9496308e797b877b1b68ee058d68ed389753bf096f3efe0ce6dcb520bbf"
+    }
+  ],
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.14.2",
+  "repo_root": "<REPO_ROOT>",
+  "repro_context": {
+    "args": {
+      "ab_baseline_rows_in": "",
+      "ab_extra_args_a": "",
+      "ab_extra_args_b": "",
+      "ab_label_a": "A",
+      "ab_label_b": "B",
+      "ab_match_on_method": true,
+      "ab_out": "benchmark_results\\runs\\2026_02_27\\173744_solver_benchmarks\\solver_benchmarks_ab.md",
+      "baseline_rows_out": "",
+      "dtype": "bf16",
+      "extra_args": "",
+      "integrity_checksums": true,
+      "manifest_out": "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/manifest.json",
+      "markdown": true,
+      "only": "GRAM RHS",
+      "out": "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/report.md",
+      "run_name": "solver_benchmarks",
+      "timing_reps": 5,
+      "timing_warmup_reps": 2,
+      "trials": 5
+    },
+    "argv": [
+      "--only",
+      "GRAM RHS",
+      "--markdown",
+      "--out",
+      "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/report.md",
+      "--manifest-out",
+      "benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/manifest.json"
+    ],
+    "env": {},
+    "extra_args": {
+      "base": []
+    },
+    "git": {
+      "branch": "main",
+      "dirty": true,
+      "head": "92d3e667d3c123b9ca4fdc23ff8d661a7c4bf4ad",
+      "tracked_source_sha256": "f200d6f8be8819ac42bbdf714c663a0091338f32131905e8743c432baf25b513"
+    },
+    "mode": "markdown",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.2",
+    "specs": [
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve_gram_rhs",
+          "--p",
+          "2",
+          "--m",
+          "256",
+          "--n",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "GRAM RHS p=2 m<n"
+      },
+      {
+        "cmd_base": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "benchmarks.solve.matrix_solve_gram_rhs",
+          "--p",
+          "4",
+          "--m",
+          "256",
+          "--n",
+          "1024",
+          "--k",
+          "1,16,64",
+          "--trials",
+          "5",
+          "--timing-reps",
+          "5",
+          "--timing-warmup-reps",
+          "2",
+          "--dtype",
+          "bf16"
+        ],
+        "kind": "spd",
+        "name": "GRAM RHS p=4 m<n"
+      }
+    ]
+  },
+  "repro_fingerprint_sha256": "598bf324e223924f35e48e2afca182460e5af1dea5510a8218487fabb58461e2",
+  "runs": [
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve_gram_rhs",
+        "--p",
+        "2",
+        "--m",
+        "256",
+        "--n",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "parsed_rows": 6,
+      "spec_name": "GRAM RHS p=2 m<n",
+      "stdout_sha256": "6b659874c3bbfd6e97dec8747668dee33dec75771c15892d51d44d2abc8a966f"
+    },
+    {
+      "cmd": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks.solve.matrix_solve_gram_rhs",
+        "--p",
+        "4",
+        "--m",
+        "256",
+        "--n",
+        "1024",
+        "--k",
+        "1,16,64",
+        "--trials",
+        "5",
+        "--timing-reps",
+        "5",
+        "--timing-warmup-reps",
+        "2",
+        "--dtype",
+        "bf16"
+      ],
+      "kind": "spd",
+      "parsed_rows": 6,
+      "spec_name": "GRAM RHS p=4 m<n",
+      "stdout_sha256": "cdd6dc8ee8ff197ad77750f0f08a88ff96e8c2d4078bb5c27ade2d8a7ff9ad4e"
+    }
+  ],
+  "spec_count": 2
+}

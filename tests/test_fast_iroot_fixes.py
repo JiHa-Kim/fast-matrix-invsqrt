@@ -13,13 +13,16 @@ from fast_iroot.coupled import (
     inverse_proot_pe_quadratic_coupled,
 )
 from fast_iroot import (
+    DualGramInverseApplyWorkspace,
     GramInverseApplyWorkspace,
     apply_inverse_root,
+    apply_inverse_root_gram_rhs_spd,
     apply_inverse_root_gram_spd,
     apply_inverse_root_auto,
     apply_inverse_sqrt_spd,
     apply_inverse_sqrt_non_spd,
     apply_inverse_sqrt_gram_spd,
+    precond_gram_dual_spd,
     build_pe_schedules,
     inverse_proot_pe_quadratic_uncoupled,
     precond_gram_spd,
@@ -955,6 +958,88 @@ def test_apply_inverse_root_gram_spd_cache_reuses_and_invalidates():
     Z3, ws, _ = apply_inverse_root_gram_spd(
         G,
         M,
+        abc_t=abc_t,
+        p_val=2,
+        ws=ws,
+        strategy="direct-solve",
+        reuse_precond=True,
+    )
+    assert ws.cache_g_version != cache_ver_before
+    assert ws.cache_g_version == int(getattr(G, "_version", -1))
+    assert torch.isfinite(Z3).all()
+
+
+def test_apply_inverse_root_gram_rhs_spd_wrapper_matches_manual_path_p4():
+    torch.manual_seed(93)
+    m, n, k = 15, 9, 4
+    G = torch.randn(m, n)
+    B = torch.randn(m, k)
+    abc_t = [(1.25, -0.25, 0.0), (1.1, -0.1, 0.0)]
+
+    Z_wrap, _, stats_wrap = apply_inverse_root_gram_rhs_spd(
+        G,
+        B,
+        abc_t=abc_t,
+        p_val=4,
+        strategy="direct-solve",
+        gram_mode="row-norm",
+        precond_mode="none",
+        l_target=0.05,
+    )
+
+    A_dual, stats_ref = precond_gram_dual_spd(
+        G,
+        gram_mode="row-norm",
+        mode="none",
+        l_target=0.05,
+    )
+    U_ref, _ = apply_inverse_root(A_dual, B, abc_t=abc_t, p_val=4, assume_spd=True)
+    Z_ref = G.mT @ U_ref
+
+    assert torch.allclose(Z_wrap, Z_ref, atol=1e-6, rtol=1e-6)
+    assert stats_wrap.rho_proxy == pytest.approx(stats_ref.rho_proxy, rel=1e-6)
+    assert stats_wrap.gersh_lo == pytest.approx(stats_ref.gersh_lo, rel=1e-6)
+    assert stats_wrap.kappa_proxy == pytest.approx(stats_ref.kappa_proxy, rel=1e-6)
+
+
+def test_apply_inverse_root_gram_rhs_spd_cache_reuses_and_invalidates():
+    torch.manual_seed(94)
+    m, n, k = 14, 7, 3
+    G = torch.randn(m, n)
+    B = torch.randn(m, k)
+    abc_t = [(1.4, -0.4, 0.0)]
+    ws = DualGramInverseApplyWorkspace()
+
+    Z1, ws, _ = apply_inverse_root_gram_rhs_spd(
+        G,
+        B,
+        abc_t=abc_t,
+        p_val=2,
+        ws=ws,
+        strategy="direct-solve",
+        reuse_precond=True,
+    )
+    Z1_ref = Z1.clone()
+    assert ws.A_norm is not None
+    cache_ptr_before = int(ws.A_norm.data_ptr())
+    cache_ver_before = ws.cache_g_version
+
+    Z2, ws, _ = apply_inverse_root_gram_rhs_spd(
+        G,
+        B,
+        abc_t=abc_t,
+        p_val=2,
+        ws=ws,
+        strategy="direct-solve",
+        reuse_precond=True,
+    )
+    assert int(ws.A_norm.data_ptr()) == cache_ptr_before
+    assert torch.allclose(Z2, Z1_ref, atol=1e-6, rtol=1e-6)
+
+    G.add_(0.01 * torch.randn_like(G))
+    Z3, ws, _ = apply_inverse_root_gram_rhs_spd(
+        G,
+        B,
         abc_t=abc_t,
         p_val=2,
         ws=ws,

@@ -1,5 +1,26 @@
 # Benchmark Decisions
 
+## 2026-02-27: Dual Gram-RHS apply path (`apply_inverse_root_gram_rhs_spd`)
+
+Decision:
+- Keep and expose the dual path for workloads with RHS in `range(G^T)` (`M = G^T B`).
+- Include Gram-RHS comparison cases in the maintained benchmark driver (`run_benchmarks.py`) so the path is continuously measurable with standard reports/manifests.
+
+Benchmark arguments:
+- Standard-suite filtered run:
+  - `uv run python benchmarks/run_benchmarks.py --only "GRAM RHS" --markdown --out benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/report.md --manifest-out benchmark_results/runs/2026_02_27/gram_rhs_standard_suite/manifest.json`
+
+Key results (`m=256`, `n=1024`, `k in {1,16,64}`, `dtype=bf16`, `precond=jacobi`):
+- `p=2`:
+  - `k=1`: dual `1.223 ms` vs primal `2.385 ms` (`1.95x` faster)
+  - `k=16`: dual `1.248 ms` vs primal `2.376 ms` (`1.90x` faster)
+  - `k=64`: dual `1.301 ms` vs primal `1.897 ms` (`1.46x` faster)
+- `p=4`:
+  - `k=1`: dual `2.241 ms` vs primal `3.002 ms` (`1.34x` faster)
+  - `k=16`: dual `1.859 ms` vs primal `2.370 ms` (`1.28x` faster)
+  - `k=64`: dual `1.209 ms` vs primal `2.343 ms` (`1.94x` faster)
+- Accuracy parity in-run: primal and dual rows reported identical `relerr` per cell.
+
 ## 2026-02-27: Gram precondition cache reuse (`reuse_precond=True`) validation sweep
 
 Decision:

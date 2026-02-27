@@ -22,6 +22,7 @@ import shlex
 import socket
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable
@@ -42,20 +43,56 @@ ParsedRow = tuple[str, int, int, int, str, str, float, float, float]
 
 def _run_and_capture(cmd: list[str]) -> str:
     print(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(
+    result = subprocess.Popen(
         cmd,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
+        bufsize=1,
         cwd=REPO_ROOT,
     )
-    if result.returncode != 0:
+    assert result.stdout is not None
+    assert result.stderr is not None
+
+    stdout_parts: list[str] = []
+    stderr_parts: list[str] = []
+
+    def _drain(
+        stream: Any,
+        sink: list[str],
+        writer: Any,
+    ) -> None:
+        for line in iter(stream.readline, ""):
+            sink.append(line)
+            writer.write(line)
+            writer.flush()
+        stream.close()
+
+    t_out = threading.Thread(
+        target=_drain,
+        args=(result.stdout, stdout_parts, sys.stdout),
+        daemon=True,
+    )
+    t_err = threading.Thread(
+        target=_drain,
+        args=(result.stderr, stderr_parts, sys.stderr),
+        daemon=True,
+    )
+    t_out.start()
+    t_err.start()
+    t_out.join()
+    t_err.join()
+    returncode = result.wait()
+    stdout_text = "".join(stdout_parts)
+    stderr_text = "".join(stderr_parts)
+    if returncode != 0:
         raise RuntimeError(
-            f"Command failed with return code {result.returncode}\n"
+            f"Command failed with return code {returncode}\n"
             f"CMD: {' '.join(cmd)}\n"
-            f"STDOUT:\n{result.stdout}\n"
-            f"STDERR:\n{result.stderr}"
+            f"STDOUT:\n{stdout_text}\n"
+            f"STDERR:\n{stderr_text}"
         )
-    return result.stdout
+    return stdout_text
 
 
 def _run_and_write_txt(cmd: list[str], out_path: str) -> None:

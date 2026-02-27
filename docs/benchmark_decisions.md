@@ -1,5 +1,22 @@
 # Benchmark Decisions
 
+## 2026-02-26: Global CUDA graph default (`off` vs `on`) for `p=2,4`
+
+Decision:
+- Keep global `--cuda-graph` as opt-in (default off).
+- Do not switch default-on across all methods.
+
+Benchmark arguments:
+- `p=2`:
+  - `uv run python benchmarks/run_benchmarks.py --only "SPD p=2 k<n,SPD p=2 k=n=256,SPD p=2 k=n=512,SPD p=2 k=n=1024,SPD p=2 k=n=2048" --ab-extra-args-b=--cuda-graph --ab-label-a cuda_graph_off --ab-label-b cuda_graph_on --ab-out benchmark_results/runs/2026_02_26/ab_onechange_cuda_graph_default_p2/report.md --manifest-out benchmark_results/runs/2026_02_26/ab_onechange_cuda_graph_default_p2/manifest.json`
+- `p=4`:
+  - `uv run python benchmarks/run_benchmarks.py --only "SPD p=4 k<n,SPD p=4 k=n=256,SPD p=4 k=n=512,SPD p=4 k=n=1024,SPD p=4 k=n=2048" --ab-extra-args-b=--cuda-graph --ab-label-a cuda_graph_off --ab-label-b cuda_graph_on --ab-out benchmark_results/runs/2026_02_26/ab_onechange_cuda_graph_default_p4/report.md --manifest-out benchmark_results/runs/2026_02_26/ab_onechange_cuda_graph_default_p4/manifest.json`
+
+Key results:
+- `p=2` aggregate: `-5.08%`, with wins in both `k<n` and `k=n`.
+- `p=4` aggregate: `-1.12%`, but `k=n` regressed (`+4.09%`).
+- Method-level mixed behavior outside Chebyshev; relerr unchanged.
+
 ## 2026-02-26: Chebyshev mode `fixed` vs `minimax-auto` for `p=2,4`
 
 Decision:

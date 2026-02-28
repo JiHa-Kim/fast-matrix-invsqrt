@@ -63,6 +63,57 @@ def _quad_coeffs_hot(
     return _quad_coeffs(abc_t)
 
 
+def _abc_from_alpha(alpha: float, p_val: int) -> Tuple[float, float, float]:
+    inv_p = 1.0 / float(p_val)
+    a = 1.0 + inv_p + float(alpha)
+    b = -inv_p - 2.0 * float(alpha)
+    c = float(alpha)
+    return float(a), float(b), float(c)
+
+
+def _project_to_local_family(
+    a: float, b: float, c: float, p_val: int
+) -> Tuple[float, float, float]:
+    """Project an arbitrary quadratic q(y)=a+by+cy^2 onto the local family.
+
+    We match curvature at 1 (alpha=c) and enforce q(1)=1, q'(1)=-1/p exactly.
+    """
+    alpha = float(c)
+    return _abc_from_alpha(alpha, p_val)
+
+
+def _apply_quadratic_safety_local(
+    pe_quad: torch.Tensor, p_val: int, s: float, no_final: bool, project: bool
+) -> None:
+    """Apply safety by damping alpha in the local family.
+
+    Operates in-place on pe_quad[:, 0:3].
+    """
+    T = pe_quad.shape[0]
+    for t in range(T):
+        if no_final and (t == T - 1):
+            s_t = 1.0
+        else:
+            s_t = float(s)
+        if s_t == 1.0 and not project:
+            continue
+
+        a = float(pe_quad[t, 0].item())
+        b = float(pe_quad[t, 1].item())
+        c = float(pe_quad[t, 2].item())
+
+        if project:
+            a, b, c = _project_to_local_family(a, b, c, p_val)
+
+        alpha = float(c)
+        alpha = alpha / s_t
+
+        a2, b2, c2 = _abc_from_alpha(alpha, p_val)
+        pe_quad[t, 0] = float(a2)
+        pe_quad[t, 1] = float(b2)
+        pe_quad[t, 2] = float(c2)
+
+
 def build_pe_schedules(
     l_target: float,
     device: torch.device,
@@ -119,11 +170,16 @@ def build_pe_schedules(
         raise ValueError(f"coeff_safety must be >= 1.0, got {s}")
 
     if s > 1.0:
-        pe_quad[:, 1].div_(s)
-        pe_quad[:, 2].div_(s * s)
-        if coeff_no_final_safety:
-            pe_quad[-1, 1].mul_(s)
-            pe_quad[-1, 2].mul_(s * s)
+        # NEW: damp alpha in local family, preserving q(1)=1 and q'(1)=-1/p
+        # We project precomputed steps; tuned steps from make_schedule are already in the family.
+        project = bool(use_precomputed)
+        _apply_quadratic_safety_local(
+            pe_quad,
+            p_val=p_val,
+            s=s,
+            no_final=bool(coeff_no_final_safety),
+            project=project,
+        )
 
     return (
         pe_quad,

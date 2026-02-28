@@ -85,13 +85,13 @@ def analyze_spectral_convergence(Y: torch.Tensor, step: int) -> SpectralStepStat
 def format_spectral_report(stats_list: List[SpectralStepStats]) -> str:
     """Format spectral stats into a markdown table."""
     lines = [
-        "| Step | Min λ | Max λ | ρ(I-Y) | log(M/m) | Err(I) | C90% | C99% |",
-        "|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Step | Min λ | Max λ | ρ(I-Y) | log(M/m) | C90% | C99% |",
+        "|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for s in stats_list:
         lines.append(
             f"| {s.step} | {s.min_eig:.4f} | {s.max_eig:.4f} | "
-            f"{s.rho_residual:.2e} | {s.log_width:.3f} | {s.error_to_identity:.2e} | "
+            f"{s.rho_residual:.2e} | {s.log_width:.3f} | "
             f"{s.clustering_90:.1%} | {s.clustering_99:.1%} |"
         )
     return "\n".join(lines)

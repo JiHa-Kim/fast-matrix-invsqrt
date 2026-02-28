@@ -662,7 +662,11 @@ def _parse_rows(raw: str, kind: str) -> list[ParsedRow]:
     return rows
 
 
-def _to_markdown(all_rows: list[ParsedRow]) -> str:
+def _to_markdown(
+    all_rows: list[ParsedRow],
+    *,
+    config: dict[str, Any] | None = None,
+) -> str:
     out: list[str] = []
     out.append("# Solver Benchmark Report")
     out.append("")
@@ -675,6 +679,7 @@ def _to_markdown(all_rows: list[ParsedRow]) -> str:
     out.append("- `q_per_ms`: `max(0, -log10(relerr)) / iter_ms`.")
     out.append("- assessment score: `q_per_ms / max(1, relerr_p90/relerr) * (1 - fail_rate)`.")
     out.append("")
+    _append_run_config(out, config=config)
     out.append("## Assessment Leaders")
     out.append("")
     out.append(
@@ -725,6 +730,19 @@ def _to_markdown(all_rows: list[ParsedRow]) -> str:
     return "\n".join(out)
 
 
+def _append_run_config(
+    out: list[str],
+    *,
+    config: dict[str, Any] | None,
+) -> None:
+    if not config:
+        return
+    out.append("Run config:")
+    for k in sorted(config.keys()):
+        out.append(f"- `{k}`: `{config[k]}`")
+    out.append("")
+
+
 def _to_markdown_ab(
     rows_a: list[ParsedRow],
     rows_b: list[ParsedRow],
@@ -732,6 +750,7 @@ def _to_markdown_ab(
     label_a: str,
     label_b: str,
     match_on_method: bool,
+    config: dict[str, Any] | None = None,
 ) -> str:
     def _key_method(row: ParsedRow):
         return row[0], row[1], row[2], row[3], row[4], row[5]
@@ -772,6 +791,7 @@ def _to_markdown_ab(
     out.append("- `q_per_ms`: `max(0, -log10(relerr)) / iter_ms`.")
     out.append("- assessment score: `q_per_ms / max(1, relerr_p90/relerr) * (1 - fail_rate)`.")
     out.append("")
+    _append_run_config(out, config=config)
     out.append(f"A: {label_a}")
     out.append(f"B: {label_b}")
     out.append("")
@@ -871,9 +891,9 @@ def _to_markdown_ab(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run maintained solver benchmark suites")
-    parser.add_argument("--trials", type=int, default=5)
+    parser.add_argument("--trials", type=int, default=10)
     parser.add_argument("--dtype", type=str, default="bf16", choices=["fp32", "bf16"])
-    parser.add_argument("--timing-reps", type=int, default=5)
+    parser.add_argument("--timing-reps", type=int, default=10)
     parser.add_argument("--timing-warmup-reps", type=int, default=2)
     parser.add_argument(
         "--only",
@@ -1161,6 +1181,17 @@ def main() -> None:
             label_a=str(args.ab_label_a),
             label_b=str(args.ab_label_b),
             match_on_method=bool(args.ab_match_on_method),
+            config={
+                "trials": int(args.trials),
+                "timing_reps": int(args.timing_reps),
+                "timing_warmup_reps": int(args.timing_warmup_reps),
+                "dtype": str(args.dtype),
+                "only": str(args.only),
+                "ab_interleave": bool(args.ab_interleave),
+                "ab_match_on_method": bool(args.ab_match_on_method),
+                "ab_extra_args_a": " ".join(a_extra),
+                "ab_extra_args_b": " ".join(b_extra),
+            },
         )
         _write_text_file(out_path, md_text)
         out_sidecar: str | None = None
@@ -1372,7 +1403,20 @@ def main() -> None:
         )
 
     out_path = os.path.join(REPO_ROOT, args.out)
-    _write_text_file(out_path, _to_markdown(all_rows))
+    _write_text_file(
+        out_path,
+        _to_markdown(
+            all_rows,
+            config={
+                "trials": int(args.trials),
+                "timing_reps": int(args.timing_reps),
+                "timing_warmup_reps": int(args.timing_warmup_reps),
+                "dtype": str(args.dtype),
+                "only": str(args.only),
+                "extra_args": " ".join(base_extra_args),
+            },
+        ),
+    )
     out_sha: str | None = None
     out_sidecar: str | None = None
     if integrity_checksums:

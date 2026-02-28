@@ -258,6 +258,52 @@ def test_markdown_includes_assessment_leaders():
     assert "| spd | 2 | 128 | 1 | gaussian_spd | B |" in md
 
 
+def test_markdown_ab_includes_run_config_when_provided():
+    rows_a = [
+        (
+            "spd",
+            2,
+            64,
+            1,
+            "gaussian_spd",
+            "A",
+            1.0,
+            0.8,
+            1.0e-3,
+            1.1e-3,
+            0.0,
+            3.0,
+        )
+    ]
+    rows_b = [
+        (
+            "spd",
+            2,
+            64,
+            1,
+            "gaussian_spd",
+            "A",
+            0.9,
+            0.7,
+            1.0e-3,
+            1.1e-3,
+            0.0,
+            3.4,
+        )
+    ]
+    md = _to_markdown_ab(
+        rows_a,
+        rows_b,
+        label_a="A",
+        label_b="B",
+        match_on_method=True,
+        config={"trials": 10, "timing_reps": 10},
+    )
+    assert "Run config:" in md
+    assert "`trials`: `10`" in md
+    assert "`timing_reps`: `10`" in md
+
+
 def test_row_from_dict_is_backward_compatible_with_v1_rows():
     row = _row_from_dict(
         {

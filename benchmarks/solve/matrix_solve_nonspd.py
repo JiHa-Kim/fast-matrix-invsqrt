@@ -96,10 +96,10 @@ def prepare_nonspd_solve_inputs(
 def compute_ground_truth(prepared: List[NonSpdPreparedInput]) -> List[torch.Tensor]:
     out: List[torch.Tensor] = []
     for prep in prepared:
-        A = prep.A_norm.double()
-        B = prep.B.double()
+        A = prep.A_norm.double().cpu()
+        B = prep.B.double().cpu()
         Z = torch.linalg.solve(A, B)
-        out.append(Z.to(dtype=prep.A_norm.dtype))
+        out.append(Z)
     return out
 
 
@@ -353,9 +353,12 @@ def eval_method(
             relerr_list.append(float("inf"))
             continue
 
-        rel = torch.linalg.matrix_norm(Z_hat - Z_true) / torch.linalg.matrix_norm(
-            Z_true
-        )
+        # Compute relative error in double precision
+        Z_hat_f64 = Z_hat.detach().cpu().double()
+        Z_true_f64 = Z_true.detach().cpu().double()
+        rel = torch.linalg.matrix_norm(Z_hat_f64 - Z_true_f64) / torch.linalg.matrix_norm(
+            Z_true_f64
+        ).clamp_min(1e-12)
         relerr_list.append(float(rel))
 
     return NonSpdBenchResult(

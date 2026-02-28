@@ -21,6 +21,7 @@ This page defines common terms, abbreviations, and mathematical concepts used th
 - **GEMM**: **General Matrix Multiply**. The fundamental operation for most kernels in this project.
 - **Gram Matrix**: A matrix formed by the product of a matrix and its transpose (e.g., $A = G^T G$). These arise frequently in ML (e.g., covariance matrices).
 - **Condition Number ($\kappa$)**: A measure of how sensitive a function is to changes or errors in the input. High condition numbers ("ill-conditioned") make inverse roots harder to compute accurately.
+- **$\rho(I - Y)$ (Spectral Residual)**: The maximum absolute deviation of eigenvalues of the iteration matrix $Y$ from 1.0. This measures how close the iterative state is to the identity.
 
 ## Implementation Concepts
 

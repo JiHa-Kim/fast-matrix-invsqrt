@@ -2,21 +2,21 @@
 
 Generated: 2026-02-27T20:11:05
 
-This report compares the production-ready solvers in `fast_iroot` against Vanilla Newton-Schulz and PyTorch baselines.
- 
+This report compares the production-ready solvers in `fast_iroot` against Vanilla Newton-Schulz and PyTorch baselines. All relative errors are computed against a **Double Precision (float64)** ground truth to avoid precision-floor masking in $bf16$.
+
 ## 1. SPD Linear Solves ($p=1$)
 *Target: $Z \approx A^{-1} B$ for Symmetric Positive Definite $A$.*
 
 | Case | Size ($n \times k$) | Method | Total Time (ms) | Iter Time (ms) | Relative Error |
 |:---|:---|:---|---:|---:|---:|
-| **Gaussian** | $1024 \times 1$ | **Chebyshev-Apply** | **1.954** | 0.497 | 8.30e-03 |
-| | | PE-Quad-Coupled-Apply | 2.303 | 0.846 | 6.65e-03 |
-| | | Torch-Cholesky-Solve | 2.820 | 1.363 | **0.00e+00** |
-| | | Inverse-Newton-Coupled | 2.667 | 1.211 | 6.02e-01 |
-| **Ill-Cond** | $1024 \times 64$ | **PE-Quad-Coupled-Apply** | **1.835** | 0.698 | 7.11e-03 |
-| | | Chebyshev-Apply | 1.681 | 0.544 | 8.55e-03 |
-| | | Torch-Cholesky-Solve | 2.786 | 1.649 | **0.00e+00** |
-| | | Inverse-Newton-Coupled | 2.258 | 1.121 | 6.02e-01 |
+| **Gaussian** | $1024 \times 1$ | **Chebyshev-Apply** | **1.742** | 0.504 | 8.02e-03 |
+| | | PE-Quad-Coupled-Apply | 2.247 | 1.010 | 6.49e-03 |
+| | | Torch-Cholesky-Solve | 3.166 | 1.929 | **1.66e-03** |
+| | | Inverse-Newton-Coupled | 2.501 | 1.264 | 6.03e-01 |
+| **Ill-Cond** | $1024 \times 64$ | **PE-Quad-Coupled-Apply** | **2.415** | 0.698 | 6.92e-03 |
+| | | Chebyshev-Apply | 2.263 | 0.546 | 8.22e-03 |
+| | | Torch-Cholesky-Solve | 3.258 | 1.541 | **1.66e-03** |
+| | | Inverse-Newton-Coupled | 2.842 | 1.125 | 6.02e-01 |
 
 ---
 
@@ -25,14 +25,14 @@ This report compares the production-ready solvers in `fast_iroot` against Vanill
 
 | Case | Size ($n \times k$) | Method | Total Time (ms) | Iter Time (ms) | Relative Error |
 |:---|:---|:---|---:|---:|---:|
-| **Gaussian** | $1024 \times 1$ | **Chebyshev-Apply** | **1.770** | 0.501 | 2.93e-03 |
-| | | PE-Quad-Coupled-Apply | 2.898 | 1.629 | 3.71e-03 |
-| | | Torch-EVD-Solve | 28.729 | 27.460 | **6.93e-07** |
-| | | Inverse-Newton-Coupled | 3.729 | 2.460 | 2.62e-01 |
-| **Ill-Cond** | $1024 \times 64$ | **Chebyshev-Apply** | **1.741** | 0.554 | 3.08e-03 |
-| | | PE-Quad-Coupled-Apply | 2.538 | 1.350 | 4.91e-03 |
-| | | Torch-EVD-Solve | 28.455 | 27.268 | **1.14e-03** |
-| | | Inverse-Newton-Coupled | 3.372 | 2.185 | 2.62e-01 |
+| **Gaussian** | $1024 \times 1$ | **Chebyshev-Apply** | **1.884** | 0.508 | 2.55e-03 |
+| | | PE-Quad-Coupled-Apply | 2.994 | 1.619 | 3.26e-03 |
+| | | Torch-EVD-Solve | 28.411 | 27.035 | **1.59e-03** |
+| | | Inverse-Newton-Coupled | 3.675 | 2.300 | 2.61e-01 |
+| **Ill-Cond** | $1024 \times 64$ | **Chebyshev-Apply** | **2.990** | 0.555 | 2.66e-03 |
+| | | PE-Quad-Coupled-Apply | 3.945 | 1.510 | 4.65e-03 |
+| | | Torch-EVD-Solve | 30.400 | 27.966 | **1.69e-03** |
+| | | Inverse-Newton-Coupled | 4.566 | 2.132 | 2.60e-01 |
 
 ---
 
@@ -41,48 +41,65 @@ This report compares the production-ready solvers in `fast_iroot` against Vanill
 
 | Case | Size ($n \times k$) | Method | Total Time (ms) | Iter Time (ms) | Relative Error |
 |:---|:---|:---|---:|---:|---:|
-| **Gaussian** | $1024 \times 1$ | **Chebyshev-Apply** | **2.028** | 0.502 | 2.11e-03 |
-| | | PE-Quad-Coupled-Apply | 3.528 | 2.002 | 3.65e-03 |
-| | | Torch-EVD-Solve | 29.291 | 27.765 | **1.59e-06** |
-| | | Inverse-Newton-Coupled | 4.566 | 3.040 | 1.04e-01 |
-| **Ill-Cond** | $1024 \times 64$ | **Chebyshev-Apply** | **2.246** | 0.555 | 2.06e-03 |
-| | | PE-Quad-Coupled-Apply | 3.334 | 1.644 | 3.46e-03 |
-| | | Torch-EVD-Solve | 29.324 | 27.634 | **1.12e-03** |
-| | | Inverse-Newton-Coupled | 4.375 | 2.685 | 1.04e-01 |
+| **Gaussian** | $1024 \times 1$ | **Chebyshev-Apply** | **1.927** | 0.505 | 1.94e-03 |
+| | | PE-Quad-Coupled-Apply | 3.411 | 1.989 | 3.23e-03 |
+| | | Torch-EVD-Solve | 28.433 | 27.011 | **1.66e-03** |
+| | | Inverse-Newton-Coupled | 4.525 | 3.102 | 1.04e-01 |
+| **Ill-Cond** | $1024 \times 64$ | **Chebyshev-Apply** | **1.928** | 0.550 | 1.90e-03 |
+| | | PE-Quad-Coupled-Apply | 2.955 | 1.576 | 3.01e-03 |
+| | | Torch-EVD-Solve | 28.968 | 27.589 | **1.70e-03** |
+| | | Inverse-Newton-Coupled | 3.968 | 2.590 | 1.04e-01 |
 
 ---
 
-## 4. Non-SPD Linear Solves ($p=1$)
+## 4. Spectral Convergence Analysis
+While solve relative error is capped by the $bf16$ floor (~$1.6 \times 10^{-3}$), the true strength of `PE-Quad` is seen in the convergence of the spectrum of the iteration matrix $Y$.
+
+Below is the step-by-step spectral radius of the residual $\rho(I - Y)$ for $n=256, p=2$.
+
+| Step | PE-Quad $\rho(I-Y)$ | Newton-Schulz $\rho(I-Y)$ |
+|---:|:---|:---|
+| 0 | 4.92e-01 | 4.92e-01 |
+| 1 | 4.19e-01 | 2.12e-01 |
+| 2 | 6.51e-02 | 3.59e-02 |
+| 3 | 8.13e-05 | 9.80e-04 |
+| 4 | **3.41e-13** | **7.20e-07** |
+
+*Note: PE-Quad achieves double-precision convergence ($10^{-13}$) in 4 steps, while Newton-Schulz is still at $10^{-7}$.*
+
+---
+
+## 5. Non-SPD Linear Solves ($p=1$)
 *Target: $Z \approx A^{-1} B$ for general $A$.*
 
-| Case | Size ($n \times k$) | Method | Total Time (ms) | Iter Time (ms) | Relative Error |
-|:---|:---|:---|---:|---:|---:|
-| **Gaussian** | $1024 \times 1$ | **PE-Quad-Coupled-Apply** | 2.099 | 1.828 | 5.92e-03 |
-| | | Inverse-Newton-Coupled | **1.479** | 1.208 | 6.68e-01 |
-| | | Torch-Solve | 5.939 | 5.668 | **5.39e-06** |
-| **Hard Case** | $1024 \times 64$ | **PE-Quad-Coupled-Apply** | 5.344 | 5.151 | **1.12e-02** |
-| (Posspec) | | Inverse-Newton-Coupled | **1.244** | 1.052 | 1.00e+00 |
-| | | Torch-Solve | 4.757 | 4.565 | **1.12e-02** |
+| Case | Size ($n \times k$) | Method | Total Time (ms) | Relative Error |
+|:---|:---|:---|---:|---:|
+| **Gaussian** | $1024 \times 1$ | **PE-Quad-Coupled** | 2.445 | 5.67e-03 |
+| | | Newton-Schulz | 1.867 | 6.69e-01 |
+| | | Torch-Solve | 6.383 | **1.63e-03** |
+| **Hard Case** | $1024 \times 1$ | **PE-Quad-Coupled** | 6.856 | **2.79e-03** |
+| (Posspec) | | Newton-Schulz | 1.962 | 1.00e+00 |
+| | | Torch-Solve | 5.060 | **2.79e-03** |
 
-*Note: In the hard case, PE-Quad matches Torch-Solve's robustness where Newton-Schulz fails.*
+*Note: In the hard case, PE-Quad matches Torch-Solve's robustness where Newton-Schulz completely fails.*
 
 ---
 
-## 5. Gram-RHS Optimization ($p=2, 4$)
+## 6. Gram-RHS Optimization ($p=2, 4$)
 *Target: $Z \approx (G^T G)^{-1/p} G^T B$*
 
 | Target | RHS Cols ($k$) | Primal Gram (ms) | Dual Gram-RHS (ms) | Speedup |
 |:---|---:|---:|---:|---:|
-| $p=2$ | 1 | 2.537 | 1.073 | **2.37x** |
-| $p=2$ | 64 | 2.384 | 1.058 | **2.25x** |
-| $p=4$ | 1 | 2.980 | 1.277 | **2.33x** |
-| $p=4$ | 64 | 2.964 | 1.250 | **2.37x** |
+| $p=2$ | 1 | 2.434 | 1.040 | **2.34x** |
+| $p=2$ | 64 | 2.385 | 1.301 | **1.83x** |
+| $p=4$ | 1 | 2.985 | 1.165 | **2.56x** |
+| $p=4$ | 64 | 2.588 | 1.160 | **2.23x** |
 
 ---
 
 ## Summary of Findings
 
-1.  **Chebyshev Efficiency**: The `Chebyshev-Apply` method is consistently the fastest path for small $k$ across all SPD roots ($p=1, 2, 4$), often beating `PE-Quad` by 20-40% in total latency.
-2.  **Newton-Schulz Accuracy**: Vanilla Newton-Schulz (`Inverse-Newton-Coupled`) shows very poor accuracy ($relerr > 0.1$) in most production-size cases, making it unsuitable for high-fidelity ML tasks.
-3.  **Production Robustness**: `PE-Quad-Coupled-Apply` provides a robust alternative to `Torch-Solve` for non-SPD matrices, matching its stability in "hard" cases while maintaining competitive latency.
-4.  **Specialized Dual Path**: The `Dual-Gram-RHS` path provides a consistent **>2x speedup** over forming the primal RHS ($G^T B$) and applying the solver, making it the preferred path for relevant ML workloads.
+1.  **Chebyshev Efficiency**: The `Chebyshev-Apply` method is consistently the fastest path for small $k$ across all SPD roots ($p=1, 2, 4$). Latency is 10-15x lower than PyTorch's dense EVD path.
+2.  **The $bf16$ Precision Limit**: All stable solvers (including Torch) hit a precision floor of ~$1.6 \times 10^{-3}$ in $bf16$. Our methods reach this limit efficiently.
+3.  **Newton-Schulz Failure**: High-precision analysis confirms that Vanilla Newton-Schulz is numerically unsuitable for production matrix sizes, with errors often exceeding 50% and poor spectral convergence.
+4.  **Production Robustness**: `PE-Quad-Coupled` provides a robust alternative to `Torch-Solve` for non-SPD matrices, matching its stability in "hard" cases while maintaining competitive latency.

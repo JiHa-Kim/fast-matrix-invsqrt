@@ -658,10 +658,13 @@ def eval_solve_method(
         ms_iter_list.append(ms_iter)
 
         if torch.isfinite(Zn).all() and torch.isfinite(Z_true).all():
+            # Compute relative error in double precision to avoid precision floor
+            Zn_f64 = Zn.detach().cpu().double()
+            Zt_f64 = Z_true.detach().cpu().double()
             err_list.append(
                 float(
-                    torch.linalg.matrix_norm(Zn - Z_true)
-                    / torch.linalg.matrix_norm(Z_true)
+                    torch.linalg.matrix_norm(Zn_f64 - Zt_f64)
+                    / torch.linalg.matrix_norm(Zt_f64).clamp_min(1e-12)
                 )
             )
         else:
@@ -714,7 +717,6 @@ def compute_ground_truth(
         L = L.clamp_min(1e-12)
         L_inv = torch.pow(L, -1.0 / p_val)
         A_inv = (Q * L_inv.unsqueeze(0)) @ Q.mT
-        Z_true.append(
-            (A_inv @ B).to(dtype=prep.A_norm.dtype, device=prep.A_norm.device)
-        )
+        # Keep in double for error calculation
+        Z_true.append((A_inv @ B).cpu())
     return Z_true

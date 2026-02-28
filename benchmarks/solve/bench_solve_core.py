@@ -53,10 +53,10 @@ def matrix_solve_methods(p_val: int) -> List[str]:
     if int(p_val) == 1:
         methods.extend(P1_SPD_SOLVE_BASELINES)
         methods.extend(P1_SPD_SOLVE_EXTRA_CASES)
-        methods.extend(P_GT1_SPD_EXTRA_METHODS)
     else:
         methods.extend(P_GT1_SPD_EXTRA_METHODS)
-    return methods
+    # Preserve declared order but avoid duplicate benchmarks.
+    return list(dict.fromkeys(methods))
 
 
 def _effective_cheb_fixed_degree(

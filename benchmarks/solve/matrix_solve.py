@@ -91,10 +91,10 @@ def main():
     p.add_argument(
         "--methods",
         type=str,
-        default="PE-Quad-Coupled-Apply,Chebyshev-Apply,Inverse-Newton-Coupled-Apply,Torch-Solve,Torch-Cholesky-Solve,Torch-EVD-Solve",
+        default="",
         help=(
-            "Optional comma-separated method subset. Defaults to best target method "
-            "only (`PE-Quad-Coupled-Apply`). "
+            "Optional comma-separated method subset. Defaults to all valid methods "
+            "for the selected --p."
             "Example: 'PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply'"
         ),
     )

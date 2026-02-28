@@ -70,11 +70,11 @@ For detailed information on the API, mathematical methods, and benchmarked decis
 
 ## Benchmarks
 
-`fast_iroot` is optimized for ML-sized blocks (e.g., $n=1024$). In production benchmarks, our methods consistently outperform both Vanilla Newton-Schulz and generic PyTorch decompositions:
+`fast_iroot` is optimized for ML-sized blocks (e.g., $n=1024$). The project maintains an **Official Baseline** to track and enforce performance gains:
 
-- **SPD Roots**: Chebyshev and PE-Quad paths are up to **10-15x faster** than dense EVD for inverse-root applies.
-- **Gram Matrices**: Specialized dual-paths provide a **>2x speedup** over primal approaches.
-- **Quality Assessment**: Reports track median/tail error (`relerr`, `relerr_p90`), failure rate, and quality-per-ms (`q_per_ms`) so method selection is not based on latency alone.
+- **Strict A/B Testing**: All changes are measured against the baseline to ensure no regressions in speed or quality.
+- **High Fidelity**: Reports track median/tail error (`relerr`, `relerr_p90`), residuals, failure rates, and quality-per-ms (`q_per_ms`).
+- **Hierarchical Reporting**: Results are grouped by problem type, power (`p`), and matrix size for clear analysis.
 
 See the [Latest Production Benchmark Report](docs/benchmarks/benchmark_results_production.md) for full details.
 

@@ -76,7 +76,7 @@ For detailed information on the API, mathematical methods, and benchmarked decis
 - **Gram Matrices**: Specialized dual-paths provide a **>2x speedup** over primal approaches.
 - **Quality Assessment**: Reports track median/tail error (`relerr`, `relerr_p90`), failure rate, and quality-per-ms (`q_per_ms`) so method selection is not based on latency alone.
 
-See the [Latest Production Benchmark Report](docs/methods/benchmark_results_production.md) for full details.
+See the [Latest Production Benchmark Report](docs/benchmarks/benchmark_results_production.md) for full details.
 
 ## Project Layout
 

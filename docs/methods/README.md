@@ -7,7 +7,7 @@ This section documents the core mathematical foundations and architectural choic
 - **[Shared Implementation Notes](shared_tricks.md)**: Details on the preconditioning pipeline, symmetry controls, and low-level performance optimizations used across all methods.
 - **[PE-Quad (Quadratic PE)](pe2.md)**: The primary method for SPD matrices, using quadratic polynomial expansions for fast convergence.
 - **[Chebyshev Clenshaw Evaluation](chebyshev.md)**: Direct evaluation of $A^{-1/p} B$ using minimax polynomials, ideal for wide Gram matrices or large-scale applies.
-- **[Spectral Convergence Analysis](spectral_convergence.md)**: Detailed eigenvalue tracking and theoretical foundation for optimal contraction polynomials.
+- **[Spectral Convergence Analysis](../benchmarks/spectral_convergence.md)**: Detailed eigenvalue tracking and theoretical foundation for optimal contraction polynomials.
 
 ## Architecture Overview
 

@@ -546,6 +546,7 @@ def main():
                         print(
                             f"{name:<28s} {rr.ms:8.3f} ms (pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}){mem_str} | "
                             f"relerr vs true: {rr.rel_err:.3e}"
+                            f" | resid {rr.residual:.3e}"
                             f" | relerr_p90 {rr.rel_err_p90:.3e}"
                             f" | fail_rate {100.0 * rr.failure_rate:.1f}%"
                             f" | q_per_ms {rr.quality_per_ms:.3e}"

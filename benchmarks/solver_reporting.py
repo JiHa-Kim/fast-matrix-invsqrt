@@ -84,9 +84,9 @@ def to_markdown(
     out.append("### Detailed Assessment Leaders")
     out.append("")
     out.append(
-        "| kind | p | n | k | case | best_method | score | total_ms | relerr | relerr_p90 | fail_rate | q_per_ms |"
+        "| kind | p | n | k | case | best_method | score | total_ms | relerr | resid | relerr_p90 | fail_rate | q_per_ms |"
     )
-    out.append("|---|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|")
+    out.append("|---|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|")
 
     by_case: dict[tuple[str, int, int, int, str], list[ParsedRow]] = {}
     for row in all_rows:
@@ -99,7 +99,7 @@ def to_markdown(
         score = assessment_score(best)
         out.append(
             f"| {key[0]} | {key[1]} | {key[2]} | {key[3]} | {key[4]} | {best[5]} | "
-            f"{score:.3e} | {best[6]:.3f} | {best[8]:.3e} | {best[9]:.3e} | "
+            f"{score:.3e} | {best[6]:.3f} | {best[8]:.3e} | {best[12]:.3e} | {best[9]:.3e} | "
             f"{100.0 * best[10]:.1f}% | {best[11]:.3e} |"
         )
     out.append("")

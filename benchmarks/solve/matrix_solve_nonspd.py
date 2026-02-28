@@ -56,6 +56,8 @@ class NonSpdBenchResult:
     ms_precond: float
     rel_err: float
     rel_err_p90: float
+    residual: float
+    residual_p90: float
     failure_rate: float
     quality_per_ms: float
     bad: int
@@ -333,9 +335,15 @@ def eval_method(
 ) -> NonSpdBenchResult:
     ms_iter_list: List[float] = []
     relerr_list: List[float] = []
+    resid_list: List[float] = []
     mem_alloc_list: List[float] = []
     mem_res_list: List[float] = []
     bad = 0
+
+    # Failure thresholds: if relerr or residual exceeds these, treat as failure
+    # for accounting purposes.
+    RELERR_MAX_FAIL = 1e-1
+    RESID_MAX_FAIL = 1e-1
 
     for i, prep in enumerate(prepared_inputs):
         A_norm = prep.A_norm
@@ -382,18 +390,30 @@ def eval_method(
         if not torch.isfinite(Z_hat).all():
             bad += 1
             relerr_list.append(float("inf"))
+            resid_list.append(float("inf"))
             continue
 
-        # Compute relative error in double precision
+        # Compute relative error and residual in double precision
         Z_hat_f64 = Z_hat.detach().cpu().double()
         Z_true_f64 = Z_true.detach().cpu().double()
-        rel = torch.linalg.matrix_norm(Z_hat_f64 - Z_true_f64) / torch.linalg.matrix_norm(
-            Z_true_f64
-        ).clamp_min(1e-12)
-        relerr_list.append(float(rel))
+        A_f64 = A_norm.detach().cpu().double()
+        B_f64 = B.detach().cpu().double()
+        
+        norm_zt = torch.linalg.matrix_norm(Z_true_f64).clamp_min(1e-12)
+        rel = float(torch.linalg.matrix_norm(Z_hat_f64 - Z_true_f64) / norm_zt)
+        
+        norm_b = torch.linalg.matrix_norm(B_f64).clamp_min(1e-12)
+        resid = float(torch.linalg.matrix_norm(A_f64 @ Z_hat_f64 - B_f64) / norm_b)
+        
+        relerr_list.append(rel)
+        resid_list.append(resid)
+        
+        if rel > RELERR_MAX_FAIL or resid > RESID_MAX_FAIL:
+            bad += 1
 
     ms_iter_med = median(ms_iter_list)
     rel_err_med = median(relerr_list)
+    resid_med = median(resid_list)
     if rel_err_med > 0.0 and math.isfinite(rel_err_med) and ms_iter_med > 0.0:
         quality_per_ms = max(0.0, -math.log10(rel_err_med)) / ms_iter_med
     else:
@@ -405,6 +425,8 @@ def eval_method(
         ms_precond=ms_precond_median,
         rel_err=rel_err_med,
         rel_err_p90=pctl(relerr_list, 0.90),
+        residual=resid_med,
+        residual_p90=pctl(resid_list, 0.90),
         failure_rate=(
             float(bad) / float(len(prepared_inputs))
             if len(prepared_inputs) > 0
@@ -707,6 +729,7 @@ def main():
                             f"{name:<28s} {rr.ms:8.3f} ms "
                             f"(pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}){mem_str} | "
                             f"relerr vs solve: {rr.rel_err:.3e}"
+                            f" | resid {rr.residual:.3e}"
                             f" | relerr_p90 {rr.rel_err_p90:.3e}"
                             f" | fail_rate {100.0 * rr.failure_rate:.1f}%"
                             f" | q_per_ms {rr.quality_per_ms:.3e}"

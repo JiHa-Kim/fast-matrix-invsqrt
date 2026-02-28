@@ -135,6 +135,8 @@ class SolveBenchResult:
     ms_precond: float
     rel_err: float
     rel_err_p90: float
+    residual: float
+    residual_p90: float
     failure_rate: float
     quality_per_ms: float
     mem_alloc_mb: float
@@ -405,6 +407,7 @@ def eval_solve_method(
 ) -> SolveBenchResult:
     ms_iter_list: List[float] = []
     err_list: List[float] = []
+    resid_list: List[float] = []
     mem_alloc_list: List[float] = []
     mem_res_list: List[float] = []
     cheb_degree_used_list: List[float] = []
@@ -414,6 +417,11 @@ def eval_solve_method(
     pe_steps_used_list: List[float] = []
     fail_count = 0
 
+    # Failure thresholds: if relerr or residual exceeds these, treat as failure
+    # for accounting purposes.
+    RELERR_MAX_FAIL = 1e-1
+    RESID_MAX_FAIL = 1e-1
+
     if len(prepared_inputs) == 0:
         return SolveBenchResult(
             ms=float("nan"),
@@ -421,6 +429,8 @@ def eval_solve_method(
             ms_precond=float("nan"),
             rel_err=float("nan"),
             rel_err_p90=float("nan"),
+            residual=float("nan"),
+            residual_p90=float("nan"),
             failure_rate=float("nan"),
             quality_per_ms=float("nan"),
             mem_alloc_mb=float("nan"),
@@ -670,17 +680,37 @@ def eval_solve_method(
         ms_iter_list.append(ms_iter)
 
         if torch.isfinite(Zn).all() and torch.isfinite(Z_true).all():
-            # Compute relative error in double precision to avoid precision floor
+            # Compute relative error in double precision
             Zn_f64 = Zn.detach().cpu().double()
             Zt_f64 = Z_true.detach().cpu().double()
-            err_list.append(
-                float(
-                    torch.linalg.matrix_norm(Zn_f64 - Zt_f64)
-                    / torch.linalg.matrix_norm(Zt_f64).clamp_min(1e-12)
-                )
-            )
+            A_f64 = A_norm.detach().cpu().double()
+            B_f64 = B.detach().cpu().double()
+            
+            norm_zt = torch.linalg.matrix_norm(Zt_f64).clamp_min(1e-12)
+            rel_err = float(torch.linalg.matrix_norm(Zn_f64 - Zt_f64) / norm_zt)
+            
+            # Residual calculation
+            norm_b = torch.linalg.matrix_norm(B_f64).clamp_min(1e-12)
+            if p_val == 1:
+                # |A*Z - B| / |B|
+                resid = float(torch.linalg.matrix_norm(A_f64 @ Zn_f64 - B_f64) / norm_b)
+            else:
+                # For p > 1: |A^{1/p}*Z - B| / |B|
+                # We reuse EVD logic on A_norm to compute A^{1/p}
+                L, Q = torch.linalg.eigh(A_f64)
+                L_root = torch.pow(L.clamp_min(1e-12), 1.0 / p_val)
+                A_root = (Q * L_root.unsqueeze(0)) @ Q.mT
+                resid = float(torch.linalg.matrix_norm(A_root @ Zn_f64 - B_f64) / norm_b)
+            
+            err_list.append(rel_err)
+            resid_list.append(resid)
+            
+            # Failure accounting: finite but garbage result
+            if rel_err > RELERR_MAX_FAIL or resid > RESID_MAX_FAIL:
+                fail_count += 1
         else:
             err_list.append(float("inf"))
+            resid_list.append(float("inf"))
             fail_count += 1
 
         if method == "PE-Quad-Coupled-Apply":
@@ -693,6 +723,8 @@ def eval_solve_method(
     ms_pre_med = ms_precond_median
     rel_err_med = median(err_list)
     rel_err_p90 = pctl(err_list, 0.90)
+    resid_med = median(resid_list)
+    resid_p90 = pctl(resid_list, 0.90)
     total_count = len(prepared_inputs)
     failure_rate = (
         float(fail_count) / float(total_count) if total_count > 0 else float("nan")
@@ -708,6 +740,8 @@ def eval_solve_method(
         ms_precond=ms_pre_med,
         rel_err=rel_err_med,
         rel_err_p90=rel_err_p90,
+        residual=resid_med,
+        residual_p90=resid_p90,
         failure_rate=failure_rate,
         quality_per_ms=quality_per_ms,
         mem_alloc_mb=median(mem_alloc_list) if mem_alloc_list else float("nan"),

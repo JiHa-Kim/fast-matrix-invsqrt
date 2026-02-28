@@ -7,9 +7,9 @@ import re
 from typing import Any, List, Tuple
 
 # Type alias for benchmark rows
-# (kind, p, n, k, case, method, total_ms, iter_ms, relerr, relerr_p90, fail_rate, qpm)
+# (kind, p, n, k, case, method, total_ms, iter_ms, relerr, relerr_p90, fail_rate, qpm, resid, resid_p90)
 ParsedRow = Tuple[
-    str, int, int, int, str, str, float, float, float, float, float, float
+    str, int, int, int, str, str, float, float, float, float, float, float, float, float
 ]
 
 
@@ -55,6 +55,7 @@ def parse_rows(raw: str, kind: str) -> List[ParsedRow]:
         rf"relerr\s+vs\s+(?:true|solve):\s+({num})",
         flags=re.IGNORECASE,
     )
+    resid_re = re.compile(rf"\bresid\s+({num})", flags=re.IGNORECASE)
     relerr_p90_re = re.compile(rf"\brelerr_p90\s+({num})", flags=re.IGNORECASE)
     fail_rate_re = re.compile(rf"\bfail_rate\s+({num})%", flags=re.IGNORECASE)
     q_per_ms_re = re.compile(rf"\bq_per_ms\s+({num})", flags=re.IGNORECASE)
@@ -82,12 +83,20 @@ def parse_rows(raw: str, kind: str) -> List[ParsedRow]:
             total_ms = float(lm.group(2))
             iter_ms = float(lm.group(4))
             relerr = float(lm.group(5))
+            resid_m = resid_re.search(line)
             p90_m = relerr_p90_re.search(line)
             fail_m = fail_rate_re.search(line)
             qpm_m = q_per_ms_re.search(line)
+            
+            resid = float(resid_m.group(1)) if resid_m else float("nan")
             relerr_p90 = float(p90_m.group(1)) if p90_m else float("nan")
             failure_rate = float(fail_m.group(1)) / 100.0 if fail_m else float("nan")
             quality_per_ms = float(qpm_m.group(1)) if qpm_m else float("nan")
+            
+            # Since resid_p90 is not yet printed in standard logs, default it to nan
+            # or we could add it to logs too. Let's keep it simple for now.
+            resid_p90 = float("nan")
+
             rows.append(
                 (
                     kind,
@@ -102,6 +111,8 @@ def parse_rows(raw: str, kind: str) -> List[ParsedRow]:
                     relerr_p90,
                     failure_rate,
                     quality_per_ms,
+                    resid,
+                    resid_p90,
                 )
             )
 
@@ -123,6 +134,8 @@ def row_to_dict(row: ParsedRow) -> dict[str, Any]:
         "relerr_p90": float(row[9]),
         "failure_rate": float(row[10]),
         "quality_per_ms": float(row[11]),
+        "residual": float(row[12]),
+        "residual_p90": float(row[13]),
     }
 
 
@@ -141,4 +154,6 @@ def row_from_dict(obj: dict[str, Any]) -> ParsedRow:
         float(obj.get("relerr_p90", float("nan"))),
         float(obj.get("failure_rate", float("nan"))),
         float(obj.get("quality_per_ms", float("nan"))),
+        float(obj.get("residual", float("nan"))),
+        float(obj.get("residual_p90", float("nan"))),
     )

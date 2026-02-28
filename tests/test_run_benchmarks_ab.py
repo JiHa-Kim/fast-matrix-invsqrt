@@ -174,6 +174,53 @@ def test_ab_compare_match_on_method_requires_same_method():
         )
 
 
+def test_ab_markdown_separator_column_count_matches_header():
+    rows_a = [
+        (
+            "spd",
+            2,
+            128,
+            1,
+            "gaussian_spd",
+            "Inverse-Newton-Coupled-Apply",
+            1.0,
+            0.9,
+            1.0e-3,
+            2.0e-3,
+            0.0,
+            3.0,
+        )
+    ]
+    rows_b = [
+        (
+            "spd",
+            2,
+            128,
+            1,
+            "gaussian_spd",
+            "PE-Quad-Coupled-Apply",
+            0.8,
+            0.7,
+            1.2e-3,
+            1.5e-3,
+            0.0,
+            3.4,
+        )
+    ]
+    md = _to_markdown_ab(
+        rows_a,
+        rows_b,
+        label_a="baseline",
+        label_b="candidate",
+        match_on_method=False,
+    )
+    lines = md.splitlines()
+    header = next(line for line in lines if line.startswith("| kind | p |"))
+    sep_idx = lines.index(header) + 1
+    sep = lines[sep_idx]
+    assert header.count("|") == sep.count("|")
+
+
 def test_markdown_includes_assessment_leaders():
     rows = [
         (

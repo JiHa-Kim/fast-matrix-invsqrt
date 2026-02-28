@@ -304,7 +304,7 @@ def _build_solve_runner(
                 B_f32 = B.to(torch.float32)
                 L = torch.linalg.cholesky(A_f32)
                 Z = torch.cholesky_solve(B_f32, L)
-                return Z.to(A_norm.dtype)
+                return Z  # Return in fp32 for low origin error
             else:
                 # For p > 1, we must use EVD or similar to compute A^{-1/p}
                 A_f32 = A_norm.to(torch.float32)
@@ -312,7 +312,7 @@ def _build_solve_runner(
                 L, Q = torch.linalg.eigh(A_f32)
                 L_inv = torch.pow(L.clamp_min(1e-12), -1.0 / p_val)
                 Z = (Q * L_inv.unsqueeze(0)) @ (Q.mT @ B_f32)
-                return Z.to(A_norm.dtype)
+                return Z  # Return in fp32 for low origin error
 
         return run
 
@@ -325,7 +325,7 @@ def _build_solve_runner(
             B_f32 = B.to(torch.float32)
             L = torch.linalg.cholesky(A_f32)
             Z = torch.cholesky_solve(B_f32, L)
-            return Z.to(A_norm.dtype)
+            return Z  # Return in fp32
 
         return run
 
@@ -345,7 +345,7 @@ def _build_solve_runner(
                 L_cached = torch.linalg.cholesky(A_f32_cached)
             B_f32 = B.to(torch.float32)
             Z = torch.cholesky_solve(B_f32, L_cached)
-            return Z.to(A_norm.dtype)
+            return Z  # Return in fp32
 
         return run
 
@@ -358,7 +358,7 @@ def _build_solve_runner(
             L, Q = torch.linalg.eigh(A_f32)
             L_inv = torch.pow(L.clamp_min(1e-12), -1.0 / p_val)
             Z = (Q * L_inv.unsqueeze(0)) @ (Q.mT @ B_f32)
-            return Z.to(A_norm.dtype)
+            return Z  # Return in fp32
 
         return run
 

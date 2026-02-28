@@ -1,0 +1,16 @@
+[coeff] using precomputed(l_target=0.05), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 256x256 | RHS 256x256 | dtype=torch.float32 ==
+precond=jacobi | l_target=0.05 | p=2 | ruiz_iters=2 | cheb_deg=32 | cheb_deg_klt=24 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_coeff_cost_model=shape-aware | online_coeff_target_err=0.01 | online_stop_tol=0.0 | terminal_tail_steps=1 | online_stop_metric=diag | post_correction_steps=0 | cuda_graph=False | methods=PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply,Chebyshev-Apply,Torch-EVD-Solve
+
+-- case gaussian_spd --
+PE-Quad-Coupled-Apply           2.594 ms (pre 1.612 + iter 0.982) | mem   18MB | relerr vs true: 5.075e-04 | relerr_p90 5.530e-04 | fail_rate 0.0% | q_per_ms 3.355e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    2.870 ms (pre 1.612 + iter 1.258) | mem   19MB | relerr vs true: 1.114e-01 | relerr_p90 1.114e-01 | fail_rate 0.0% | q_per_ms 7.576e-01
+Chebyshev-Apply                 2.222 ms (pre 1.612 + iter 0.609) | mem   25MB | relerr vs true: 2.109e-04 | relerr_p90 2.125e-04 | fail_rate 0.0% | q_per_ms 6.033e+00 | cheb_deg 32
+Torch-EVD-Solve                 8.884 ms (pre 1.612 + iter 7.271) | mem   25MB | relerr vs true: 4.176e-04 | relerr_p90 4.195e-04 | fail_rate 0.0% | q_per_ms 4.647e-01
+
+-- case illcond_1e6 --
+PE-Quad-Coupled-Apply           3.053 ms (pre 2.058 + iter 0.996) | mem   26MB | relerr vs true: 3.823e-04 | relerr_p90 3.859e-04 | fail_rate 0.0% | q_per_ms 3.433e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    3.245 ms (pre 2.058 + iter 1.187) | mem   27MB | relerr vs true: 1.110e-01 | relerr_p90 1.111e-01 | fail_rate 0.0% | q_per_ms 8.043e-01
+Chebyshev-Apply                 2.501 ms (pre 2.058 + iter 0.444) | mem   25MB | relerr vs true: 2.112e-04 | relerr_p90 2.118e-04 | fail_rate 0.0% | q_per_ms 8.284e+00 | cheb_deg 32
+Torch-EVD-Solve                11.410 ms (pre 2.058 + iter 9.352) | mem   25MB | relerr vs true: 4.197e-04 | relerr_p90 4.212e-04 | fail_rate 0.0% | q_per_ms 3.611e-01

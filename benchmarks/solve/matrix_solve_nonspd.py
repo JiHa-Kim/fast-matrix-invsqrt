@@ -288,7 +288,7 @@ def _build_runner(
             A_f32 = A_norm.to(torch.float32)
             B_f32 = B.to(torch.float32)
             Z = torch.linalg.solve(A_f32, B_f32)
-            return Z.to(A_norm.dtype)
+            return Z  # Return in fp32 for low origin error
 
         return run
 

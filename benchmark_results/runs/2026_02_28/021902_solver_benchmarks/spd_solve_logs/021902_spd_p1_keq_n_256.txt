@@ -1,0 +1,20 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 256x256 | RHS 256x256 | dtype=torch.float32 ==
+precond=jacobi | l_target=0.05 | p=1 | ruiz_iters=2 | cheb_deg=32 | cheb_deg_klt=24 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_coeff_cost_model=shape-aware | online_coeff_target_err=0.01 | online_stop_tol=0.0 | terminal_tail_steps=1 | online_stop_metric=diag | post_correction_steps=0 | cuda_graph=False | methods=PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply,Torch-Solve,Torch-Cholesky-Solve,Torch-EVD-Solve,Torch-Cholesky-Solve-ReuseFactor
+
+-- case gaussian_spd --
+PE-Quad-Coupled-Apply           2.929 ms (pre 2.231 + iter 0.698) | mem   18MB | relerr vs true: 6.725e-04 | relerr_p90 6.899e-04 | fail_rate 0.0% | q_per_ms 4.544e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1 | steps 4
+Inverse-Newton-Coupled-Apply    2.928 ms (pre 2.231 + iter 0.697) | mem   19MB | relerr vs true: 3.608e-01 | relerr_p90 3.609e-01 | fail_rate 0.0% | q_per_ms 6.351e-01
+Torch-Solve                     2.729 ms (pre 2.231 + iter 0.498) | mem   17MB | relerr vs true: 1.629e-07 | relerr_p90 1.698e-07 | fail_rate 0.0% | q_per_ms 1.362e+01
+Torch-Cholesky-Solve            2.755 ms (pre 2.231 + iter 0.525) | mem   17MB | relerr vs true: 1.629e-07 | relerr_p90 1.698e-07 | fail_rate 0.0% | q_per_ms 1.294e+01
+Torch-EVD-Solve                 9.442 ms (pre 2.231 + iter 7.211) | mem   17MB | relerr vs true: 4.154e-04 | relerr_p90 4.162e-04 | fail_rate 0.0% | q_per_ms 4.689e-01
+Torch-Cholesky-Solve-ReuseFactor    2.381 ms (pre 2.231 + iter 0.150) | mem   17MB | relerr vs true: 1.629e-07 | relerr_p90 1.698e-07 | fail_rate 0.0% | q_per_ms 4.516e+01
+
+-- case illcond_1e6 --
+PE-Quad-Coupled-Apply           2.229 ms (pre 1.467 + iter 0.762) | mem   18MB | relerr vs true: 6.437e-04 | relerr_p90 6.581e-04 | fail_rate 0.0% | q_per_ms 4.187e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 1 | steps 4
+Inverse-Newton-Coupled-Apply    2.317 ms (pre 1.467 + iter 0.850) | mem   19MB | relerr vs true: 3.597e-01 | relerr_p90 3.599e-01 | fail_rate 0.0% | q_per_ms 5.226e-01
+Torch-Solve                     1.930 ms (pre 1.467 + iter 0.462) | mem   17MB | relerr vs true: 1.630e-07 | relerr_p90 1.685e-07 | fail_rate 0.0% | q_per_ms 1.468e+01
+Torch-Cholesky-Solve            1.996 ms (pre 1.467 + iter 0.529) | mem   17MB | relerr vs true: 1.630e-07 | relerr_p90 1.685e-07 | fail_rate 0.0% | q_per_ms 1.284e+01
+Torch-EVD-Solve                11.063 ms (pre 1.467 + iter 9.596) | mem   17MB | relerr vs true: 4.153e-04 | relerr_p90 4.162e-04 | fail_rate 0.0% | q_per_ms 3.524e-01
+Torch-Cholesky-Solve-ReuseFactor    1.616 ms (pre 1.467 + iter 0.149) | mem   17MB | relerr vs true: 1.630e-07 | relerr_p90 1.685e-07 | fail_rate 0.0% | q_per_ms 4.568e+01

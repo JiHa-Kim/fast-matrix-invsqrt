@@ -1,0 +1,46 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x1 | dtype=torch.float32 ==
+precond=jacobi | l_target=0.05 | p=4 | ruiz_iters=2 | cheb_deg=32 | cheb_deg_klt=24 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_coeff_cost_model=shape-aware | online_coeff_target_err=0.01 | online_stop_tol=0.0 | terminal_tail_steps=1 | online_stop_metric=diag | post_correction_steps=0 | cuda_graph=False | methods=PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply,Chebyshev-Apply,Torch-EVD-Solve
+
+-- case gaussian_spd --
+PE-Quad-Coupled-Apply           4.848 ms (pre 1.557 + iter 3.291) | mem  108MB | relerr vs true: 6.074e-05 | relerr_p90 7.497e-05 | fail_rate 0.0% | q_per_ms 1.281e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    6.032 ms (pre 1.557 + iter 4.475) | mem  112MB | relerr vs true: 1.002e-01 | relerr_p90 1.005e-01 | fail_rate 0.0% | q_per_ms 2.233e-01
+Chebyshev-Apply                 2.259 ms (pre 1.557 + iter 0.702) | mem   96MB | relerr vs true: 2.157e-07 | relerr_p90 2.240e-07 | fail_rate 0.0% | q_per_ms 9.500e+00 | cheb_deg 24
+Torch-EVD-Solve                28.844 ms (pre 1.557 + iter 27.287) | mem  117MB | relerr vs true: 1.685e-06 | relerr_p90 1.744e-06 | fail_rate 0.0% | q_per_ms 2.116e-01
+
+-- case illcond_1e6 --
+PE-Quad-Coupled-Apply           4.617 ms (pre 1.281 + iter 3.336) | mem  116MB | relerr vs true: 6.122e-05 | relerr_p90 6.314e-05 | fail_rate 0.0% | q_per_ms 1.263e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    6.090 ms (pre 1.281 + iter 4.809) | mem  120MB | relerr vs true: 1.002e-01 | relerr_p90 1.004e-01 | fail_rate 0.0% | q_per_ms 2.077e-01
+Chebyshev-Apply                 1.983 ms (pre 1.281 + iter 0.702) | mem   96MB | relerr vs true: 2.373e-06 | relerr_p90 2.580e-06 | fail_rate 0.0% | q_per_ms 8.012e+00 | cheb_deg 24
+Torch-EVD-Solve                26.912 ms (pre 1.281 + iter 25.631) | mem  117MB | relerr vs true: 1.276e-06 | relerr_p90 1.306e-06 | fail_rate 0.0% | q_per_ms 2.300e-01
+
+== SPD Size 1024x1024 | RHS 1024x16 | dtype=torch.float32 ==
+precond=jacobi | l_target=0.05 | p=4 | ruiz_iters=2 | cheb_deg=32 | cheb_deg_klt=24 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_coeff_cost_model=shape-aware | online_coeff_target_err=0.01 | online_stop_tol=0.0 | terminal_tail_steps=1 | online_stop_metric=diag | post_correction_steps=0 | cuda_graph=False | methods=PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply,Chebyshev-Apply,Torch-EVD-Solve
+
+-- case gaussian_spd --
+PE-Quad-Coupled-Apply           4.597 ms (pre 1.166 + iter 3.431) | mem  117MB | relerr vs true: 3.382e-04 | relerr_p90 3.418e-04 | fail_rate 0.0% | q_per_ms 1.012e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    5.995 ms (pre 1.166 + iter 4.829) | mem  121MB | relerr vs true: 1.005e-01 | relerr_p90 1.005e-01 | fail_rate 0.0% | q_per_ms 2.067e-01
+Chebyshev-Apply                 2.268 ms (pre 1.166 + iter 1.102) | mem   97MB | relerr vs true: 9.019e-05 | relerr_p90 9.045e-05 | fail_rate 0.0% | q_per_ms 3.670e+00 | cheb_deg 24
+Torch-EVD-Solve                28.798 ms (pre 1.166 + iter 27.632) | mem  118MB | relerr vs true: 4.151e-04 | relerr_p90 4.174e-04 | fail_rate 0.0% | q_per_ms 1.224e-01
+
+-- case illcond_1e6 --
+PE-Quad-Coupled-Apply           6.379 ms (pre 2.957 + iter 3.422) | mem  117MB | relerr vs true: 3.324e-04 | relerr_p90 3.352e-04 | fail_rate 0.0% | q_per_ms 1.016e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    7.799 ms (pre 2.957 + iter 4.843) | mem  121MB | relerr vs true: 1.005e-01 | relerr_p90 1.005e-01 | fail_rate 0.0% | q_per_ms 2.061e-01
+Chebyshev-Apply                 4.059 ms (pre 2.957 + iter 1.102) | mem   97MB | relerr vs true: 9.045e-05 | relerr_p90 9.092e-05 | fail_rate 0.0% | q_per_ms 3.669e+00 | cheb_deg 24
+Torch-EVD-Solve                28.661 ms (pre 2.957 + iter 25.705) | mem  118MB | relerr vs true: 4.162e-04 | relerr_p90 4.181e-04 | fail_rate 0.0% | q_per_ms 1.315e-01
+
+== SPD Size 1024x1024 | RHS 1024x64 | dtype=torch.float32 ==
+precond=jacobi | l_target=0.05 | p=4 | ruiz_iters=2 | cheb_deg=32 | cheb_deg_klt=24 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_coeff_cost_model=shape-aware | online_coeff_target_err=0.01 | online_stop_tol=0.0 | terminal_tail_steps=1 | online_stop_metric=diag | post_correction_steps=0 | cuda_graph=False | methods=PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply,Chebyshev-Apply,Torch-EVD-Solve
+
+-- case gaussian_spd --
+PE-Quad-Coupled-Apply           4.668 ms (pre 1.253 + iter 3.415) | mem  120MB | relerr vs true: 3.389e-04 | relerr_p90 3.396e-04 | fail_rate 0.0% | q_per_ms 1.016e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    6.242 ms (pre 1.253 + iter 4.989) | mem  124MB | relerr vs true: 1.005e-01 | relerr_p90 1.005e-01 | fail_rate 0.0% | q_per_ms 2.000e-01
+Chebyshev-Apply                 2.417 ms (pre 1.253 + iter 1.164) | mem  100MB | relerr vs true: 9.022e-05 | relerr_p90 9.043e-05 | fail_rate 0.0% | q_per_ms 3.476e+00 | cheb_deg 24
+Torch-EVD-Solve                29.345 ms (pre 1.253 + iter 28.092) | mem  120MB | relerr vs true: 4.156e-04 | relerr_p90 4.173e-04 | fail_rate 0.0% | q_per_ms 1.204e-01
+
+-- case illcond_1e6 --
+PE-Quad-Coupled-Apply           4.610 ms (pre 1.186 + iter 3.425) | mem  120MB | relerr vs true: 3.346e-04 | relerr_p90 3.363e-04 | fail_rate 0.0% | q_per_ms 1.015e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    6.271 ms (pre 1.186 + iter 5.086) | mem  124MB | relerr vs true: 1.005e-01 | relerr_p90 1.005e-01 | fail_rate 0.0% | q_per_ms 1.962e-01
+Chebyshev-Apply                 2.352 ms (pre 1.186 + iter 1.166) | mem  100MB | relerr vs true: 9.043e-05 | relerr_p90 9.089e-05 | fail_rate 0.0% | q_per_ms 3.467e+00 | cheb_deg 24
+Torch-EVD-Solve                27.543 ms (pre 1.186 + iter 26.357) | mem  120MB | relerr vs true: 4.148e-04 | relerr_p90 4.170e-04 | fail_rate 0.0% | q_per_ms 1.283e-01

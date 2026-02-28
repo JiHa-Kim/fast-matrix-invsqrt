@@ -6,8 +6,7 @@ This page documents invariants and implementation choices shared by the active m
 
 For SPD `A`, we seek `X ≈ A^{-1/p}`.
 
-- Uncoupled: track only `X`.
-- Coupled: track `X` and `Y`, with ideal invariant `Y = X^p A`.
+The production solvers use **Coupled Iteration**: track `X` and `Y`, with the ideal invariant `Y = X^p A`.
 
 Residual target:
 
@@ -32,7 +31,7 @@ $$
 The implementation uses:
 
 - `_bpow` in coupled kernels for `B^h` building.
-- `_bpow_times_y` in uncoupled kernels for `X^p A`.
+- `_bpow_times_y` for computing the initial $Y = X^p A$ when needed.
 
 ## 3) Terminal Last-Step Optimization
 
@@ -42,7 +41,6 @@ When `terminal_last_step=True`, the final `Y` update is skipped in coupled paths
 
 - `symmetrize_Y` toggles `Y <- 0.5*(Y + Y^T)` in coupled methods.
 - `symmetrize_every` applies this every `k` non-terminal steps (`k >= 1`).
-- `symmetrize_X` is available in uncoupled iteration.
 
 ## 5) Preconditioning Pipeline (`precond_spd`)
 

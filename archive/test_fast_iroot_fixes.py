@@ -24,14 +24,14 @@ from fast_iroot.coupled import (
     inverse_sqrt_pe_quadratic,
     inverse_solve_pe_quadratic_coupled,
 )
-from fast_iroot.metrics import (
+from .metrics import (
     compute_quality_stats,
     exact_inverse_proot,
     iroot_relative_error,
     isqrt_relative_error,
 )
 from fast_iroot.precond import precond_gram_dual_spd, precond_gram_spd, precond_spd
-from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
+from .uncoupled_legacy import inverse_proot_pe_quadratic_uncoupled
 
 
 def test_addmm_into_multibatch_shape():

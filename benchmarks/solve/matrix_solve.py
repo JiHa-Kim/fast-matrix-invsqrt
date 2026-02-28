@@ -24,7 +24,6 @@ from fast_iroot.chebyshev import apply_inverse_proot_chebyshev
 from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
 from fast_iroot.coupled import inverse_solve_pe_quadratic_coupled
 from fast_iroot.precond import SPD_PRECOND_MODES
-from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 from benchmarks.common import parse_shapes, make_spd_cases, maybe_compile
 from benchmarks.solve.bench_solve_core import (
     matrix_solve_methods,
@@ -414,7 +413,6 @@ def main():
     print(f"[coeff] using {coeff_desc} (PE steps = {len(pe_quad_t)})")
     pe_quad_coeffs = _quad_coeffs(pe_quad_t)
 
-    uncoupled_fn = maybe_compile(inverse_proot_pe_quadratic_uncoupled, args.compile)
     coupled_solve_fn = maybe_compile(inverse_solve_pe_quadratic_coupled, args.compile)
     cheb_apply_fn = maybe_compile(apply_inverse_proot_chebyshev, args.compile)
 
@@ -503,7 +501,6 @@ def main():
                                 use_cuda_graph=bool(args.cuda_graph),
                                 cuda_graph_warmup=int(args.cuda_graph_warmup),
                                 cheb_cuda_graph=bool(args.cheb_cuda_graph),
-                                uncoupled_fn=uncoupled_fn,
                                 coupled_solve_fn=coupled_solve_fn,
                                 cheb_apply_fn=cheb_apply_fn,
                             )

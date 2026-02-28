@@ -276,7 +276,6 @@ def apply_inverse_root_auto(
     nonspd_adaptive_check_every: int = 1,
     nonspd_safe_fallback_tol: Optional[float] = None,
     nonspd_safe_early_y_tol: Optional[float] = None,
-    k_threshold: float = 0.1,
 ) -> Tuple[torch.Tensor, InverseApplyAutoWorkspace]:
     """Apply inverse p-th root with strategy selection for single-shot vs reuse.
 
@@ -375,7 +374,6 @@ def apply_inverse_root_gram_spd(
     online_stop_check_every: int = 1,
     post_correction_steps: int = 0,
     post_correction_order: int = 2,
-    k_threshold: float = 0.1,
 ) -> Tuple[torch.Tensor, GramInverseApplyWorkspace, PrecondStats]:
     """Gram-matrix SPD apply path with optional cached preconditioning.
 
@@ -465,7 +463,6 @@ def apply_inverse_root_gram_spd(
         post_correction_steps=post_correction_steps,
         post_correction_order=post_correction_order,
         assume_spd=True,
-        k_threshold=k_threshold,
     )
     return Z, ws, stats
 
@@ -499,7 +496,6 @@ def apply_inverse_root_gram_rhs_spd(
     online_stop_check_every: int = 1,
     post_correction_steps: int = 0,
     post_correction_order: int = 2,
-    k_threshold: float = 0.1,
 ) -> Tuple[torch.Tensor, DualGramInverseApplyWorkspace, PrecondStats]:
     """Dual Gram SPD apply path for RHS in range(G^T): M = G^T B.
 
@@ -585,7 +581,6 @@ def apply_inverse_root_gram_rhs_spd(
         post_correction_steps=post_correction_steps,
         post_correction_order=post_correction_order,
         assume_spd=True,
-        k_threshold=k_threshold,
     )
     Z = G.mT @ U
     return Z, ws, stats

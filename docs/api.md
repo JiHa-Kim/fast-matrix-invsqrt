@@ -66,7 +66,7 @@ def solve_spd(
 ```
 
 - **Returns**: `(Z, workspace, stats, schedule_desc)`.
-- **Note**: Supports $p=2$ (inverse sqrt), $p=4$, and general $p$ via uncoupled kernels.
+- **Note**: Supports $p=2$ (inverse sqrt), $p=4$, and general $p$ via coupled iterative kernels.
 
 ### `solve_nonspd`
 

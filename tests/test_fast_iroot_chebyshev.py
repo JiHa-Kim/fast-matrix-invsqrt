@@ -7,10 +7,18 @@ from fast_iroot.chebyshev import (
     select_inverse_proot_chebyshev_minimax_auto,
 )
 from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
-from fast_iroot.metrics import exact_inverse_proot
+from fast_iroot.coupled import inverse_proot_pe_quadratic_coupled
 from fast_iroot.precond import precond_spd
-from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 from benchmarks.common import _spd_from_eigs
+
+
+def _exact_inverse_proot(A: torch.Tensor, p_val: int) -> torch.Tensor:
+    """Exact inverse p-th root for testing."""
+    eigvals, V = torch.linalg.eigh(A.double())
+    eigvals = eigvals.clamp_min(1e-20)
+    D = torch.diag_embed(eigvals ** (-1.0 / p_val))
+    X = V @ D @ V.mH
+    return X.to(dtype=A.dtype)
 
 
 def get_test_matrix(n: int = 128, case: str = "gaussian") -> torch.Tensor:
@@ -44,7 +52,7 @@ def test_apply_inverse_proot_chebyshev(p, n, k, case):
     torch.manual_seed(123)
     B = torch.randn(n, k)
 
-    # Baseline: Inverse PE Uncoupled then matmul
+    # Baseline: Inverse PE Coupled then matmul
     # use auto PE to match spectral conditioning
     pe_quad_t, _ = build_pe_schedules(
         l_target=l_target,
@@ -56,7 +64,7 @@ def test_apply_inverse_proot_chebyshev(p, n, k, case):
         p_val=p,
     )
     pe_quad_coeffs = _quad_coeffs(pe_quad_t)
-    X_pe, _ = inverse_proot_pe_quadratic_uncoupled(
+    X_pe, _ = inverse_proot_pe_quadratic_coupled(
         A_norm, abc_t=pe_quad_coeffs, p_val=p
     )
     Z_expected = X_pe @ B
@@ -117,7 +125,7 @@ def test_chebyshev_vs_exact():
     B = torch.randn(n, 2)
 
     for p in [1, 2, 4]:
-        X_exact = exact_inverse_proot(A_norm, p_val=p)
+        X_exact = _exact_inverse_proot(A_norm, p_val=p)
         Z_expected = X_exact @ B
 
         Z_cheb, _ = apply_inverse_proot_chebyshev(

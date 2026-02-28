@@ -5,7 +5,7 @@ This document tracks the current state of implemented features versus experiment
 ## Implemented
 
 ### Kernels & Apply Paths
-- **Coupled/Uncoupled PE**: Quadratic PE inverse-root kernels (`coupled.py`, `uncoupled.py`).
+- **Coupled PE**: Quadratic PE inverse-root kernels (`coupled.py`).
 - **SPD Fast Path ($p=2, 4$)**: Specialized coupled updates for common inverse square root and 4th root cases.
 - **Chebyshev Direct-Apply**: Clenshaw recurrence for $A^{-1/p} B$ without dense inversions (`chebyshev.py`).
 - **Matrix-Free Gram Chebyshev**: Massively faster path for wide Gram matrices.
@@ -29,7 +29,9 @@ This document tracks the current state of implemented features versus experiment
 
 ## Archived / Legacy
 
+- **Uncoupled PE**: Legacy iterative kernels that track only $X$ (`archive/uncoupled.py`).
 - **NSRC (Neumann-Series Residual Correction)**: An additive refinement method for $p=1$. Underperformed compared to PE-Quad in benchmarks and has been moved to `archive/nsrc.py`.
+- **Quality Metrics**: Historical validation metrics (`archive/metrics.py`). Production validation now uses direct error checks.
 
 ---
 

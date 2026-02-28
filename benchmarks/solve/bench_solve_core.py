@@ -21,8 +21,6 @@ from fast_iroot.chebyshev import (
 from benchmarks.common import median, time_ms_any, time_ms_repeat
 
 BASE_MATRIX_SOLVE_METHODS: List[str] = [
-    "PE-Quad-Inverse-Multiply",
-    "Inverse-Newton-Inverse-Multiply",
     "PE-Quad-Coupled-Apply",
     "Inverse-Newton-Coupled-Apply",
 ]
@@ -206,42 +204,6 @@ def _build_solve_runner(
 ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
     inv_newton_step = ((p_val + 1.0) / p_val, -1.0 / p_val, 0.0)
     inv_newton_coeffs = [inv_newton_step] * len(pe_step_coeffs)
-
-    if method == "PE-Quad-Inverse-Multiply":
-        ws_unc = None
-
-        def run(A_norm: torch.Tensor, B: torch.Tensor):
-            nonlocal ws_unc
-            Xn, ws_unc = uncoupled_fn(
-                A_norm,
-                abc_t=pe_step_coeffs,
-                p_val=p_val,
-                ws=ws_unc,
-                symmetrize_X=True,
-            )
-            return Xn @ B
-
-        return run
-
-    if method == "Inverse-Newton-Inverse-Multiply":
-        ws_unc = None
-
-        def run(A_norm: torch.Tensor, B: torch.Tensor):
-            nonlocal ws_unc
-            A_ref, out_scale = _naive_newton_preprocess(A_norm, p_val=p_val)
-            Xn, ws_unc = uncoupled_fn(
-                A_ref,
-                abc_t=inv_newton_coeffs,
-                p_val=p_val,
-                ws=ws_unc,
-                symmetrize_X=False,
-            )
-            Z = Xn @ B
-            if out_scale != 1.0:
-                Z = Z * out_scale
-            return Z
-
-        return run
 
     if method == "PE-Quad-Coupled-Apply":
         ws_cpl = None
@@ -431,7 +393,6 @@ def eval_solve_method(
     use_cuda_graph: bool,
     cuda_graph_warmup: int,
     cheb_cuda_graph: bool,
-    uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
     cheb_apply_fn: Callable[..., Tuple[torch.Tensor, object]],
 ) -> SolveBenchResult:
@@ -647,7 +608,6 @@ def eval_solve_method(
             online_stop_check_every=online_stop_check_every,
             post_correction_steps=post_correction_steps,
             post_correction_order=post_correction_order,
-            uncoupled_fn=uncoupled_fn,
             coupled_solve_fn=coupled_solve_fn,
             cheb_apply_fn=cheb_apply_fn,
         )

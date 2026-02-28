@@ -26,7 +26,6 @@ from fast_iroot.apply import apply_inverse_root_auto
 from fast_iroot.coeffs import _quad_coeffs, build_pe_schedules
 from fast_iroot.coupled import inverse_solve_pe_quadratic_coupled
 from fast_iroot.nonspd import NONSPD_PRECOND_MODES, precond_nonspd
-from fast_iroot.uncoupled import inverse_proot_pe_quadratic_uncoupled
 from benchmarks.common import (
     make_nonspd_cases,
     median,
@@ -37,8 +36,6 @@ from benchmarks.common import (
 )
 
 METHODS: List[str] = [
-    "PE-Quad-Inverse-Multiply",
-    "Inverse-Newton-Inverse-Multiply",
     "PE-Quad-Coupled-Apply",
     "Inverse-Newton-Coupled-Apply",
     "Torch-Solve",
@@ -159,48 +156,9 @@ def _build_runner(
     nonspd_adaptive_check_every: int,
     nonspd_safe_fallback_tol: Optional[float],
     nonspd_safe_early_y_tol: Optional[float],
-    uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
 ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
     inv_newton_coeffs = [((1.0 + 1.0) / 1.0, -1.0 / 1.0, 0.0)] * len(pe_coeffs)
-
-    if method == "PE-Quad-Inverse-Multiply":
-        ws_unc: Optional[object] = None
-
-        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
-            nonlocal ws_unc
-            Xn, ws_unc = uncoupled_fn(
-                A_norm,
-                abc_t=pe_coeffs,
-                p_val=1,
-                ws=ws_unc,
-                symmetrize_X=False,
-                assume_spd=False,
-            )
-            return Xn @ B
-
-        return run
-
-    if method == "Inverse-Newton-Inverse-Multiply":
-        ws_unc: Optional[object] = None
-
-        def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
-            nonlocal ws_unc
-            A_ref, out_scale = _naive_newton_preprocess(A_norm, p_val=1)
-            Xn, ws_unc = uncoupled_fn(
-                A_ref,
-                abc_t=inv_newton_coeffs,
-                p_val=1,
-                ws=ws_unc,
-                symmetrize_X=False,
-                assume_spd=False,
-            )
-            Z = Xn @ B
-            if out_scale != 1.0:
-                Z = Z * out_scale
-            return Z
-
-        return run
 
     if method == "PE-Quad-Coupled-Apply":
         ws_cpl: Optional[object] = None
@@ -323,7 +281,6 @@ def _build_runner(
                 B,
                 abc_t=pe_coeffs,
                 p_val=1,
-                k_threshold=0.1,
                 nonspd_safe_fallback_tol=0.01,
                 nonspd_safe_early_y_tol=0.8,
             )
@@ -349,7 +306,6 @@ def eval_method(
     nonspd_adaptive_check_every: int,
     nonspd_safe_fallback_tol: Optional[float],
     nonspd_safe_early_y_tol: Optional[float],
-    uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
 ) -> NonSpdBenchResult:
     ms_iter_list: List[float] = []
@@ -370,7 +326,6 @@ def eval_method(
             nonspd_adaptive_check_every,
             nonspd_safe_fallback_tol,
             nonspd_safe_early_y_tol,
-            uncoupled_fn,
             coupled_solve_fn,
         )
 
@@ -590,7 +545,6 @@ def main():
     pe_quad_coeffs = _quad_coeffs(pe_quad_t)
     print(f"[coeff] using {coeff_desc} (PE steps = {len(pe_quad_t)})")
 
-    uncoupled_fn = maybe_compile(inverse_proot_pe_quadratic_uncoupled, args.compile)
     coupled_solve_fn = maybe_compile(inverse_solve_pe_quadratic_coupled, args.compile)
 
     g = torch.Generator(device=device)
@@ -653,7 +607,6 @@ def main():
                                 ),
                                 nonspd_safe_fallback_tol=nonspd_safe_fallback_tol,
                                 nonspd_safe_early_y_tol=nonspd_safe_early_y_tol,
-                                uncoupled_fn=uncoupled_fn,
                                 coupled_solve_fn=coupled_solve_fn,
                             )
                         except (NotImplementedError, RuntimeError) as e:

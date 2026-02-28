@@ -82,7 +82,6 @@ def solve_spd(
     online_stop_check_every: int = 1,
     post_correction_steps: int = 0,
     post_correction_order: int = 2,
-    k_threshold: float = 0.1,
 ) -> Tuple[torch.Tensor, InverseApplyAutoWorkspace, PrecondStats, str]:
     """Solve/apply `Z ~= A^(-1/p) B` for SPD `A` using preconditioning + PE kernels."""
     pcfg = precond_config if precond_config is not None else PrecondConfig()
@@ -127,7 +126,6 @@ def solve_spd(
         post_correction_steps=post_correction_steps,
         post_correction_order=post_correction_order,
         assume_spd=True,
-        k_threshold=k_threshold,
     )
     return Z, ws, stats, schedule_desc
 
@@ -160,7 +158,6 @@ def solve_nonspd(
     nonspd_adaptive_check_every: int = 1,
     nonspd_safe_fallback_tol: Optional[float] = None,
     nonspd_safe_early_y_tol: Optional[float] = None,
-    k_threshold: float = 0.1,
 ) -> Tuple[torch.Tensor, InverseApplyAutoWorkspace, str]:
     """Solve/apply `Z ~= A^(-1) B` for non-SPD `A` with generic scaling.
 
@@ -211,7 +208,6 @@ def solve_nonspd(
         nonspd_adaptive_check_every=nonspd_adaptive_check_every,
         nonspd_safe_fallback_tol=nonspd_safe_fallback_tol,
         nonspd_safe_early_y_tol=nonspd_safe_early_y_tol,
-        k_threshold=k_threshold,
     )
     return Z, ws, schedule_desc
 
@@ -247,7 +243,6 @@ def solve_gram_spd(
     online_stop_check_every: int = 1,
     post_correction_steps: int = 0,
     post_correction_order: int = 2,
-    k_threshold: float = 0.1,
 ) -> Tuple[torch.Tensor, GramInverseApplyWorkspace, PrecondStats, str]:
     """Solve/apply `Z ~= (G^T G)^(-1/p) B` with cached Gram preconditioning."""
     if abc_t is None:
@@ -287,6 +282,5 @@ def solve_gram_spd(
         online_stop_check_every=online_stop_check_every,
         post_correction_steps=post_correction_steps,
         post_correction_order=post_correction_order,
-        k_threshold=k_threshold,
     )
     return Z, ws, stats, schedule_desc

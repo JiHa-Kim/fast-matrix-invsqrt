@@ -24,8 +24,8 @@ BASE_MATRIX_SOLVE_METHODS: List[str] = [
     "PE-Quad-Coupled-Apply",
     "Inverse-Newton-Coupled-Apply",
 ]
-P_GT1_SPD_EXTRA_METHODS: List[str] = ["Chebyshev-Apply"]
-P1_SPD_SOLVE_BASELINES: List[str] = ["Torch-Solve", "Torch-Cholesky-Solve"]
+P_GT1_SPD_EXTRA_METHODS: List[str] = ["Chebyshev-Apply", "Torch-EVD-Solve"]
+P1_SPD_SOLVE_BASELINES: List[str] = ["Torch-Solve", "Torch-Cholesky-Solve", "Torch-EVD-Solve"]
 P1_SPD_SOLVE_EXTRA_CASES: List[str] = ["Torch-Cholesky-Solve-ReuseFactor"]
 
 
@@ -198,7 +198,6 @@ def _build_solve_runner(
     online_stop_check_every: int,
     post_correction_steps: int,
     post_correction_order: int,
-    uncoupled_fn: Callable[..., Tuple[torch.Tensor, object]],
     coupled_solve_fn: Callable[..., Tuple[torch.Tensor, object]],
     cheb_apply_fn: Callable[..., Tuple[torch.Tensor, object]],
 ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:

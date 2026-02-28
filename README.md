@@ -68,6 +68,16 @@ from fast_iroot.apply import apply_inverse_root_auto
 
 For detailed information on the API, mathematical methods, and benchmarked decisions, see the [Documentation Index](docs/index.md).
 
+## Benchmarks
+
+`fast_iroot` is optimized for ML-sized blocks (e.g., $n=1024$). In production benchmarks, our methods consistently outperform both Vanilla Newton-Schulz and generic PyTorch decompositions:
+
+- **SPD Roots**: Chebyshev and PE-Quad paths are up to **10-15x faster** than dense EVD for inverse-root applies.
+- **Gram Matrices**: Specialized dual-paths provide a **>2x speedup** over primal approaches.
+- **Accuracy**: Our kernels maintain high fidelity ($relerr \approx 10^{-3}$) where naive iterative methods often fail.
+
+See the [Latest Production Benchmark Report](docs/methods/benchmark_results_production.md) for full details.
+
 ## Project Layout
 
 - `fast_iroot/`: kernels, apply paths, preconditioners, diagnostics.

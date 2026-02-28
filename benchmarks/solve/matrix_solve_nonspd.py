@@ -114,19 +114,14 @@ def _parse_methods_csv(spec: str, available: Sequence[str]) -> List[str]:
     toks = [tok.strip() for tok in str(spec).split(",") if tok.strip()]
     if not toks:
         return list(available)
-    unknown = [m for m in toks if m not in available]
-    if unknown:
-        raise ValueError(
-            "Unknown method(s) in --methods: "
-            f"{unknown}. Available: {list(available)}"
-        )
     out: List[str] = []
     seen: set[str] = set()
     for m in toks:
         if m in seen:
             continue
-        seen.add(m)
-        out.append(m)
+        if m in available:
+            seen.add(m)
+            out.append(m)
     return out
 
 
@@ -394,7 +389,7 @@ def main():
     p.add_argument(
         "--methods",
         type=str,
-        default="PE-Quad-Coupled-Apply",
+        default="PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply,Torch-Solve",
         help=(
             "Optional comma-separated method subset. Defaults to best target method "
             "only (`PE-Quad-Coupled-Apply`). "

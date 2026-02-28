@@ -28,6 +28,8 @@ This page defines common terms, abbreviations, and mathematical concepts used th
 - **Coupled Iteration**: An iterative method that tracks both the solution $X$ and the current residual state $Y \approx X^p A$. This is generally more stable and faster for production.
 - **Uncoupled Iteration**: An iterative method that tracks only the solution $X$, recalculating the state as needed.
 - **Workspace (ws)**: A pre-allocated buffer of memory used to avoid expensive repeated allocations in high-frequency ML loops.
+- **Quality-per-ms ($q/ms$)**: A performance-accuracy efficiency metric defined as $-log_{10}(rel\_err) / iter\_ms$. It represents the number of decimal digits of precision gained per millisecond of iteration time.
+- **P90 Relative Error**: The 90th percentile of relative error across multiple trials, providing a measure of worst-case accuracy.
 - **K < N**: A regime where the number of columns in the RHS ($k$) is significantly smaller than the dimension of the matrix ($n$). This often enables "matrix-free" or "polynomial-apply" optimizations.
 - **BF16 / FP16 / FP32**: Floating-point precisions supported by the library (**Bfloat16**, **Half Precision**, and **Single Precision**).
 - **CUDA Graph**: A PyTorch feature that allows "recording" a sequence of GPU operations to reduce CPU overhead during replay.

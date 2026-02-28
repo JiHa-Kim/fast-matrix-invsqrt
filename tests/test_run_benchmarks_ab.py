@@ -206,6 +206,7 @@ def test_markdown_includes_assessment_leaders():
         ),
     ]
     md = _to_markdown(rows)
+    assert "assessment score" in md
     assert "## Assessment Leaders" in md
     assert "| spd | 2 | 128 | 1 | gaussian_spd | B |" in md
 

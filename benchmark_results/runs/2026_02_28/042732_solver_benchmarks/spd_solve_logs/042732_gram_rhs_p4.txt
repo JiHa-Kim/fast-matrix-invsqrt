@@ -1,0 +1,25 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 1024x1024 | RHS 1024x1 | dtype=torch.bfloat16 ==
+precond=jacobi | l_target=0.05 | p=4 | ruiz_iters=2 | m=256 | primal_gram_mode=col-norm | dual_gram_mode=row-norm
+
+-- case gram_rhs_gtb --
+PE-Quad-Coupled-Apply-Primal-Gram       2.778 ms (pre 0.000 + iter 2.778) | relerr vs solve: 1.123e-02
+PE-Quad-Coupled-Apply-Dual-Gram-RHS     1.233 ms (pre 0.000 + iter 1.233) | relerr vs solve: 1.123e-02
+speedup dual_vs_primal: 2.253x
+
+== SPD Size 1024x1024 | RHS 1024x16 | dtype=torch.bfloat16 ==
+precond=jacobi | l_target=0.05 | p=4 | ruiz_iters=2 | m=256 | primal_gram_mode=col-norm | dual_gram_mode=row-norm
+
+-- case gram_rhs_gtb --
+PE-Quad-Coupled-Apply-Primal-Gram       2.425 ms (pre 0.000 + iter 2.425) | relerr vs solve: 1.172e-02
+PE-Quad-Coupled-Apply-Dual-Gram-RHS     1.298 ms (pre 0.000 + iter 1.298) | relerr vs solve: 1.172e-02
+speedup dual_vs_primal: 1.868x
+
+== SPD Size 1024x1024 | RHS 1024x64 | dtype=torch.bfloat16 ==
+precond=jacobi | l_target=0.05 | p=4 | ruiz_iters=2 | m=256 | primal_gram_mode=col-norm | dual_gram_mode=row-norm
+
+-- case gram_rhs_gtb --
+PE-Quad-Coupled-Apply-Primal-Gram       2.431 ms (pre 0.000 + iter 2.431) | relerr vs solve: 1.154e-02
+PE-Quad-Coupled-Apply-Dual-Gram-RHS     1.398 ms (pre 0.000 + iter 1.398) | relerr vs solve: 1.154e-02
+speedup dual_vs_primal: 1.739x

@@ -1,0 +1,18 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== SPD Size 256x256 | RHS 256x256 | dtype=torch.bfloat16 ==
+precond=jacobi | l_target=0.05 | p=4 | ruiz_iters=2 | cheb_deg=32 | cheb_deg_klt=24 | cheb_mode=fixed | symEvery=1 | online_coeff_mode=greedy-affine-opt | online_coeff_cost_model=shape-aware | online_coeff_target_err=0.01 | online_stop_tol=0.0 | terminal_tail_steps=1 | online_stop_metric=inf | post_correction_steps=0 | cuda_graph=False | methods=PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply,Chebyshev-Apply,Torch-Linalg-Solve,Torch-EVD-Solve
+
+-- case gaussian_spd --
+PE-Quad-Coupled-Apply           3.471 ms (pre 2.450 + iter 1.021) | mem   13MB | relerr 3.474e-03 (p90 3.739e-03) | resid 3.473e-03 (p90 3.738e-03) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 2.409e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    3.878 ms (pre 2.450 + iter 1.428) | mem   13MB | relerr 3.630e-02 (p90 3.632e-02) | resid 3.618e-02 (p90 3.620e-02) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 1.009e+00
+Chebyshev-Apply                 3.001 ms (pre 2.450 + iter 0.550) | mem   13MB | relerr 1.901e-03 (p90 1.907e-03) | resid 1.902e-03 (p90 1.908e-03) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 4.944e+00 | cheb_deg 32
+Torch-Linalg-Solve             10.557 ms (pre 2.450 + iter 8.107) | mem   22MB | relerr 3.664e-04 (p90 3.682e-04) | resid 3.664e-04 (p90 3.683e-04) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 4.239e-01
+Torch-EVD-Solve                 9.954 ms (pre 2.450 + iter 7.504) | mem   22MB | relerr 3.664e-04 (p90 3.682e-04) | resid 3.664e-04 (p90 3.683e-04) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 4.579e-01
+
+-- case illcond_1e6 --
+PE-Quad-Coupled-Apply           3.017 ms (pre 2.053 + iter 0.964) | mem   21MB | relerr 3.754e-03 (p90 3.766e-03) | resid 3.752e-03 (p90 3.765e-03) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 2.516e+00 | newton_steps 0 | minimax_steps 0 | affineopt_steps 0 | steps 3
+Inverse-Newton-Coupled-Apply    3.456 ms (pre 2.053 + iter 1.403) | mem   21MB | relerr 3.612e-02 (p90 3.614e-02) | resid 3.604e-02 (p90 3.606e-02) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 1.028e+00
+Chebyshev-Apply                 2.455 ms (pre 2.053 + iter 0.402) | mem   21MB | relerr 1.901e-03 (p90 1.917e-03) | resid 1.901e-03 (p90 1.917e-03) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 6.761e+00 | cheb_deg 32
+Torch-Linalg-Solve             11.059 ms (pre 2.053 + iter 9.006) | mem   22MB | relerr 3.707e-04 (p90 3.726e-04) | resid 3.707e-04 (p90 3.727e-04) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 3.810e-01
+Torch-EVD-Solve                11.365 ms (pre 2.053 + iter 9.312) | mem   22MB | relerr 3.707e-04 (p90 3.726e-04) | resid 3.707e-04 (p90 3.727e-04) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 3.685e-01

@@ -1,0 +1,28 @@
+[coeff] using tuned(l_target=0.05, seed=0), safety=1.0, no_final_safety=False (PE steps = 4)
+
+== Non-SPD Size 256x256 | RHS 256x256 | dtype=torch.bfloat16 ==
+p=1 | precond=row-norm | precond_ruiz_iters=2 | compile=False | timing_reps=10 | timing_warmup_reps=2 | methods=PE-Quad-Coupled-Apply,Inverse-Newton-Coupled-Apply,Torch-Linalg-Solve | adapt(resid_tol=1.0, growth_tol=1.02, check_every=1, safe_fallback_tol=0.01, safe_early_y_tol=0.8, safe_early_metric=inf, renorm_every=0)
+
+-- case gaussian_shifted --
+PE-Quad-Coupled-Apply           2.060 ms (pre 0.240 + iter 1.820) | mem   14MB | relerr 1.653e-03 (p90 1.661e-03) | resid 1.869e-03 (p90 1.880e-03) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 1.528e+00 | bad 0
+Inverse-Newton-Coupled-Apply    1.479 ms (pre 0.240 + iter 1.239) | mem   13MB | relerr 4.484e-01 (p90 4.496e-01) | resid 4.020e-01 (p90 4.027e-01) | fail 100.0% (nf 0.0%, q 100.0%) | q_per_ms 2.812e-01 | bad 10
+Torch-Linalg-Solve              1.188 ms (pre 0.240 + iter 0.948) | mem   13MB | relerr 3.407e-07 (p90 3.586e-07) | resid 3.426e-07 (p90 3.596e-07) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 6.822e+00 | bad 0
+BEST finite: Torch-Linalg-Solve @ 1.188 ms, relerr=3.407e-07
+
+-- case nonnormal_upper --
+PE-Quad-Coupled-Apply           1.942 ms (pre 0.228 + iter 1.714) | mem   14MB | relerr 1.658e-03 (p90 1.663e-03) | resid 1.829e-03 (p90 1.840e-03) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 1.622e+00 | bad 0
+Inverse-Newton-Coupled-Apply    1.137 ms (pre 0.228 + iter 0.909) | mem   13MB | relerr 4.290e-01 (p90 4.296e-01) | resid 3.937e-01 (p90 3.942e-01) | fail 100.0% (nf 0.0%, q 100.0%) | q_per_ms 4.044e-01 | bad 10
+Torch-Linalg-Solve              1.049 ms (pre 0.228 + iter 0.820) | mem   13MB | relerr 8.427e-08 (p90 8.471e-08) | resid 8.606e-08 (p90 8.636e-08) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 8.622e+00 | bad 0
+BEST finite: Torch-Linalg-Solve @ 1.049 ms, relerr=8.427e-08
+
+-- case similarity_posspec --
+PE-Quad-Coupled-Apply           1.776 ms (pre 0.205 + iter 1.570) | mem   14MB | relerr 1.661e-03 (p90 1.668e-03) | resid 2.405e-03 (p90 2.419e-03) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 1.770e+00 | bad 0
+Inverse-Newton-Coupled-Apply    1.388 ms (pre 0.205 + iter 1.182) | mem   13MB | relerr 5.737e-01 (p90 5.746e-01) | resid 4.381e-01 (p90 4.390e-01) | fail 100.0% (nf 0.0%, q 100.0%) | q_per_ms 2.041e-01 | bad 10
+Torch-Linalg-Solve              1.149 ms (pre 0.205 + iter 0.944) | mem   13MB | relerr 4.613e-07 (p90 4.772e-07) | resid 4.653e-07 (p90 4.833e-07) | fail 0.0% (nf 0.0%, q 0.0%) | q_per_ms 6.715e+00 | bad 0
+BEST finite: Torch-Linalg-Solve @ 1.149 ms, relerr=4.613e-07
+
+-- case similarity_posspec_hard --
+PE-Quad-Coupled-Apply           1.901 ms (pre 0.208 + iter 1.693) | mem   14MB | relerr 1.664e-03 (p90 1.668e-03) | resid 2.635e+00 (p90 3.200e+01) | fail 100.0% (nf 0.0%, q 100.0%) | q_per_ms 1.641e+00 | bad 10
+Inverse-Newton-Coupled-Apply    1.357 ms (pre 0.208 + iter 1.149) | mem   13MB | relerr 9.999e-01 (p90 1.000e+00) | resid 1.323e+00 (p90 1.449e+00) | fail 100.0% (nf 0.0%, q 100.0%) | q_per_ms 3.812e-05 | bad 10
+Torch-Linalg-Solve              1.232 ms (pre 0.208 + iter 1.025) | mem   13MB | relerr 4.431e-05 (p90 7.338e-05) | resid 3.721e-04 (p90 3.121e-03) | fail 10.0% (nf 0.0%, q 10.0%) | q_per_ms 4.249e+00 | bad 1
+BEST finite: none

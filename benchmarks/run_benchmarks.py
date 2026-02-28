@@ -23,14 +23,12 @@ import math
 import socket
 import re
 from collections import defaultdict
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable
 
 try:
     from .utils import (
-        clean_method_name,
-        format_scientific,
         get_git_metadata,
         get_repro_context,
         stable_json_sha256,
@@ -45,8 +43,6 @@ try:
     )
 except ImportError:
     from utils import (
-        clean_method_name,
-        format_scientific,
         get_git_metadata,
         get_repro_context,
         stable_json_sha256,
@@ -1141,7 +1137,7 @@ def main() -> None:
             baseline_rows_path_abs = os.path.join(REPO_ROOT, baseline_rows_out)
             _write_rows_cache(baseline_rows_path_abs, rows_a)
             if integrity_checksums:
-                baseline_rows_sha = write_sha256_sidecar(baseline_rows_path_abs)
+                write_sha256_sidecar(baseline_rows_path_abs)
                 baseline_rows_sidecar = f"{baseline_rows_path_abs}.sha256"
 
         manifest = _base_manifest(args, mode="ab_markdown")
@@ -1201,7 +1197,7 @@ def main() -> None:
         )
         manifest_integrity_sidecar: str | None = None
         if integrity_checksums:
-            manifest_sha = write_sha256_sidecar(manifest_path)
+            write_sha256_sidecar(manifest_path)
             manifest_integrity_sidecar = f"{manifest_path}.sha256"
 
         print(f"Wrote A/B markdown report: {out_path}")
@@ -1305,7 +1301,7 @@ def main() -> None:
         )
         manifest_integrity_sidecar: str | None = None
         if integrity_checksums:
-            manifest_sha = write_sha256_sidecar(manifest_path)
+            write_sha256_sidecar(manifest_path)
             manifest_integrity_sidecar = f"{manifest_path}.sha256"
         print(f"Repro fingerprint: {manifest['repro_fingerprint_sha256']}")
         print(f"Wrote manifest: {manifest_path}")
@@ -1366,7 +1362,7 @@ def main() -> None:
         baseline_rows_path_abs = os.path.join(REPO_ROOT, baseline_rows_out)
         _write_rows_cache(baseline_rows_path_abs, all_rows)
         if integrity_checksums:
-            baseline_rows_sha = write_sha256_sidecar(baseline_rows_path_abs)
+            write_sha256_sidecar(baseline_rows_path_abs)
             baseline_rows_sidecar = f"{baseline_rows_path_abs}.sha256"
 
     manifest = _base_manifest(args, mode="markdown")
@@ -1412,7 +1408,7 @@ def main() -> None:
     )
     manifest_integrity_sidecar: str | None = None
     if integrity_checksums:
-        manifest_sha = write_sha256_sidecar(manifest_path)
+        write_sha256_sidecar(manifest_path)
         manifest_integrity_sidecar = f"{manifest_path}.sha256"
 
     print(f"Wrote markdown report: {out_path}")

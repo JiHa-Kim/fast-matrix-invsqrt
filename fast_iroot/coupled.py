@@ -719,15 +719,20 @@ def inverse_solve_pe_quadratic_coupled(
         and (nonspd_safe_fallback_tol is not None)
         and (nonspd_safe_early_y_tol is not None)
     )
-    if adaptive_active:
+    needs_eye = bool(adaptive_active) or (
+        bool(safe_early_active) and nonspd_early_metric == "fro"
+    )
+    if needs_eye:
         n = A_norm.shape[-1]
         eye = torch.eye(n, device=A_norm.device, dtype=A_norm.dtype)
+    else:
+        eye = None
+    if adaptive_active:
         prev_proxy: Optional[float] = None
         check_every = int(nonspd_adaptive_check_every)
         resid_tol = float(nonspd_adaptive_resid_tol)
         growth_tol = float(nonspd_adaptive_growth_tol)
     else:
-        eye = None
         prev_proxy = None
         check_every = 1
         resid_tol = 0.0

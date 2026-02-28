@@ -18,7 +18,7 @@ from fast_iroot.chebyshev import (
     select_inverse_proot_chebyshev_minimax_auto,
 )
 
-from benchmarks.common import median, time_ms_any, time_ms_repeat
+from benchmarks.common import median, pctl, time_ms_any, time_ms_repeat
 
 BASE_MATRIX_SOLVE_METHODS: List[str] = [
     "PE-Quad-Coupled-Apply",
@@ -134,6 +134,9 @@ class SolveBenchResult:
     ms_iter: float
     ms_precond: float
     rel_err: float
+    rel_err_p90: float
+    failure_rate: float
+    quality_per_ms: float
     mem_alloc_mb: float
     mem_reserved_mb: float
     cheb_degree_used: float
@@ -404,6 +407,7 @@ def eval_solve_method(
     pe_minimax_steps_list: List[float] = []
     pe_affine_opt_steps_list: List[float] = []
     pe_steps_used_list: List[float] = []
+    fail_count = 0
 
     if len(prepared_inputs) == 0:
         return SolveBenchResult(
@@ -411,6 +415,9 @@ def eval_solve_method(
             ms_iter=float("nan"),
             ms_precond=float("nan"),
             rel_err=float("nan"),
+            rel_err_p90=float("nan"),
+            failure_rate=float("nan"),
+            quality_per_ms=float("nan"),
             mem_alloc_mb=float("nan"),
             mem_reserved_mb=float("nan"),
             cheb_degree_used=float("nan"),
@@ -669,6 +676,7 @@ def eval_solve_method(
             )
         else:
             err_list.append(float("inf"))
+            fail_count += 1
 
         if method == "PE-Quad-Coupled-Apply":
             pe_newton_steps_list.append(pe_newton_steps_eff)
@@ -678,12 +686,25 @@ def eval_solve_method(
 
     ms_iter_med = median(ms_iter_list)
     ms_pre_med = ms_precond_median
+    rel_err_med = median(err_list)
+    rel_err_p90 = pctl(err_list, 0.90)
+    total_count = len(prepared_inputs)
+    failure_rate = (
+        float(fail_count) / float(total_count) if total_count > 0 else float("nan")
+    )
+    if rel_err_med > 0.0 and math.isfinite(rel_err_med) and ms_iter_med > 0.0:
+        quality_per_ms = max(0.0, -math.log10(rel_err_med)) / ms_iter_med
+    else:
+        quality_per_ms = float("nan")
 
     return SolveBenchResult(
         ms=ms_pre_med + ms_iter_med,
         ms_iter=ms_iter_med,
         ms_precond=ms_pre_med,
-        rel_err=median(err_list),
+        rel_err=rel_err_med,
+        rel_err_p90=rel_err_p90,
+        failure_rate=failure_rate,
+        quality_per_ms=quality_per_ms,
         mem_alloc_mb=median(mem_alloc_list) if mem_alloc_list else float("nan"),
         mem_reserved_mb=median(mem_res_list) if mem_res_list else float("nan"),
         cheb_degree_used=(

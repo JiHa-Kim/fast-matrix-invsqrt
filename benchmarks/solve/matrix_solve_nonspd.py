@@ -29,6 +29,7 @@ from fast_iroot.nonspd import NONSPD_PRECOND_MODES, precond_nonspd
 from benchmarks.common import (
     make_nonspd_cases,
     median,
+    pctl,
     parse_shapes,
     time_ms_any,
     time_ms_repeat,
@@ -54,6 +55,9 @@ class NonSpdBenchResult:
     ms_iter: float
     ms_precond: float
     rel_err: float
+    rel_err_p90: float
+    failure_rate: float
+    quality_per_ms: float
     bad: int
     mem_alloc_mb: float
     mem_reserved_mb: float
@@ -361,11 +365,25 @@ def eval_method(
         ).clamp_min(1e-12)
         relerr_list.append(float(rel))
 
+    ms_iter_med = median(ms_iter_list)
+    rel_err_med = median(relerr_list)
+    if rel_err_med > 0.0 and math.isfinite(rel_err_med) and ms_iter_med > 0.0:
+        quality_per_ms = max(0.0, -math.log10(rel_err_med)) / ms_iter_med
+    else:
+        quality_per_ms = float("nan")
+
     return NonSpdBenchResult(
-        ms=(ms_precond_median + median(ms_iter_list)),
-        ms_iter=median(ms_iter_list),
+        ms=(ms_precond_median + ms_iter_med),
+        ms_iter=ms_iter_med,
         ms_precond=ms_precond_median,
-        rel_err=median(relerr_list),
+        rel_err=rel_err_med,
+        rel_err_p90=pctl(relerr_list, 0.90),
+        failure_rate=(
+            float(bad) / float(len(prepared_inputs))
+            if len(prepared_inputs) > 0
+            else float("nan")
+        ),
+        quality_per_ms=quality_per_ms,
         bad=bad,
         mem_alloc_mb=median(mem_alloc_list) if mem_alloc_list else float("nan"),
         mem_reserved_mb=median(mem_res_list) if mem_res_list else float("nan"),
@@ -622,7 +640,11 @@ def main():
                         print(
                             f"{name:<28s} {rr.ms:8.3f} ms "
                             f"(pre {rr.ms_precond:.3f} + iter {rr.ms_iter:.3f}){mem_str} | "
-                            f"relerr vs solve: {rr.rel_err:.3e} | bad {rr.bad}"
+                            f"relerr vs solve: {rr.rel_err:.3e}"
+                            f" | relerr_p90 {rr.rel_err_p90:.3e}"
+                            f" | fail_rate {100.0 * rr.failure_rate:.1f}%"
+                            f" | q_per_ms {rr.quality_per_ms:.3e}"
+                            f" | bad {rr.bad}"
                         )
 
                     finite = [

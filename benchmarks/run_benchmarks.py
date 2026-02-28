@@ -38,7 +38,9 @@ class RunSpec:
     txt_out: str
 
 
-ParsedRow = tuple[str, int, int, int, str, str, float, float, float]
+ParsedRow = tuple[
+    str, int, int, int, str, str, float, float, float, float, float, float
+]
 
 
 def _run_and_capture(cmd: list[str]) -> str:
@@ -119,7 +121,20 @@ def _load_json_file(path: str) -> Any:
 
 
 def _row_to_dict(row: ParsedRow) -> dict[str, Any]:
-    kind, p_val, n, k, case_name, method, total_ms, iter_ms, relerr = row
+    (
+        kind,
+        p_val,
+        n,
+        k,
+        case_name,
+        method,
+        total_ms,
+        iter_ms,
+        relerr,
+        relerr_p90,
+        failure_rate,
+        quality_per_ms,
+    ) = row
     return {
         "kind": kind,
         "p": int(p_val),
@@ -130,6 +145,9 @@ def _row_to_dict(row: ParsedRow) -> dict[str, Any]:
         "total_ms": float(total_ms),
         "iter_ms": float(iter_ms),
         "relerr": float(relerr),
+        "relerr_p90": float(relerr_p90),
+        "failure_rate": float(failure_rate),
+        "quality_per_ms": float(quality_per_ms),
     }
 
 
@@ -146,12 +164,15 @@ def _row_from_dict(obj: Any) -> ParsedRow:
         float(obj["total_ms"]),
         float(obj["iter_ms"]),
         float(obj["relerr"]),
+        float(obj.get("relerr_p90", float("nan"))),
+        float(obj.get("failure_rate", float("nan"))),
+        float(obj.get("quality_per_ms", float("nan"))),
     )
 
 
 def _write_rows_cache(path: str, rows: list[ParsedRow]) -> None:
     payload = {
-        "schema": "solver_benchmark_rows.v1",
+        "schema": "solver_benchmark_rows.v2",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "row_count": len(rows),
         "rows": [_row_to_dict(r) for r in rows],
@@ -563,6 +584,9 @@ def _parse_rows(raw: str, kind: str) -> list[ParsedRow]:
         r"^(.*?)\s+(\d+\.\d+)\s+ms\s+\(pre\s+(\d+\.\d+)\s+\+\s+iter\s+(\d+\.\d+)\).*?"
         r"relerr\s+vs\s+(?:true|solve):\s+([0-9.eE+-]+)"
     )
+    relerr_p90_re = re.compile(r"\brelerr_p90\s+([0-9.eE+-]+)")
+    fail_rate_re = re.compile(r"\bfail_rate\s+([0-9.eE+-]+)%")
+    q_per_ms_re = re.compile(r"\bq_per_ms\s+([0-9.eE+-]+)")
 
     for raw_line in raw.splitlines():
         line = raw_line.strip()
@@ -587,6 +611,14 @@ def _parse_rows(raw: str, kind: str) -> list[ParsedRow]:
             total_ms = float(lm.group(2))
             iter_ms = float(lm.group(4))
             relerr = float(lm.group(5))
+            p90_m = relerr_p90_re.search(line)
+            fail_m = fail_rate_re.search(line)
+            qpm_m = q_per_ms_re.search(line)
+            relerr_p90 = float(p90_m.group(1)) if p90_m else float("nan")
+            failure_rate = (
+                float(fail_m.group(1)) / 100.0 if fail_m else float("nan")
+            )
+            quality_per_ms = float(qpm_m.group(1)) if qpm_m else float("nan")
             rows.append(
                 (
                     kind,
@@ -598,6 +630,9 @@ def _parse_rows(raw: str, kind: str) -> list[ParsedRow]:
                     total_ms,
                     iter_ms,
                     relerr,
+                    relerr_p90,
+                    failure_rate,
+                    quality_per_ms,
                 )
             )
 
@@ -610,13 +645,31 @@ def _to_markdown(all_rows: list[ParsedRow]) -> str:
     out.append("")
     out.append(f"Generated: {datetime.now().isoformat(timespec='seconds')}")
     out.append("")
-    out.append("| kind | p | n | k | case | method | total_ms | iter_ms | relerr |")
-    out.append("|---|---:|---:|---:|---|---|---:|---:|---:|")
+    out.append(
+        "| kind | p | n | k | case | method | total_ms | iter_ms | relerr | "
+        "relerr_p90 | fail_rate | q_per_ms |"
+    )
+    out.append("|---|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|")
 
     for row in sorted(all_rows, key=lambda r: (r[0], r[1], r[2], r[3], r[4], r[5])):
-        kind, p_val, n, k, case_name, method, total_ms, iter_ms, relerr = row
+        (
+            kind,
+            p_val,
+            n,
+            k,
+            case_name,
+            method,
+            total_ms,
+            iter_ms,
+            relerr,
+            relerr_p90,
+            failure_rate,
+            quality_per_ms,
+        ) = row
         out.append(
-            f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method} | {total_ms:.3f} | {iter_ms:.3f} | {relerr:.3e} |"
+            f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method} | "
+            f"{total_ms:.3f} | {iter_ms:.3f} | {relerr:.3e} | {relerr_p90:.3e} | "
+            f"{100.0 * failure_rate:.1f}% | {quality_per_ms:.3e} |"
         )
     out.append("")
     return "\n".join(out)
@@ -670,10 +723,13 @@ def _to_markdown_ab(
             "| kind | p | n | k | case | method | "
             f"{label_a}_total_ms | {label_b}_total_ms | delta_ms(B-A) | delta_pct | "
             f"{label_a}_iter_ms | {label_b}_iter_ms | "
-            f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) |"
+            f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) | "
+            f"{label_a}_relerr_p90 | {label_b}_relerr_p90 | "
+            f"{label_a}_fail_rate | {label_b}_fail_rate | "
+            f"{label_a}_q_per_ms | {label_b}_q_per_ms | q_per_ms_ratio(B/A) |"
         )
         out.append(
-            "|---|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+            "|---|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
         )
     else:
         out.append(
@@ -681,10 +737,13 @@ def _to_markdown_ab(
             f"{label_a}_method | {label_b}_method | "
             f"{label_a}_total_ms | {label_b}_total_ms | delta_ms(B-A) | delta_pct | "
             f"{label_a}_iter_ms | {label_b}_iter_ms | "
-            f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) |"
+            f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) | "
+            f"{label_a}_relerr_p90 | {label_b}_relerr_p90 | "
+            f"{label_a}_fail_rate | {label_b}_fail_rate | "
+            f"{label_a}_q_per_ms | {label_b}_q_per_ms | q_per_ms_ratio(B/A) |"
         )
         out.append(
-            "|---|---:|---:|---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+            "|---|---:|---:|---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
         )
 
     for key in keys:
@@ -695,20 +754,27 @@ def _to_markdown_ab(
         method_b = rb[5]
         a_total, a_iter, a_rel = ra[6], ra[7], ra[8]
         b_total, b_iter, b_rel = rb[6], rb[7], rb[8]
+        a_rel_p90, a_fail, a_qpm = ra[9], ra[10], ra[11]
+        b_rel_p90, b_fail, b_qpm = rb[9], rb[10], rb[11]
         d_ms = b_total - a_total
         d_pct = (100.0 * d_ms / a_total) if a_total != 0 else float("nan")
         rel_ratio = (b_rel / a_rel) if a_rel != 0 else float("nan")
+        qpm_ratio = (b_qpm / a_qpm) if a_qpm != 0 else float("nan")
         if match_on_method:
             out.append(
                 f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method_a} | "
                 f"{a_total:.3f} | {b_total:.3f} | {d_ms:.3f} | {d_pct:.2f}% | "
-                f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} |"
+                f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} | "
+                f"{a_rel_p90:.3e} | {b_rel_p90:.3e} | {100.0 * a_fail:.1f}% | {100.0 * b_fail:.1f}% | "
+                f"{a_qpm:.3e} | {b_qpm:.3e} | {qpm_ratio:.3f} |"
             )
         else:
             out.append(
                 f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method_a} | {method_b} | "
                 f"{a_total:.3f} | {b_total:.3f} | {d_ms:.3f} | {d_pct:.2f}% | "
-                f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} |"
+                f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} | "
+                f"{a_rel_p90:.3e} | {b_rel_p90:.3e} | {100.0 * a_fail:.1f}% | {100.0 * b_fail:.1f}% | "
+                f"{a_qpm:.3e} | {b_qpm:.3e} | {qpm_ratio:.3f} |"
             )
     out.append("")
     return "\n".join(out)

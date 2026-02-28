@@ -509,7 +509,7 @@ def main():
     p.add_argument(
         "--renorm-every",
         type=int,
-        default=1,
+        default=0,
         help=(
             "If > 0, apply periodic coupled-state renormalization every k Y-updating steps."
         ),

@@ -5,6 +5,7 @@ This document tracks architectural and policy decisions made based on empirical 
 ## Table of Contents
 
 - [2026-02-28: Benchmark assessment overhaul (quality + stability + efficiency)](#2026-02-28-benchmark-assessment-overhaul-quality--stability--efficiency)
+- [2026-02-27: non-SPD `p=1` coupled renormalization policy (`renorm_every`)](#2026-02-27-non-spd-p1-coupled-renormalization-policy-renorm_every)
 - [2026-02-27: non-SPD `p=1` monotone residual damping safeguard](#2026-02-27-non-spd-p1-monotone-residual-damping-safeguard)
 - [2026-02-27: non-SPD `p=1` affine-only schedule policy](#2026-02-27-non-spd-p1-affine-only-schedule-policy)
 - [2026-02-27: non-SPD `p=1` freeze-then-refine (PE -> NSRC) policy](#2026-02-27-non-spd-p1-freeze-then-refine-pe---nsrc-policy)
@@ -58,6 +59,31 @@ Why:
 Compatibility:
 - Older logs without new fields are still parsed (missing metrics default to `NaN`).
 - Existing rows caches remain readable; new caches are written as `solver_benchmark_rows.v2`.
+
+---
+
+## 2026-02-27: non-SPD `p=1` coupled renormalization policy (`renorm_every`)
+
+Decision:
+- Reject `renorm_every=1` as default policy for maintained non-SPD `p=1` benchmark runs.
+- Keep renormalization support in code as an optional tuning knob, but default to `renorm_every=0`.
+
+Why tested:
+- We added coupled-state renormalization (`Y` recentering with consistent `Z/X` scaling) to mitigate drift.
+- This run evaluates whether periodic renorm gives a strict win in maintained non-SPD `p=1` cells.
+
+Benchmark arguments:
+- `uv run python benchmarks/run_benchmarks.py --only "non-SPD p=1 k<n" --trials 5 --timing-reps 5 --timing-warmup-reps 2 --ab-extra-args-a="--methods PE-Quad-Coupled-Apply --renorm-every 0" --ab-extra-args-b="--methods PE-Quad-Coupled-Apply --renorm-every 1" --ab-label-a renorm_off --ab-label-b renorm_on --run-name ab_nonspd_p1_renorm_step13 --ab-match-on-method --ab-interleave --integrity-checksums`
+
+Key results (`benchmark_results/runs/2026_02_27/225808_ab_nonspd_p1_renorm_step13/solver_benchmarks_ab.md`):
+- Speed: `renorm_on` was slower in `12/12` matched cells (`B faster = 0/12`).
+- Quality: mixed; `renorm_on` was better-or-equal on quality metrics in only `6/12` cells.
+- Composite assessment: `renorm_on` improved score in only `1/12` cells.
+- Failures: no fail-rate improvement (`0.0%` both sides in all cells).
+
+Conclusion:
+- This is not a strict win and is rejected as default policy.
+- Default benchmark setting is reverted to `--renorm-every 0`; optional knob remains for future targeted experiments.
 
 ---
 

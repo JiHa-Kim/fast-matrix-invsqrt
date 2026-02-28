@@ -12,7 +12,7 @@ from benchmarks.solve.bench_solve_core import (
 def test_matrix_solve_methods_p1_excludes_chebyshev_and_keeps_torch_baselines():
     methods = matrix_solve_methods(1)
     assert "Chebyshev-Apply" not in methods
-    assert "Torch-Solve" in methods
+    assert "Torch-Linalg-Solve" in methods
     assert "Torch-Cholesky-Solve" in methods
     assert "Torch-Cholesky-Solve-ReuseFactor" in methods
 

@@ -1,5 +1,4 @@
 import math
-import warnings
 from functools import lru_cache
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -696,6 +695,15 @@ def _solve_local_affine_b_optimal_cached(
     )
 
 
+def _quad_pos_ok(a: float, b: float, c: float, lo: float, hi: float, q_floor: float) -> bool:
+    return certify_positivity_quadratic(a, b, c, float(lo), float(hi), q_min=float(q_floor))
+
+def _aff_pos_ok(a: float, b: float, lo: float, hi: float, q_floor: float) -> bool:
+    q_lo = a + b * float(lo)
+    q_hi = a + b * float(hi)
+    return min(q_lo, q_hi) > float(q_floor)
+
+
 def plan_coupled_local_minimax_schedule(
     base_coeffs: Sequence[Tuple[float, float, float]],
     *,
@@ -759,12 +767,8 @@ def plan_coupled_local_minimax_schedule(
 
         def _evaluate(abc: Tuple[float, float, float]) -> Tuple[float, float, float, float]:
             a, b, c = abc
-            if p_i % 2 == 1:
-                pos_ok = certify_positivity_quadratic(
-                    a, b, c, lo, hi, q_min=float(q_floor)
-                )
-                if not pos_ok:
-                    return float("inf"), lo, hi, float("inf")
+            if not _quad_pos_ok(a, b, c, lo, hi, q_floor=float(q_floor)):
+                return float("inf"), lo, hi, float("inf")
             lo2, hi2 = interval_update_quadratic_exact(abc, lo, hi, p_val=p_i)
             err2 = max(interval_error_to_identity(lo2, hi2), eps)
             affine = abs(float(c)) <= 1e-15
@@ -870,6 +874,7 @@ def plan_coupled_quadratic_newton_schedule(
             f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
         )
 
+    q_floor = float(odd_p_q_floor)  # FIX: use for all p
     lo = max(float(lo_init), 1e-12)
     hi = max(float(hi_init), lo * 1.0001)
     coeffs = [
@@ -892,12 +897,8 @@ def plan_coupled_quadratic_newton_schedule(
 
         def _evaluate(abc: Tuple[float, float, float]) -> Tuple[float, float, float]:
             a, b, c = abc
-            if p_i % 2 == 1:
-                pos_ok = certify_positivity_quadratic(
-                    a, b, c, lo, hi, q_min=float(odd_p_q_floor)
-                )
-                if not pos_ok:
-                    return float("inf"), lo, hi
+            if not _quad_pos_ok(a, b, c, lo, hi, q_floor=q_floor):
+                return float("inf"), lo, hi
             lo2, hi2 = interval_update_quadratic_exact(abc, lo, hi, p_val=p_i)
             err2 = max(interval_error_to_identity(lo2, hi2), eps)
             affine = abs(float(c)) <= 1e-15
@@ -1014,12 +1015,8 @@ def plan_coupled_quadratic_affine_opt_schedule(
             abc: Tuple[float, float, float]
         ) -> Tuple[float, float, float]:
             a, b, c = abc
-            if p_i % 2 == 1:
-                pos_ok = certify_positivity_quadratic(
-                    a, b, c, lo, hi, q_min=float(q_floor)
-                )
-                if not pos_ok:
-                    return float("inf"), lo, hi
+            if not _quad_pos_ok(a, b, c, lo, hi, q_floor=float(q_floor)):
+                return float("inf"), lo, hi
             lo2, hi2 = interval_update_quadratic_exact(abc, lo, hi, p_val=p_i)
             score = _score_from_interval(
                 float(lo2), float(hi2), affine_step=(abs(float(c)) <= 1e-15)
@@ -1117,13 +1114,11 @@ def truncate_coupled_schedule_by_interval_error(
 
     for idx, abc in enumerate(coeffs_f, start=1):
         a, b, c = abc
-        if p_i % 2 == 1:
-            pos_ok = certify_positivity_quadratic(
-                a, b, c, lo, hi, q_min=float(q_floor)
-            )
-            if not pos_ok:
-                # Keep full schedule if prefix becomes uncertifiable.
-                break
+
+        # FIX: positivity must hold for all p
+        if not _quad_pos_ok(a, b, c, lo, hi, q_floor=float(q_floor)):
+            break
+
         lo, hi = interval_update_quadratic_exact(abc, lo, hi, p_val=p_i)
         lo = max(float(lo), 1e-15)
         hi = max(float(hi), lo * 1.0001)
@@ -1348,96 +1343,84 @@ def make_schedule(
     seed=0,
     p_val=2,
     certified=True,
+    q_floor: float = 1e-6,
 ):
-    """Build a polynomial coefficient schedule.
-
-    When certified=True (default), uses:
-      - separate true/fit intervals (fixes unsafe propagation bug)
-      - exact positivity certification for quadratic q
-      - critical-point interval updates for p=2
-      - Newton fallback if certification fails
-    When certified=False, uses the legacy grid-sampled approach.
+    """
+    FIXED version:
+    - affine kind now uses the fixed-point family q_b(y)=1+b(y-1) via solve_local_affine_b_optimal
+    - quad kind now uses the local-basis quadratic q_alpha(y)=1-(1/p)(y-1)+alpha(y-1)^2 via solve_local_alpha_minimax
+    - positivity is enforced for all p
+    - true interval is always propagated, never clipped
     """
     lo_true = float(l0)
     hi_true = max(float(u0), lo_true * 1.0001)
     sched = []
 
-    for t in range(T):
+    p_i = int(p_val)
+    if p_i <= 0:
+        raise ValueError(f"p_val must be >= 1, got {p_val}")
+
+    for t in range(int(T)):
         lo_fit = max(lo_true, float(l_cushion))
         hi_fit = hi_true
 
         if kind == "affine":
-            ab = fit_affine(lo_fit, hi_fit, seed=seed + t, p_val=p_val)
-            a, b = ab
-            if safety > 1.0:
-                b = b / safety
+            # FIX: solve in the fixed-point affine family, not free (a,b)
+            b_star, _meta = solve_local_affine_b_optimal(
+                p_val=p_i,
+                lo=lo_fit,
+                hi=hi_fit,
+                q_floor=float(q_floor),
+                seed=seed + t if "seed" in solve_local_affine_b_optimal.__code__.co_varnames else 0,  # harmless
+            )
+            a, b, c = affine_coeffs_from_b(b_star)
+
+            # safety scaling: shrink b around the fixed point (keeps q(1)=1)
+            if float(safety) > 1.0:
+                b = b / float(safety)
+                a = 1.0 - b
+                c = 0.0
+
+            # positivity check (exact)
+            if affine_qmin(b, lo_true, hi_true) <= float(q_floor):
+                # fall back to inverse Newton (also fixed point at 1)
+                a, b, c = inverse_newton_coeffs(p_i)
+
             sched.append([a, b, lo_true, hi_true])
-            lo2, hi2 = interval_update_affine([a, b], lo_true, hi_true, p_val=p_val)
+            lo2, hi2 = interval_update_affine_exact(b, lo_true, hi_true, p_val=p_i)
+
         else:
-            # Use local-basis fit when certified
-            if certified:
-                abc = fit_quadratic_local(lo_fit, hi_fit, seed=seed + t, p_val=p_val)
-            else:
-                abc = fit_quadratic(lo_fit, hi_fit, seed=seed + t, p_val=p_val)
-            a, b, c = abc
-            if safety > 1.0:
-                b = b / safety
-                c = c / (safety * safety)
+            # FIX: use local-basis minimax alpha schedule (fixed point + correct slope)
+            alpha_star, _meta = solve_local_alpha_minimax(
+                p_val=p_i,
+                lo=lo_fit,
+                hi=hi_fit,
+                q_floor=float(q_floor),
+            )
+            a, b, c = local_quadratic_coeffs_from_alpha(alpha_star, p_i)
 
-            # Certification gate (quadratic only)
-            if certified:
-                pos_ok = certify_positivity_quadratic(a, b, c, lo_true, hi_true)
-                if not pos_ok:
-                    parity_str = (
-                        "mandatory (odd p)"
-                        if p_val % 2 == 1
-                        else "strongly recommended (even p)"
-                    )
-                    warnings.warn(
-                        f"Step {t}: quadratic positivity certification failed [{parity_str}], "
-                        f"attempting adaptive affine fallback."
-                    )
+            # safety scaling: shrink (y-1) effect while keeping q(1)=1 and q'(1)=-1/p
+            # We do this by scaling the quadratic "curvature" and linear deviation around 1.
+            # In standard basis this is not a simple b,c divide unless you re-derive around (y-1).
+            # Easiest safe option: only shrink alpha.
+            if float(safety) > 1.0:
+                alpha_safe = float(alpha_star) / float(safety)
+                a, b, c = local_quadratic_coeffs_from_alpha(alpha_safe, p_i)
 
-                    # Try unconstrained quadratic fallback before affine
-                    abc_unconstrained = fit_quadratic(
-                        lo_fit, hi_fit, seed=seed + t, p_val=p_val
-                    )
-                    a_unc, b_unc, c_unc = abc_unconstrained
-                    if certify_positivity_quadratic(
-                        a_unc, b_unc, c_unc, lo_true, hi_true
-                    ):
-                        a, b, c = a_unc, b_unc, c_unc
-                    else:
-                        # Try adaptive affine fallback before plain Newton
-                        try_aff = fit_affine(lo_fit, hi_fit, seed=seed + t, p_val=p_val)
-                        a_aff, b_aff = try_aff
-                        # Ensure positivity for affine: exactly min(q(lo), q(hi)) > 1e-6
-                        q_lo, q_hi = a_aff + b_aff * lo_true, a_aff + b_aff * hi_true
-                        if min(q_lo, q_hi) > 1e-6:
-                            # Success, use adaptive affine
-                            a, b, c = a_aff, b_aff, 0.0
-                        else:
-                            warnings.warn(
-                                f"Step {t}: adaptive affine fallback failed positivity [{parity_str}], "
-                                f"falling back to inverse Newton."
-                            )
-                            a, b, c = inverse_newton_coeffs(p_val)
+            # positivity certification (exact)
+            if not certify_positivity_quadratic(a, b, c, lo_true, hi_true, q_min=float(q_floor)):
+                # fall back to inverse Newton (affine, fixed point)
+                a, b, c = inverse_newton_coeffs(p_i)
 
             sched.append([a, b, c, lo_true, hi_true])
 
-            # Certified or grid-based interval update
             if certified:
-                lo2, hi2 = interval_update_quadratic_exact(
-                    [a, b, c], lo_true, hi_true, p_val=p_val
-                )
+                lo2, hi2 = interval_update_quadratic_exact([a, b, c], lo_true, hi_true, p_val=p_i)
             else:
-                lo2, hi2 = interval_update_quadratic(
-                    [a, b, c], lo_true, hi_true, p_val=p_val
-                )
+                lo2, hi2 = interval_update_quadratic([a, b, c], lo_true, hi_true, p_val=p_i)
 
-        # Propagate TRUE interval (never clip to l_cushion)
-        lo_true = max(1e-15, lo2)
-        hi_true = max(lo_true * 1.0001, hi2)
+        lo_true = max(1e-15, float(lo2))
+        hi_true = max(lo_true * 1.0001, float(hi2))
 
     return sched
 

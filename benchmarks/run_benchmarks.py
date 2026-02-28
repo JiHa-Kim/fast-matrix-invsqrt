@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import shlex
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable
+from typing import Iterable, Any
 
 from benchmarks.utils import (
     get_git_metadata,
@@ -29,7 +28,6 @@ from benchmarks.solver_utils import (
     parse_rows,
     row_from_dict,
     row_to_dict,
-    assessment_score,
 )
 from benchmarks.solver_reporting import to_markdown, to_markdown_ab
 

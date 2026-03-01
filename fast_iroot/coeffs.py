@@ -3,7 +3,11 @@ from typing import List, Sequence, Tuple
 
 import torch
 
-from .coeff_tuner import make_schedule
+from .coeff_tuner import (
+    certify_positivity_quadratic,
+    inverse_newton_coeffs,
+    make_schedule,
+)
 
 
 def _quad_coeffs(
@@ -83,7 +87,13 @@ def _project_to_local_family(
 
 
 def _apply_quadratic_safety_local(
-    pe_quad: torch.Tensor, p_val: int, s: float, no_final: bool, project: bool
+    pe_quad: torch.Tensor,
+    p_val: int,
+    s: float,
+    no_final: bool,
+    project: bool,
+    lo: float,
+    hi: float,
 ) -> None:
     """Apply safety by damping alpha in the local family.
 
@@ -109,6 +119,11 @@ def _apply_quadratic_safety_local(
         alpha = alpha / s_t
 
         a2, b2, c2 = _abc_from_alpha(alpha, p_val)
+
+        # Post-safety positivity certification and fallback
+        if not certify_positivity_quadratic(a2, b2, c2, lo, hi):
+            a2, b2, c2 = inverse_newton_coeffs(p_val)
+
         pe_quad[t, 0] = float(a2)
         pe_quad[t, 1] = float(b2)
         pe_quad[t, 2] = float(c2)
@@ -179,6 +194,8 @@ def build_pe_schedules(
             s=s,
             no_final=bool(coeff_no_final_safety),
             project=project,
+            lo=float(l_target),
+            hi=1.0,
         )
 
     return (

@@ -94,14 +94,13 @@ def test_ab_compare_can_match_without_method():
         label_b="candidate",
         match_on_method=False,
     )
-    assert "baseline_method" in md
-    assert "candidate_method" in md
-    assert "baseline_q_per_ms" in md
-    assert "candidate_q_per_ms" in md
+    assert "# SPD" in md
+    assert "## p = 2" in md
+    assert "#### Case: `gaussian_spd`" in md
+    assert "Inverse-Newton-Coupled vs PE-Quad-Coupled" in md
+    assert "| | B |" in md
+    assert "| | **ratio** |" in md
     assert "## A/B Summary" in md
-    assert "B better assessment score" in md
-    assert "Inverse-Newton-Coupled-Apply" in md
-    assert "PE-Quad-Coupled-Apply" in md
 
 
 def test_ab_compare_match_on_method_requires_same_method():
@@ -134,10 +133,12 @@ def test_ab_markdown_separator_column_count_matches_header():
         match_on_method=False,
     )
     lines = md.splitlines()
-    header = next(line for line in lines if line.startswith("| kind | p |"))
+    header = next(line for line in lines if line.startswith("| method | side |"))
     sep_idx = lines.index(header) + 1
     sep = lines[sep_idx]
+    # | method | side | total_ms | iter_ms | relerr | relerr_p90 | fail_rate |
     assert header.count("|") == sep.count("|")
+    assert header.count("|") == 8
 
 
 def test_markdown_includes_assessment_leaders():
@@ -153,9 +154,8 @@ def test_markdown_includes_assessment_leaders():
     assert "## p = 2" in md
     assert "### Size 128x128 | RHS 128x1" in md
     assert "#### Case: `gaussian_spd`" in md
-    # B is fastest and has highest QPM, A has better relerr.
-    # Resid fields are tied, so both are bold.
-    assert "| B | **0.900** | **0.810** | 1.20e-03 | 1.32e-03 | **1.00e-05** | **2.00e-05** | **0.0%** | **3.400e+00** |" in md
+    # B is fastest, A has better relerr.
+    assert "| B | **0.900** | **0.810** | 1.20e-03 | 1.32e-03 | **0.0%** |" in md
 
 
 def test_markdown_ab_includes_run_config_when_provided():
@@ -206,16 +206,3 @@ def test_row_from_dict_is_backward_compatible_with_v1_rows():
     # Checks for additional fields (should be NaN)
     assert row[9] != row[9] 
     assert row[12] != row[12]
-
-
-def test_assessment_leader_penalizes_fail_rate():
-    def r(method, fail, qpm):
-        return ("nonspd", 1, 128, 8, "nonnormal_upper", method, 0.8, 0.6, 1e-4, 1.1e-4, 0.0, 0.0, fail, qpm, 1e-5, 2e-5)
-
-    rows = [
-        r("stable", 0.0, 10.0),
-        r("fast_but_unstable", 0.5, 20.0), # Higher QPM but high fail rate
-    ]
-    md = _to_markdown(rows)
-    # stable should still be there
-    assert "stable" in md

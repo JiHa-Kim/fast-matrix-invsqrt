@@ -356,7 +356,7 @@ def _build_solve_runner(
         def run(A_norm: torch.Tensor, B: torch.Tensor):
             A_f32 = A_norm.to(torch.float32)
             B_f32 = B.to(torch.float32)
-            L = torch.linalg.cholesky(A_f32)
+            L, info = torch.linalg.cholesky_ex(A_f32)
             Z = torch.cholesky_solve(B_f32, L)
             return Z  # Return in fp32
 
@@ -375,7 +375,7 @@ def _build_solve_runner(
             nonlocal A_f32_cached, L_cached
             if A_f32_cached is None or L_cached is None:
                 A_f32_cached = A_norm.to(torch.float32)
-                L_cached = torch.linalg.cholesky(A_f32_cached)
+                L_cached, info = torch.linalg.cholesky_ex(A_f32_cached)
             B_f32 = B.to(torch.float32)
             Z = torch.cholesky_solve(B_f32, L_cached)
             return Z  # Return in fp32

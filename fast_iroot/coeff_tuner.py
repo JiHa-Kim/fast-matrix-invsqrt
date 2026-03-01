@@ -483,14 +483,19 @@ def _solve_local_alpha_minimax_impl(
 
     eval_count = 0
 
+    # Build a dense mixed grid for objective evaluation (tuning)
+    ys_obj = _build_verify_grid(lo_f, hi_f, n_log=2048, n_lin=2048)
+
     def _objective(alpha: float) -> float:
         nonlocal eval_count
         eval_count += 1
         if local_quadratic_qmin(alpha, p_i, lo_f, hi_f) <= q_floor_f:
             return float("inf")
+        # Direct grid-max objective for minimax tuning
         abc = local_quadratic_coeffs_from_alpha(alpha, p_i)
-        lo2, hi2 = interval_update_quadratic_exact(abc, lo_f, hi_f, p_val=p_i)
-        return float(interval_error_to_identity(lo2, hi2))
+        q = abc[0] + abc[1] * ys_obj + abc[2] * ys_obj**2
+        err = np.abs(1.0 - ys_obj * (q**p_i))
+        return float(np.max(err))
 
     grid = np.linspace(alpha_lo, alpha_hi, int(coarse_points), dtype=np.float64)
     vals = np.array([_objective(float(a)) for a in grid], dtype=np.float64)

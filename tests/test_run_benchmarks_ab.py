@@ -98,7 +98,7 @@ def test_ab_compare_can_match_without_method():
     assert "## p = 2" in md
     assert "#### Case: `gaussian_spd`" in md
     assert "Inverse-Newton-Coupled vs PE-Quad-Coupled" in md
-    assert "| | B |" in md
+    assert "|  | B |" in md
     assert "| | **ratio** |" in md
     assert "## A/B Summary" in md
 

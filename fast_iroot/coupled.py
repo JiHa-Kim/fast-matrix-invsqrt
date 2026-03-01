@@ -736,11 +736,10 @@ def inverse_solve_pe_quadratic_coupled(
         # Keep fallback close to torch.linalg.solve performance on CUDA.
         # Use fp32 solve for low-precision tensors; otherwise solve in input dtype.
         if A_norm.dtype in (torch.float16, torch.bfloat16):
-            z_fb = torch.linalg.solve(A_norm.float(), M_norm.float()).to(
-                dtype=M_norm.dtype
-            )
+            z_fb, _ = torch.linalg.solve_ex(A_norm.float(), M_norm.float())
+            z_fb = z_fb.to(dtype=M_norm.dtype)
         else:
-            z_fb = torch.linalg.solve(A_norm, M_norm)
+            z_fb, _ = torch.linalg.solve_ex(A_norm, M_norm)
         ws.Z.copy_(z_fb)
 
     def _p1_y_proxy() -> float:

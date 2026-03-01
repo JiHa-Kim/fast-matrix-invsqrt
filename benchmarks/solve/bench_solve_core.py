@@ -336,7 +336,7 @@ def _build_solve_runner(
             if int(p_val) == 1:
                 A_f32 = A_norm.to(torch.float32)
                 B_f32 = B.to(torch.float32)
-                Z = torch.linalg.solve(A_f32, B_f32)
+                Z, _ = torch.linalg.solve_ex(A_f32, B_f32)
                 return Z  # Return in fp32 for low origin error
             else:
                 # For p > 1, we must use EVD or similar to compute A^{-1/p}

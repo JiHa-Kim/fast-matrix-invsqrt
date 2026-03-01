@@ -112,6 +112,7 @@ def test_verify_iroot_solve_production(case: str):
         symmetrize_Y=True,
         terminal_last_step=True,
     )
-    Z_true = torch.linalg.solve(A_norm.float(), B.float()).to(dtype)
+    Z_true, _ = torch.linalg.solve_ex(A_norm.float(), B.float())
+    Z_true = Z_true.to(dtype)
     relerr = float(torch.linalg.norm(Z_hat - Z_true) / torch.linalg.norm(Z_true))
     assert relerr < 0.15

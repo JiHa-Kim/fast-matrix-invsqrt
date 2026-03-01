@@ -105,7 +105,7 @@ def compute_ground_truth(prepared: List[NonSpdPreparedInput]) -> List[torch.Tens
     for prep in prepared:
         A = prep.A_norm.double().cpu()
         B = prep.B.double().cpu()
-        Z = torch.linalg.solve(A, B)
+        Z, _ = torch.linalg.solve_ex(A, B)
         out.append(Z)
     return out
 
@@ -288,7 +288,7 @@ def _build_runner(
         def run(A_norm: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
             A_f32 = A_norm.to(torch.float32)
             B_f32 = B.to(torch.float32)
-            Z = torch.linalg.solve(A_f32, B_f32)
+            Z, _ = torch.linalg.solve_ex(A_f32, B_f32)
             return Z  # Return in fp32 for low origin error
 
         return run

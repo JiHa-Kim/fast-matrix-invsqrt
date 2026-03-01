@@ -34,13 +34,28 @@ def _build_legend(ab_mode: bool = False) -> list[str]:
     return res
 
 
-def _group_rows(all_rows: List[ParsedRow]):
-    """Group rows by Kind -> p -> (n, k) -> case."""
-    groups = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
-    for row in all_rows:
-        kind, p, n, k, case = row[0], row[1], row[2], row[3], row[4]
-        groups[kind][p][(n, k)][case].append(row)
-    return groups
+def _clean_method(n: str) -> str:
+    """Clean and shorten method names for report display."""
+    return clean_method_name(n).replace("-Reuse", "-R")
+
+
+def _format_row_cells(row: ParsedRow, bests: dict[int, float] | None = None) -> list[str]:
+    """Format cells for a single solver result row."""
+    # Indexes: 6:total, 7:iter, 8:relerr, 9:p90, 12:fail
+    def fmt(idx: int, val: float, s: str, is_fail: bool = False):
+        if is_fail and val >= 1.0:
+            return s
+        if bests and idx in bests and not math.isnan(val) and val <= bests[idx]:
+            return f"**{s}**"
+        return s
+
+    return [
+        fmt(6, row[6], f"{row[6]:.3f}"),
+        fmt(7, row[7], f"{row[7]:.3f}"),
+        fmt(8, row[8], f"{row[8]:.2e}"),
+        fmt(9, row[9], f"{row[9]:.2e}"),
+        fmt(12, row[12], f"{100.0*row[12]:.1f}%", is_fail=True),
+    ]
 
 
 def to_markdown(
@@ -49,74 +64,42 @@ def to_markdown(
     config: Dict[str, Any] | None = None,
 ) -> str:
     """Generate a full solver benchmark markdown report."""
-
-    def internal_clean(n: str) -> str:
-        return clean_method_name(n).replace("-Reuse", "-R")
-
     out: list[str] = build_report_header("Solver Benchmark Report", config or {})
     out.extend(_build_legend(ab_mode=False))
 
     # Hierarchy: Kind -> p -> (n, k) -> case -> Methods
-    kind_groups = _group_rows(all_rows)
+    groups = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
+    for r in all_rows:
+        groups[r[0]][r[1]][(r[2], r[3])][r[4]].append(r)
 
-    for kind in sorted(kind_groups.keys()):
+    for kind in sorted(groups.keys()):
         kind_label = "SPD" if kind == "spd" else "Non-Normal"
-        out.append(f"# {kind_label}")
-        out.append("")
+        out.extend([f"# {kind_label}", ""])
 
-        for p in sorted(kind_groups[kind].keys()):
-            out.append(f"## p = {p}")
-            out.append("")
+        for p in sorted(groups[kind].keys()):
+            out.extend([f"## p = {p}", ""])
 
-            for (n, k) in sorted(kind_groups[kind][p].keys()):
-                out.append(f"### Size {n}x{n} | RHS {n}x{k}")
-                out.append("")
+            for (n, k) in sorted(groups[kind][p].keys()):
+                out.extend([f"### Size {n}x{n} | RHS {n}x{k}", ""])
 
-                for case in sorted(kind_groups[kind][p][(n, k)].keys()):
-                    out.append(f"#### Case: `{case}`")
-                    out.append("")
-                    out.append(
-                        "| method | total_ms | iter_ms | relerr | relerr_p90 | fail_rate |"
-                    )
+                for case, rows in sorted(groups[kind][p][(n, k)].items()):
+                    out.extend([f"#### Case: `{case}`", ""])
+                    out.append("| method | total_ms | iter_ms | relerr | relerr_p90 | fail_rate |")
                     out.append("|:---|---:|---:|---:|---:|---:|")
 
-                    rows = kind_groups[kind][p][(n, k)][case]
+                    bests = {
+                        6: min(r[6] for r in rows),
+                        7: min(r[7] for r in rows),
+                        8: min(r[8] for r in rows),
+                        9: min(r[9] for r in rows),
+                        12: min(r[12] for r in rows),
+                    }
 
-                    # Find bests for this block
-                    best_total = min(r[6] for r in rows)
-                    best_iter = min(r[7] for r in rows)
-                    best_relerr = min(r[8] for r in rows)
-                    best_relerr_p90 = min(r[9] for r in rows)
-                    best_fail = min(r[12] for r in rows)
-
-                    def fmt(val, best, s, is_fail=False):
-                        if is_fail and val >= 1.0:
-                            return s
-                        is_best = (val <= best)
-                        if is_best and not math.isnan(val):
-                            return f"**{s}**"
-                        return s
-
-                    for row in sorted(rows, key=lambda r: r[6]):
-                        method = internal_clean(row[5])
-                        total_ms = row[6]
-                        iter_ms = row[7]
-                        relerr = row[8]
-                        relerr_p90 = row[9]
-                        fail_rate = row[12]
-
-                        s_total = fmt(total_ms, best_total, f"{total_ms:.3f}")
-                        s_iter = fmt(iter_ms, best_iter, f"{iter_ms:.3f}")
-                        s_rel = fmt(relerr, best_relerr, f"{relerr:.2e}")
-                        s_rel_p90 = fmt(relerr_p90, best_relerr_p90, f"{relerr_p90:.2e}")
-                        s_fail = fmt(fail_rate, best_fail, f"{100.0*fail_rate:.1f}%", is_fail=True)
-
-                        out.append(
-                            f"| {method} | {s_total} | {s_iter} | {s_rel} | {s_rel_p90} | "
-                            f"{s_fail} |"
-                        )
+                    for r in sorted(rows, key=lambda x: x[6]):
+                        cells = [_clean_method(r[5])] + _format_row_cells(r, bests)
+                        out.append("| " + " | ".join(cells) + " |")
                     out.append("")
-    
+
     return "\n".join(out)
 
 
@@ -130,154 +113,69 @@ def to_markdown_ab(
     config: Dict[str, Any] | None = None,
 ) -> str:
     """Generate an A/B solver benchmark markdown comparison."""
+    def _key(r: ParsedRow):
+        return (r[0], r[1], r[2], r[3], r[4], r[5]) if match_on_method else (r[0], r[1], r[2], r[3], r[4])
 
-    def internal_clean(n: str) -> str:
-        return clean_method_name(n).replace("-Reuse", "-R")
-
-    def _key_method(row: ParsedRow):
-        return row[0], row[1], row[2], row[3], row[4], row[5]
-
-    def _key_case(row: ParsedRow):
-        return row[0], row[1], row[2], row[3], row[4]
-
-    def _build_index(
-        rows: list[ParsedRow], use_method_key: bool
-    ) -> dict[Any, ParsedRow]:
-        out_idx: dict[Any, ParsedRow] = {}
-        for r in rows:
-            key = _key_method(r) if use_method_key else _key_case(r)
-            if key in out_idx:
-                raise RuntimeError(
-                    f"A/B compare has duplicate rows per match key: {key}. "
-                    "Use --methods to keep one method per side, or enable "
-                    "--ab-match-on-method when comparing like-for-like methods."
-                )
-            out_idx[key] = r
-        return out_idx
-
-    map_a = _build_index(rows_a, use_method_key=match_on_method)
-    map_b = _build_index(rows_b, use_method_key=match_on_method)
+    map_a = { _key(r): r for r in rows_a }
+    map_b = { _key(r): r for r in rows_b }
     keys = sorted(set(map_a.keys()) & set(map_b.keys()))
 
-    if len(keys) == 0:
-        raise RuntimeError(
-            "A/B rows had no overlapping keys; cannot build comparable report."
-        )
+    if not keys:
+        raise RuntimeError("A/B rows had no overlapping keys; cannot build report.")
 
     out: list[str] = build_report_header("Solver Benchmark A/B Report", config or {})
     out.extend(_build_legend(ab_mode=True))
+    out.extend([f"A: {label_a}", f"B: {label_b}", ""])
 
-    out.extend(
-        [
-            f"A: {label_a}",
-            f"B: {label_b}",
-            "",
-        ]
-    )
-
-    # Group matched pairs by Kind -> p -> (n, k) -> case
-    kind_groups = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
-    
+    # Hierarchy: Kind -> p -> (n, k) -> case -> list of (ra, rb)
+    groups = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
     b_faster = 0
-    b_better_quality = 0
+    b_better_q = 0
 
-    for key in keys:
-        ra = map_a[key]
-        rb = map_b[key]
-        kind, p, n, k, case = ra[0], ra[1], ra[2], ra[3], ra[4]
-        kind_groups[kind][p][(n, k)][case].append((ra, rb))
+    for k in keys:
+        ra, rb = map_a[k], map_b[k]
+        groups[ra[0]][ra[1]][(ra[2], ra[3])][ra[4]].append((ra, rb))
+        if rb[6] < ra[6]: b_faster += 1
+        if rb[8] <= ra[8] and rb[9] <= ra[9] and rb[12] <= ra[12]: b_better_q += 1
 
-        if rb[6] < ra[6]:
-            b_faster += 1
-        # relerr (8), relerr_p90 (9), fail_rate (12)
-        if rb[8] <= ra[8] and rb[9] <= ra[9] and rb[12] <= ra[12]:
-            b_better_quality += 1
-
-    for kind in sorted(kind_groups.keys()):
+    for kind in sorted(groups.keys()):
         kind_label = "SPD" if kind == "spd" else "Non-Normal"
-        out.append(f"# {kind_label}")
-        out.append("")
+        out.extend([f"# {kind_label}", ""])
 
-        for p in sorted(kind_groups[kind].keys()):
-            out.append(f"## p = {p}")
-            out.append("")
+        for p in sorted(groups[kind].keys()):
+            out.extend([f"## p = {p}", ""])
 
-            for (n, k) in sorted(kind_groups[kind][p].keys()):
-                out.append(f"### Size {n}x{n} | RHS {n}x{k}")
-                out.append("")
+            for (n, k_rhs) in sorted(groups[kind][p].keys()):
+                out.extend([f"### Size {n}x{n} | RHS {n}x{k_rhs}", ""])
 
-                for case in sorted(kind_groups[kind][p][(n, k)].keys()):
-                    out.append(f"#### Case: `{case}`")
-                    out.append("")
-                    out.append(
-                        "| method | side | total_ms | iter_ms | relerr | relerr_p90 | fail_rate |"
-                    )
+                for case, pairs in sorted(groups[kind][p][(n, k_rhs)].items()):
+                    out.extend([f"#### Case: `{case}`", ""])
+                    out.append("| method | side | total_ms | iter_ms | relerr | relerr_p90 | fail_rate |")
                     out.append("|:---|:---|---:|---:|---:|---:|---:|")
 
-                    pairs = kind_groups[kind][p][(n, k)][case]
-
-                    def fmt_ab(va, vb, s, is_fail=False):
-                        if is_fail and vb >= 1.0:
-                            return s
-                        if math.isnan(va) or math.isnan(vb):
-                            return s
-                        better_b = (vb < va)
-                        if better_b:
-                            return f"**{s}**"
-                        return s
-
-                    for ra, rb in sorted(pairs, key=lambda pair: pair[0][6]):
-                        method_a = internal_clean(ra[5])
-                        method_b = internal_clean(rb[5])
-                        
-                        m_label = method_a if match_on_method else f"{method_a} vs {method_b}"
+                    for ra, rb in sorted(pairs, key=lambda x: x[0][6]):
+                        m_label = _clean_method(ra[5]) if match_on_method else f"{_clean_method(ra[5])} vs {_clean_method(rb[5])}"
                         
                         # Row A
-                        out.append(
-                            f"| {m_label} | A | {ra[6]:.3f} | {ra[7]:.3f} | {ra[8]:.2e} | {ra[9]:.2e} | "
-                            f"{100.0*ra[12]:.1f}% |"
-                        )
-                        
-                        # Row B with bolding if better than A
-                        s_total = fmt_ab(ra[6], rb[6], f"{rb[6]:.3f}")
-                        s_iter = fmt_ab(ra[7], rb[7], f"{rb[7]:.3f}")
-                        s_rel = fmt_ab(ra[8], rb[8], f"{rb[8]:.2e}")
-                        s_rel_p90 = fmt_ab(ra[9], rb[9], f"{rb[9]:.2e}")
-                        s_fail = fmt_ab(ra[12], rb[12], f"{100.0*rb[12]:.1f}%", is_fail=True)
+                        cells_a = [m_label, "A"] + _format_row_cells(ra)
+                        out.append("| " + " | ".join(cells_a) + " |")
 
-                        out.append(
-                            f"| | B | {s_total} | {s_iter} | {s_rel} | {s_rel_p90} | "
-                            f"{s_fail} |"
-                        )
-                        
-                        # Diff/Ratio Row
+                        # Row B (bold if better than A)
+                        bests_b = { i: ra[i] for i in [6, 7, 8, 9, 12] }
+                        cells_b = ["", "B"] + _format_row_cells(rb, bests_b)
+                        out.append("| " + " | ".join(cells_b) + " |")
+
+                        # Ratio Row
                         d_ms = rb[6] - ra[6]
                         d_pct = (100.0 * d_ms / ra[6]) if ra[6] != 0 else float("nan")
                         rel_ratio = (rb[8] / ra[8]) if ra[8] != 0 else float("nan")
-                        
-                        s_d_ms = f"{d_ms:+.3f}"
-                        s_d_pct = f"({d_pct:+.1f}%)"
-                        s_rel_ratio = f"{rel_ratio:.2f}x"
-                        
-                        out.append(
-                            f"| | **ratio** | {s_d_ms} | {s_d_pct} | {s_rel_ratio} | | |"
-                        )
+                        out.append(f"| | **ratio** | {d_ms:+.3f} | ({d_pct:+.1f}%) | {rel_ratio:.2f}x | | |")
                     out.append("")
 
     total = len(keys)
+    out.extend(["## A/B Summary", "", "| metric | count | share |", "|---|---:|---:|"])
+    out.append(f"| B faster (total_ms) | {b_faster} / {total} | {(100.0*b_faster/total) if total else 0:.1f}% |")
+    out.append(f"| B better-or-equal quality | {b_better_q} / {total} | {(100.0*b_better_q/total) if total else 0:.1f}% |")
     out.append("")
-    out.append("## A/B Summary")
-    out.append("")
-    out.append("| metric | count | share |")
-    out.append("|---|---:|---:|")
-    out.append(
-        f"| B faster (total_ms) | {b_faster} / {total} | "
-        f"{(100.0 * b_faster / total) if total > 0 else 0.0:.1f}% |"
-    )
-    out.append(
-        f"| B better-or-equal quality (`relerr`,`relerr_p90`,`fail_rate`) | "
-        f"{b_better_quality} / {total} | "
-        f"{(100.0 * b_better_quality / total) if total > 0 else 0.0:.1f}% |"
-    )
-    out.append("")
+
     return "\n".join(out)

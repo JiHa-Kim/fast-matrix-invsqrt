@@ -15,14 +15,20 @@ _PE5 = [
 
 # Polar factor computation with Turbo-Muon AOL preconditioning + Polar Express
 @torch.no_grad()
-def polar_express_aol(
-    G: torch.Tensor, steps: int = 4, eps: float = 1e-12
+def polar_express(
+    G: torch.Tensor, steps: int = 5, norm: str = "aol", eps: float = 1e-12
 ) -> torch.Tensor:
     X = G
-    # AOL columns: s_i = 1/sqrt(sum_j |(X^T X)_{ij}|), X <- X * s
-    Gram = X.transpose(-2, -1) @ X
-    s = torch.rsqrt(Gram.abs().sum(dim=-1).clamp_min(eps))
-    X = X * s.unsqueeze(-2)
+
+    if norm == "aol":
+        Gram = X.transpose(-2, -1) @ X  # A = XX^T
+        # s_i = 1/sqrt(sum_j |(X^T X)_{ij}|)
+        s = torch.rsqrt(Gram.abs().sum(dim=-1).clamp_min(eps))
+        X = X * s.unsqueeze(-2)  # biased target
+    elif norm == "fro":
+        X = X / X.norm(dim=(-2, -1), keepdim=True).clamp_min(eps)  # unbiased target
+    else:
+        raise ValueError("norm must be 'aol' or 'fro'")
 
     coeffs = _PE5[:steps] + [_PE5[-1]] * max(0, steps - len(_PE5))
     for a, b, c in coeffs:

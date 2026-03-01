@@ -560,7 +560,7 @@ def main() -> None:
                 label_a=args.ab_label_a,
                 label_b=args.ab_label_b,
                 match_on_method=args.ab_match_on_method,
-                config=vars(args),
+                config=safe_args,
             )
         except RuntimeError as e:
             print(f"[ab] A/B match failed: {e}")

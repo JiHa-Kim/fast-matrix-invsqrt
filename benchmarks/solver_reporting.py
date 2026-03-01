@@ -7,7 +7,7 @@ from collections import defaultdict
 from typing import Any, Dict, List
 
 from .utils import clean_method_name
-from .solver_utils import ParsedRow, assessment_score
+from .solver_utils import ParsedRow
 from .reporting import build_report_header
 
 
@@ -22,10 +22,7 @@ def _build_legend(ab_mode: bool = False) -> list[str]:
         "- `iter_ms`: Time spent in iterations.",
         "- `relerr`: Median relative error vs ground truth (for SPD) or reference solver (for Non-SPD).",
         "- `relerr_p90`: 90th percentile relative error (tail quality).",
-        "- `resid`: Median residual error (||Ax - b|| / ||b||).",
-        "- `resid_p90`: 90th percentile residual error.",
         "- `fail_rate`: Fraction of trials that were non-finite or failed quality checks.",
-        "- `q_per_ms`: Quality (digits of precision, i.e., -log10(relerr)) per millisecond of compute.",
     ]
     if ab_mode:
         res.extend([
@@ -35,6 +32,15 @@ def _build_legend(ab_mode: bool = False) -> list[str]:
         ])
     res.append("")
     return res
+
+
+def _group_rows(all_rows: List[ParsedRow]):
+    """Group rows by Kind -> p -> (n, k) -> case."""
+    groups = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
+    for row in all_rows:
+        kind, p, n, k, case = row[0], row[1], row[2], row[3], row[4]
+        groups[kind][p][(n, k)][case].append(row)
+    return groups
 
 
 def to_markdown(
@@ -51,10 +57,7 @@ def to_markdown(
     out.extend(_build_legend(ab_mode=False))
 
     # Hierarchy: Kind -> p -> (n, k) -> case -> Methods
-    kind_groups = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
-    for row in all_rows:
-        kind, p, n, k, case = row[0], row[1], row[2], row[3], row[4]
-        kind_groups[kind][p][(n, k)][case].append(row)
+    kind_groups = _group_rows(all_rows)
 
     for kind in sorted(kind_groups.keys()):
         kind_label = "SPD" if kind == "spd" else "Non-Normal"
@@ -73,9 +76,9 @@ def to_markdown(
                     out.append(f"#### Case: `{case}`")
                     out.append("")
                     out.append(
-                        "| method | total_ms | iter_ms | relerr | relerr_p90 | resid | resid_p90 | fail_rate | q_per_ms |"
+                        "| method | total_ms | iter_ms | relerr | relerr_p90 | fail_rate |"
                     )
-                    out.append("|:---|---:|---:|---:|---:|---:|---:|---:|---:|")
+                    out.append("|:---|---:|---:|---:|---:|---:|")
 
                     rows = kind_groups[kind][p][(n, k)][case]
 
@@ -85,17 +88,11 @@ def to_markdown(
                     best_relerr = min(r[8] for r in rows)
                     best_relerr_p90 = min(r[9] for r in rows)
                     best_fail = min(r[12] for r in rows)
-                    best_qpm = max(r[13] for r in rows)
-                    # residuals might be nan if not spd or not requested
-                    resids = [r[14] for r in rows if not math.isnan(r[14])]
-                    best_resid = min(resids) if resids else float("nan")
-                    resids_p90 = [r[15] for r in rows if not math.isnan(r[15])]
-                    best_resid_p90 = min(resids_p90) if resids_p90 else float("nan")
 
-                    def fmt(val, best, s, is_max=False, is_fail=False):
+                    def fmt(val, best, s, is_fail=False):
                         if is_fail and val >= 1.0:
                             return s
-                        is_best = (val <= best) if not is_max else (val >= best)
+                        is_best = (val <= best)
                         if is_best and not math.isnan(val):
                             return f"**{s}**"
                         return s
@@ -107,22 +104,16 @@ def to_markdown(
                         relerr = row[8]
                         relerr_p90 = row[9]
                         fail_rate = row[12]
-                        qpm = row[13]
-                        resid = row[14]
-                        resid_p90 = row[15]
 
                         s_total = fmt(total_ms, best_total, f"{total_ms:.3f}")
                         s_iter = fmt(iter_ms, best_iter, f"{iter_ms:.3f}")
                         s_rel = fmt(relerr, best_relerr, f"{relerr:.2e}")
                         s_rel_p90 = fmt(relerr_p90, best_relerr_p90, f"{relerr_p90:.2e}")
                         s_fail = fmt(fail_rate, best_fail, f"{100.0*fail_rate:.1f}%", is_fail=True)
-                        s_qpm = fmt(qpm, best_qpm, f"{qpm:.3e}", is_max=True)
-                        s_resid = fmt(resid, best_resid, f"{resid:.2e}")
-                        s_resid_p90 = fmt(resid_p90, best_resid_p90, f"{resid_p90:.2e}")
 
                         out.append(
                             f"| {method} | {s_total} | {s_iter} | {s_rel} | {s_rel_p90} | "
-                            f"{s_resid} | {s_resid_p90} | {s_fail} | {s_qpm} |"
+                            f"{s_fail} |"
                         )
                     out.append("")
     
@@ -139,6 +130,9 @@ def to_markdown_ab(
     config: Dict[str, Any] | None = None,
 ) -> str:
     """Generate an A/B solver benchmark markdown comparison."""
+
+    def internal_clean(n: str) -> str:
+        return clean_method_name(n).replace("-Reuse", "-R")
 
     def _key_method(row: ParsedRow):
         return row[0], row[1], row[2], row[3], row[4], row[5]
@@ -181,77 +175,94 @@ def to_markdown_ab(
         ]
     )
 
-    if match_on_method:
-        out.append(
-            "| kind | p | n | k | case | method | "
-            f"{label_a}_total_ms | {label_b}_total_ms | delta_ms(B-A) | delta_pct | "
-            f"{label_a}_iter_ms | {label_b}_iter_ms | "
-            f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) | "
-            f"{label_a}_relerr_p90 | {label_b}_relerr_p90 | "
-            f"{label_a}_fail_rate | {label_b}_fail_rate | "
-            f"{label_a}_q_per_ms | {label_b}_q_per_ms | q_per_ms_ratio(B/A) |"
-        )
-        out.append(
-            "|---|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
-        )
-    else:
-        out.append(
-            "| kind | p | n | k | case | "
-            f"{label_a}_method | {label_b}_method | "
-            f"{label_a}_total_ms | {label_b}_total_ms | delta_ms(B-A) | delta_pct | "
-            f"{label_a}_iter_ms | {label_b}_iter_ms | "
-            f"{label_a}_relerr | {label_b}_relerr | relerr_ratio(B/A) | "
-            f"{label_a}_relerr_p90 | {label_b}_relerr_p90 | "
-            f"{label_a}_fail_rate | {label_b}_fail_rate | "
-            f"{label_a}_q_per_ms | {label_b}_q_per_ms | q_per_ms_ratio(B/A) |"
-        )
-        out.append(
-            "|---|---:|---:|---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
-        )
-
+    # Group matched pairs by Kind -> p -> (n, k) -> case
+    kind_groups = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
+    
     b_faster = 0
     b_better_quality = 0
-    b_better_score = 0
 
     for key in keys:
         ra = map_a[key]
         rb = map_b[key]
-        kind, p_val, n, k, case_name = ra[0], ra[1], ra[2], ra[3], ra[4]
-        method_a = ra[5]
-        method_b = rb[5]
-        a_total, a_iter, a_rel = ra[6], ra[7], ra[8]
-        b_total, b_iter, b_rel = rb[6], rb[7], rb[8]
-        a_rel_p90, a_fail, a_qpm = ra[9], ra[10], ra[11]
-        b_rel_p90, b_fail, b_qpm = rb[9], rb[10], rb[11]
-
-        d_ms = b_total - a_total
-        d_pct = (100.0 * d_ms / a_total) if a_total != 0 else float("nan")
-        rel_ratio = (b_rel / a_rel) if a_rel != 0 else float("nan")
-        qpm_ratio = (b_qpm / a_qpm) if a_qpm != 0 else float("nan")
+        kind, p, n, k, case = ra[0], ra[1], ra[2], ra[3], ra[4]
+        kind_groups[kind][p][(n, k)][case].append((ra, rb))
 
         if rb[6] < ra[6]:
             b_faster += 1
-        if rb[8] <= ra[8] and rb[9] <= ra[9] and rb[10] <= ra[10]:
+        # relerr (8), relerr_p90 (9), fail_rate (12)
+        if rb[8] <= ra[8] and rb[9] <= ra[9] and rb[12] <= ra[12]:
             b_better_quality += 1
-        if assessment_score(rb) > assessment_score(ra):
-            b_better_score += 1
 
-        if match_on_method:
-            out.append(
-                f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method_a} | "
-                f"{a_total:.3f} | {b_total:.3f} | {d_ms:.3f} | {d_pct:.2f}% | "
-                f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} | "
-                f"{a_rel_p90:.3e} | {b_rel_p90:.3e} | {100.0 * a_fail:.1f}% | {100.0 * b_fail:.1f}% | "
-                f"{a_qpm:.3e} | {b_qpm:.3e} | {qpm_ratio:.3f} |"
-            )
-        else:
-            out.append(
-                f"| {kind} | {p_val} | {n} | {k} | {case_name} | {method_a} | {method_b} | "
-                f"{a_total:.3f} | {b_total:.3f} | {d_ms:.3f} | {d_pct:.2f}% | "
-                f"{a_iter:.3f} | {b_iter:.3f} | {a_rel:.3e} | {b_rel:.3e} | {rel_ratio:.3f} | "
-                f"{a_rel_p90:.3e} | {b_rel_p90:.3e} | {100.0 * a_fail:.1f}% | {100.0 * b_fail:.1f}% | "
-                f"{a_qpm:.3e} | {b_qpm:.3e} | {qpm_ratio:.3f} |"
-            )
+    for kind in sorted(kind_groups.keys()):
+        kind_label = "SPD" if kind == "spd" else "Non-Normal"
+        out.append(f"# {kind_label}")
+        out.append("")
+
+        for p in sorted(kind_groups[kind].keys()):
+            out.append(f"## p = {p}")
+            out.append("")
+
+            for (n, k) in sorted(kind_groups[kind][p].keys()):
+                out.append(f"### Size {n}x{n} | RHS {n}x{k}")
+                out.append("")
+
+                for case in sorted(kind_groups[kind][p][(n, k)].keys()):
+                    out.append(f"#### Case: `{case}`")
+                    out.append("")
+                    out.append(
+                        "| method | side | total_ms | iter_ms | relerr | relerr_p90 | fail_rate |"
+                    )
+                    out.append("|:---|:---|---:|---:|---:|---:|---:|")
+
+                    pairs = kind_groups[kind][p][(n, k)][case]
+
+                    def fmt_ab(va, vb, s, is_fail=False):
+                        if is_fail and vb >= 1.0:
+                            return s
+                        if math.isnan(va) or math.isnan(vb):
+                            return s
+                        better_b = (vb < va)
+                        if better_b:
+                            return f"**{s}**"
+                        return s
+
+                    for ra, rb in sorted(pairs, key=lambda pair: pair[0][6]):
+                        method_a = internal_clean(ra[5])
+                        method_b = internal_clean(rb[5])
+                        
+                        m_label = method_a if match_on_method else f"{method_a} vs {method_b}"
+                        
+                        # Row A
+                        out.append(
+                            f"| {m_label} | A | {ra[6]:.3f} | {ra[7]:.3f} | {ra[8]:.2e} | {ra[9]:.2e} | "
+                            f"{100.0*ra[12]:.1f}% |"
+                        )
+                        
+                        # Row B with bolding if better than A
+                        s_total = fmt_ab(ra[6], rb[6], f"{rb[6]:.3f}")
+                        s_iter = fmt_ab(ra[7], rb[7], f"{rb[7]:.3f}")
+                        s_rel = fmt_ab(ra[8], rb[8], f"{rb[8]:.2e}")
+                        s_rel_p90 = fmt_ab(ra[9], rb[9], f"{rb[9]:.2e}")
+                        s_fail = fmt_ab(ra[12], rb[12], f"{100.0*rb[12]:.1f}%", is_fail=True)
+
+                        out.append(
+                            f"| | B | {s_total} | {s_iter} | {s_rel} | {s_rel_p90} | "
+                            f"{s_fail} |"
+                        )
+                        
+                        # Diff/Ratio Row
+                        d_ms = rb[6] - ra[6]
+                        d_pct = (100.0 * d_ms / ra[6]) if ra[6] != 0 else float("nan")
+                        rel_ratio = (rb[8] / ra[8]) if ra[8] != 0 else float("nan")
+                        
+                        s_d_ms = f"{d_ms:+.3f}"
+                        s_d_pct = f"({d_pct:+.1f}%)"
+                        s_rel_ratio = f"{rel_ratio:.2f}x"
+                        
+                        out.append(
+                            f"| | **ratio** | {s_d_ms} | {s_d_pct} | {s_rel_ratio} | | |"
+                        )
+                    out.append("")
 
     total = len(keys)
     out.append("")
@@ -267,10 +278,6 @@ def to_markdown_ab(
         f"| B better-or-equal quality (`relerr`,`relerr_p90`,`fail_rate`) | "
         f"{b_better_quality} / {total} | "
         f"{(100.0 * b_better_quality / total) if total > 0 else 0.0:.1f}% |"
-    )
-    out.append(
-        f"| B better assessment score | {b_better_score} / {total} | "
-        f"{(100.0 * b_better_score / total) if total > 0 else 0.0:.1f}% |"
     )
     out.append("")
     return "\n".join(out)

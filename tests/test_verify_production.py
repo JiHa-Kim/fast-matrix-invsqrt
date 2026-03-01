@@ -39,7 +39,7 @@ def _relative_error(Xhat: torch.Tensor, A: torch.Tensor, p_val: int) -> float:
     eigvals = eigvals.clamp_min(1e-20)
     D = torch.diag_embed(eigvals ** (-1.0 / p_val))
     Xref = (V @ D @ V.mH).to(A.dtype)
-    
+
     num = torch.linalg.matrix_norm(Xhat - Xref, ord="fro")
     den = torch.linalg.matrix_norm(Xref, ord="fro").clamp_min(1e-12)
     return float((num / den).max().item())
@@ -75,7 +75,7 @@ def test_verify_iroot_coupled_production(p_val: int, case: str):
         symmetrize_Y=True,
         terminal_last_step=True,
     )
-    
+
     assert torch.isfinite(Xn).all()
     relerr = _relative_error(Xn, A_norm, p_val)
     assert relerr < 0.15

@@ -213,9 +213,7 @@ def select_inverse_proot_chebyshev_minimax_auto(
             f"max_relerr_mult must be >= 1.0 for safe fallback semantics, got {max_relerr_mult}"
         )
 
-    base_coeffs = compute_chebyshev_coeffs_cached(
-        p_val, baseline_degree, l_min, l_max
-    )
+    base_coeffs = compute_chebyshev_coeffs_cached(p_val, baseline_degree, l_min, l_max)
     _, base_rel = estimate_inverse_proot_chebyshev_error(
         base_coeffs, p_val, l_min, l_max, grid_n=error_grid_n
     )

@@ -183,8 +183,8 @@ def _update_y_affine_p2(
     out: torch.Tensor,
 ) -> torch.Tensor:
     """out <- (a I + b Y) Y (a I + b Y) = a^2 Y + 2ab Y^2 + b^2 Y^3."""
-    _matmul_into(Y, Y, tmp_y2)        # Y^2
-    _matmul_into(tmp_y2, Y, out)      # Y^3
+    _matmul_into(Y, Y, tmp_y2)  # Y^2
+    _matmul_into(tmp_y2, Y, out)  # Y^3
     bb = float(b) * float(b)
     if bb != 1.0:
         out.mul_(bb)
@@ -416,9 +416,7 @@ def inverse_proot_pe_quadratic_coupled(
         )
     tail_steps = int(terminal_tail_steps)
     if tail_steps < 0:
-        raise ValueError(
-            f"terminal_tail_steps must be >= 0, got {terminal_tail_steps}"
-        )
+        raise ValueError(f"terminal_tail_steps must be >= 0, got {terminal_tail_steps}")
     renorm_period = int(renorm_every)
     if renorm_period < 0:
         raise ValueError(f"renorm_every must be >= 0, got {renorm_every}")
@@ -432,8 +430,7 @@ def inverse_proot_pe_quadratic_coupled(
             )
         if int(p_val) not in (2, 4):
             raise ValueError(
-                "post-correction tail currently supports p_val in {2,4}, "
-                f"got {p_val}"
+                f"post-correction tail currently supports p_val in {{2,4}}, got {p_val}"
             )
         tail_abc = _tail_poly_coeffs_from_residual_binomial(p_val, post_order)
     else:
@@ -543,9 +540,7 @@ def inverse_proot_pe_quadratic_coupled(
             and (t + 1) < T
             and ((t + 1) % stop_check_every == 0)
         ):
-            stop_err = _online_stop_error(
-                ws.Y, metric=online_metric, scratch=ws.B2
-            )
+            stop_err = _online_stop_error(ws.Y, metric=online_metric, scratch=ws.B2)
             if stop_err <= float(online_stop_tol):
                 break
 
@@ -643,9 +638,7 @@ def inverse_solve_pe_quadratic_coupled(
         )
     tail_steps = int(terminal_tail_steps)
     if tail_steps < 0:
-        raise ValueError(
-            f"terminal_tail_steps must be >= 0, got {terminal_tail_steps}"
-        )
+        raise ValueError(f"terminal_tail_steps must be >= 0, got {terminal_tail_steps}")
     renorm_period = int(renorm_every)
     if renorm_period < 0:
         raise ValueError(f"renorm_every must be >= 0, got {renorm_every}")
@@ -659,8 +652,7 @@ def inverse_solve_pe_quadratic_coupled(
             )
         if int(p_val) not in (2, 4):
             raise ValueError(
-                "post-correction tail currently supports p_val in {2,4}, "
-                f"got {p_val}"
+                f"post-correction tail currently supports p_val in {{2,4}}, got {p_val}"
             )
         tail_abc = _tail_poly_coeffs_from_residual_binomial(p_val, post_order)
     else:
@@ -671,8 +663,7 @@ def inverse_solve_pe_quadratic_coupled(
         tail_steps = 0
     if float(nonspd_adaptive_resid_tol) <= 0.0:
         raise ValueError(
-            "nonspd_adaptive_resid_tol must be > 0, "
-            f"got {nonspd_adaptive_resid_tol}"
+            f"nonspd_adaptive_resid_tol must be > 0, got {nonspd_adaptive_resid_tol}"
         )
     if float(nonspd_adaptive_growth_tol) < 1.0:
         raise ValueError(
@@ -684,18 +675,12 @@ def inverse_solve_pe_quadratic_coupled(
             "nonspd_adaptive_check_every must be >= 1, "
             f"got {nonspd_adaptive_check_every}"
         )
-    if (
-        nonspd_safe_fallback_tol is not None
-        and float(nonspd_safe_fallback_tol) <= 0.0
-    ):
+    if nonspd_safe_fallback_tol is not None and float(nonspd_safe_fallback_tol) <= 0.0:
         raise ValueError(
             "nonspd_safe_fallback_tol must be > 0 when provided, "
             f"got {nonspd_safe_fallback_tol}"
         )
-    if (
-        nonspd_safe_early_y_tol is not None
-        and float(nonspd_safe_early_y_tol) <= 0.0
-    ):
+    if nonspd_safe_early_y_tol is not None and float(nonspd_safe_early_y_tol) <= 0.0:
         raise ValueError(
             "nonspd_safe_early_y_tol must be > 0 when provided, "
             f"got {nonspd_safe_early_y_tol}"
@@ -785,12 +770,12 @@ def inverse_solve_pe_quadratic_coupled(
         den = torch.linalg.matrix_norm(M_norm, ord="fro").clamp_min(1e-12)
         return float((num / den).mean().item())
 
-    def _apply_p1_step(a_step: float, b_step: float, c_step: float, *, terminal: bool) -> None:
+    def _apply_p1_step(
+        a_step: float, b_step: float, c_step: float, *, terminal: bool
+    ) -> None:
         affine_step = abs(float(c_step)) <= _AFFINE_C_EPS
         use_rhs_direct_terminal = (
-            (not affine_step)
-            and terminal
-            and (ws.Z.shape[-1] < ws.Y.shape[-1])
+            (not affine_step) and terminal and (ws.Z.shape[-1] < ws.Y.shape[-1])
         )
         if affine_step:
             _apply_affine_left(ws.Y, ws.Z, a=a_step, b=b_step, out=ws.Zbuf)
@@ -830,9 +815,7 @@ def inverse_solve_pe_quadratic_coupled(
 
         if p_val == 1:
             should_check = (
-                adaptive_active
-                and (t % check_every == 0)
-                and (not is_tail_frozen)
+                adaptive_active and (t % check_every == 0) and (not is_tail_frozen)
             )
 
             if should_check:
@@ -840,8 +823,10 @@ def inverse_solve_pe_quadratic_coupled(
                 unstable = False
                 if prev_proxy is not None:
                     unstable = y_proxy_cur > prev_proxy * growth_tol
-                    if (not unstable) and (y_proxy_cur > resid_tol) and (
-                        y_proxy_cur > prev_proxy
+                    if (
+                        (not unstable)
+                        and (y_proxy_cur > resid_tol)
+                        and (y_proxy_cur > prev_proxy)
                     ):
                         unstable = True
 
@@ -876,7 +861,11 @@ def inverse_solve_pe_quadratic_coupled(
                 if adaptive_active and (t % check_every == 0) and (not is_tail_frozen):
                     prev_proxy = _p1_y_proxy()
 
-            if (not is_tail_frozen) and renorm_period > 0 and ((t + 1) % renorm_period == 0):
+            if (
+                (not is_tail_frozen)
+                and renorm_period > 0
+                and ((t + 1) % renorm_period == 0)
+            ):
                 _renorm_coupled_state_(
                     ws.Y,
                     ws.Z,
@@ -905,18 +894,14 @@ def inverse_solve_pe_quadratic_coupled(
                 and (not is_tail_frozen)
                 and ((t + 1) % stop_check_every == 0)
             ):
-                stop_err = _online_stop_error(
-                    ws.Y, metric=online_metric, scratch=ws.B2
-                )
+                stop_err = _online_stop_error(ws.Y, metric=online_metric, scratch=ws.B2)
                 if stop_err <= float(online_stop_tol):
                     break
             continue
 
         affine_step = abs(float(c)) <= _AFFINE_C_EPS
         use_rhs_direct_terminal = (
-            (not affine_step)
-            and is_tail_frozen
-            and (ws.Z.shape[-1] < ws.Y.shape[-1])
+            (not affine_step) and is_tail_frozen and (ws.Z.shape[-1] < ws.Y.shape[-1])
         )
         if affine_step and (p_val == 1 or (p_val == 2 and assume_spd)):
             _apply_affine_left(ws.Y, ws.Z, a=a, b=b, out=ws.Zbuf)
@@ -999,9 +984,7 @@ def inverse_solve_pe_quadratic_coupled(
             and (t + 1) < T
             and ((t + 1) % stop_check_every == 0)
         ):
-            stop_err = _online_stop_error(
-                ws.Y, metric=online_metric, scratch=ws.B2
-            )
+            stop_err = _online_stop_error(ws.Y, metric=online_metric, scratch=ws.B2)
             if stop_err <= float(online_stop_tol):
                 break
 

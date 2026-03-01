@@ -346,9 +346,7 @@ def coupled_apply_step_cost_units(
 
     rhs_ratio = float(rhs_to_n_ratio)
     if (not math.isfinite(rhs_ratio)) or rhs_ratio <= 0.0:
-        raise ValueError(
-            f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
-        )
+        raise ValueError(f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}")
 
     is_terminal_rhs_direct = bool(terminal_rhs_direct) and (not include_y_update)
     if is_terminal_rhs_direct and (not affine_step):
@@ -390,7 +388,9 @@ def interval_log_width(lo: float, hi: float) -> float:
     return float(math.log(hi_f) - math.log(lo_f))
 
 
-def local_quadratic_coeffs_from_alpha(alpha: float, p_val: int) -> Tuple[float, float, float]:
+def local_quadratic_coeffs_from_alpha(
+    alpha: float, p_val: int
+) -> Tuple[float, float, float]:
     """Local-basis family q(y)=1-(1/p)(y-1)+alpha*(y-1)^2 in standard basis."""
     p_i = int(p_val)
     if p_i <= 0:
@@ -696,8 +696,13 @@ def _solve_local_affine_b_optimal_cached(
     )
 
 
-def _quad_pos_ok(a: float, b: float, c: float, lo: float, hi: float, q_floor: float) -> bool:
-    return certify_positivity_quadratic(a, b, c, float(lo), float(hi), q_min=float(q_floor))
+def _quad_pos_ok(
+    a: float, b: float, c: float, lo: float, hi: float, q_floor: float
+) -> bool:
+    return certify_positivity_quadratic(
+        a, b, c, float(lo), float(hi), q_min=float(q_floor)
+    )
+
 
 def _aff_pos_ok(a: float, b: float, lo: float, hi: float, q_floor: float) -> bool:
     q_lo = a + b * float(lo)
@@ -743,9 +748,7 @@ def plan_coupled_local_minimax_schedule(
         raise ValueError(f"p_val must be >= 1, got {p_val}")
     rhs_ratio = float(rhs_to_n_ratio)
     if (not math.isfinite(rhs_ratio)) or rhs_ratio <= 0.0:
-        raise ValueError(
-            f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
-        )
+        raise ValueError(f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}")
 
     lo = max(float(lo_init), 1e-12)
     hi = max(float(hi_init), lo * 1.0001)
@@ -766,7 +769,9 @@ def plan_coupled_local_minimax_schedule(
         use_rhs_direct = bool(terminal_rhs_direct) and is_terminal_step
         err_cur = max(interval_error_to_identity(lo, hi), eps)
 
-        def _evaluate(abc: Tuple[float, float, float]) -> Tuple[float, float, float, float]:
+        def _evaluate(
+            abc: Tuple[float, float, float],
+        ) -> Tuple[float, float, float, float]:
             a, b, c = abc
             if not _quad_pos_ok(a, b, c, lo, hi, q_floor=float(q_floor)):
                 return float("inf"), lo, hi, float("inf")
@@ -863,24 +868,18 @@ def plan_coupled_quadratic_newton_schedule(
     if len(base_coeffs) == 0:
         raise ValueError("base_coeffs must contain at least one coefficient triple")
     if float(min_rel_improve) < 0.0:
-        raise ValueError(
-            f"min_rel_improve must be >= 0, got {min_rel_improve}"
-        )
+        raise ValueError(f"min_rel_improve must be >= 0, got {min_rel_improve}")
     p_i = int(p_val)
     if p_i <= 0:
         raise ValueError(f"p_val must be >= 1, got {p_val}")
     rhs_ratio = float(rhs_to_n_ratio)
     if (not math.isfinite(rhs_ratio)) or rhs_ratio <= 0.0:
-        raise ValueError(
-            f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
-        )
+        raise ValueError(f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}")
 
     q_floor = float(odd_p_q_floor)  # FIX: use for all p
     lo = max(float(lo_init), 1e-12)
     hi = max(float(hi_init), lo * 1.0001)
-    coeffs = [
-        (float(a), float(b), float(c)) for (a, b, c) in list(base_coeffs)
-    ]
+    coeffs = [(float(a), float(b), float(c)) for (a, b, c) in list(base_coeffs)]
     ns_abc = inverse_newton_coeffs(p_i)
 
     planned: List[Tuple[float, float, float]] = []
@@ -977,9 +976,7 @@ def plan_coupled_quadratic_affine_opt_schedule(
         raise ValueError(f"p_val must be >= 1, got {p_val}")
     rhs_ratio = float(rhs_to_n_ratio)
     if (not math.isfinite(rhs_ratio)) or rhs_ratio <= 0.0:
-        raise ValueError(
-            f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}"
-        )
+        raise ValueError(f"rhs_to_n_ratio must be finite and > 0, got {rhs_to_n_ratio}")
 
     lo = max(float(lo_init), 1e-12)
     hi = max(float(hi_init), lo * 1.0001)
@@ -999,9 +996,7 @@ def plan_coupled_quadratic_affine_opt_schedule(
         use_rhs_direct = bool(terminal_rhs_direct) and is_terminal_step
         err_cur = max(interval_error_to_identity(lo, hi), eps)
 
-        def _score_from_interval(
-            lo2: float, hi2: float, *, affine_step: bool
-        ) -> float:
+        def _score_from_interval(lo2: float, hi2: float, *, affine_step: bool) -> float:
             err2 = max(interval_error_to_identity(lo2, hi2), eps)
             cost_units = coupled_apply_step_cost_units(
                 p_i,
@@ -1013,7 +1008,7 @@ def plan_coupled_quadratic_affine_opt_schedule(
             return float((err2 / err_cur) ** (1.0 / max(float(cost_units), eps)))
 
         def _evaluate_quad(
-            abc: Tuple[float, float, float]
+            abc: Tuple[float, float, float],
         ) -> Tuple[float, float, float]:
             a, b, c = abc
             if not _quad_pos_ok(a, b, c, lo, hi, q_floor=float(q_floor)):
@@ -1024,7 +1019,9 @@ def plan_coupled_quadratic_affine_opt_schedule(
             )
             return score, float(lo2), float(hi2)
 
-        def _evaluate_affine_opt() -> Tuple[float, float, float, Tuple[float, float, float]]:
+        def _evaluate_affine_opt() -> Tuple[
+            float, float, float, Tuple[float, float, float]
+        ]:
             b_star, b_meta = solve_local_affine_b_optimal(
                 p_val=p_i,
                 lo=lo,
@@ -1102,9 +1099,7 @@ def truncate_coupled_schedule_by_interval_error(
     if min_steps_i < 1:
         raise ValueError(f"min_steps must be >= 1, got {min_steps}")
     if target_err is not None and float(target_err) <= 0.0:
-        raise ValueError(
-            f"target_err must be > 0 when provided, got {target_err}"
-        )
+        raise ValueError(f"target_err must be > 0 when provided, got {target_err}")
 
     lo = max(float(lo_init), 1e-12)
     hi = max(float(hi_init), lo * 1.0001)
@@ -1125,11 +1120,7 @@ def truncate_coupled_schedule_by_interval_error(
         hi = max(float(hi), lo * 1.0001)
         err = float(interval_error_to_identity(lo, hi))
 
-        if (
-            target is not None
-            and idx >= min_steps_i
-            and err <= target
-        ):
+        if target is not None and idx >= min_steps_i and err <= target:
             target_met = True
             steps_used = idx
             break
@@ -1228,9 +1219,7 @@ def interval_update_quadratic_exact(abc, lo, hi, p_val=2):
         phi = np.concatenate(
             [np.array([0.0], dtype=np.float64), q_pow]
         )  # multiply by y
-        dphi = np.array(
-            [phi[k] * k for k in range(1, len(phi))], dtype=np.float64
-        )
+        dphi = np.array([phi[k] * k for k in range(1, len(phi))], dtype=np.float64)
 
         roots = (
             np.roots(dphi[::-1]) if dphi.size > 1 else np.array([], dtype=np.float64)
@@ -1504,16 +1493,22 @@ def make_schedule(
                 a, b, c = local_quadratic_coeffs_from_alpha(alpha_safe, p_i)
 
             # positivity certification (exact)
-            if not certify_positivity_quadratic(a, b, c, lo_true, hi_true, q_min=float(q_floor)):
+            if not certify_positivity_quadratic(
+                a, b, c, lo_true, hi_true, q_min=float(q_floor)
+            ):
                 # fall back to inverse Newton (affine, fixed point)
                 a, b, c = inverse_newton_coeffs(p_i)
 
             sched.append([a, b, c, lo_true, hi_true])
 
             if certified:
-                lo2, hi2 = interval_update_quadratic_exact([a, b, c], lo_true, hi_true, p_val=p_i)
+                lo2, hi2 = interval_update_quadratic_exact(
+                    [a, b, c], lo_true, hi_true, p_val=p_i
+                )
             else:
-                lo2, hi2 = interval_update_quadratic([a, b, c], lo_true, hi_true, p_val=p_i)
+                lo2, hi2 = interval_update_quadratic(
+                    [a, b, c], lo_true, hi_true, p_val=p_i
+                )
 
         lo_true = max(1e-15, float(lo2))
         hi_true = max(lo_true * 1.0001, float(hi2))

@@ -65,9 +65,7 @@ def _parse_methods_csv(spec: str, available: list[str]) -> list[str]:
         else:
             unknown.append(m)
     if unknown:
-        raise ValueError(
-            f"Unknown method(s): {unknown}. Available: {available}"
-        )
+        raise ValueError(f"Unknown method(s): {unknown}. Available: {available}")
     return out
 
 
@@ -305,9 +303,7 @@ def main():
         type=int,
         default=2,
         choices=[1, 2],
-        help=(
-            "Residual-binomial post-correction order: 1 (affine) or 2 (quadratic)."
-        ),
+        help=("Residual-binomial post-correction order: 1 (affine) or 2 (quadratic)."),
     )
     args = p.parse_args()
     if int(args.symmetrize_every) < 1:
@@ -321,9 +317,7 @@ def main():
     if int(args.cheb_degree) < 0:
         raise ValueError(f"--cheb-degree must be >= 0, got {args.cheb_degree}")
     if int(args.cheb_degree_klt) < -1:
-        raise ValueError(
-            f"--cheb-degree-klt must be >= -1, got {args.cheb_degree_klt}"
-        )
+        raise ValueError(f"--cheb-degree-klt must be >= -1, got {args.cheb_degree_klt}")
     if int(args.cheb_error_grid) < 257:
         raise ValueError(
             f"--cheb-error-grid must be >= 257, got {args.cheb_error_grid}"
@@ -349,8 +343,7 @@ def main():
         )
     if int(args.post_correction_steps) < 0:
         raise ValueError(
-            "--post-correction-steps must be >= 0, "
-            f"got {args.post_correction_steps}"
+            f"--post-correction-steps must be >= 0, got {args.post_correction_steps}"
         )
     if int(args.timing_warmup_reps) < 0:
         raise ValueError(
@@ -556,4 +549,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

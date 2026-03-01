@@ -134,9 +134,7 @@ def _parse_methods_csv(spec: str, available: Sequence[str]) -> List[str]:
         else:
             unknown.append(m)
     if unknown:
-        raise ValueError(
-            f"Unknown method(s): {unknown}. Available: {list(available)}"
-        )
+        raise ValueError(f"Unknown method(s): {unknown}. Available: {list(available)}")
     return out
 
 
@@ -352,7 +350,7 @@ def eval_method(
         A_norm = prep.A_norm
         B = prep.B
         Z_true = ground_truth_Z[i]
-        
+
         # Precompute double-precision tensors once per scenario input
         A_f64 = A_norm.detach().cpu().double()
         B_f64 = B.detach().cpu().double()
@@ -408,13 +406,13 @@ def eval_method(
 
         # Compute relative error and residual in double precision
         Z_hat_f64 = Z_hat.detach().cpu().double()
-        
+
         rel = float(torch.linalg.matrix_norm(Z_hat_f64 - Z_true_f64) / norm_zt)
         resid = float(torch.linalg.matrix_norm(A_f64 @ Z_hat_f64 - B_f64) / norm_b)
-        
+
         relerr_list.append(rel)
         resid_list.append(resid)
-        
+
         if rel > RELERR_MAX_FAIL or resid > RESID_MAX_FAIL:
             quality_fail_count += 1
 
@@ -423,7 +421,9 @@ def eval_method(
         float(nonfinite_count) / float(total_count) if total_count > 0 else float("nan")
     )
     qf_rate = (
-        float(quality_fail_count) / float(total_count) if total_count > 0 else float("nan")
+        float(quality_fail_count) / float(total_count)
+        if total_count > 0
+        else float("nan")
     )
     failure_rate = (
         float(nonfinite_count + quality_fail_count) / float(total_count)
@@ -614,13 +614,9 @@ def main():
             f"got {args.nonspd_safe_early_y_tol}"
         )
     if int(args.renorm_every) < 0:
-        raise ValueError(
-            f"--renorm-every must be >= 0, got {args.renorm_every}"
-        )
+        raise ValueError(f"--renorm-every must be >= 0, got {args.renorm_every}")
     if float(args.renorm_eps) <= 0.0:
-        raise ValueError(
-            f"--renorm-eps must be > 0, got {args.renorm_eps}"
-        )
+        raise ValueError(f"--renorm-eps must be > 0, got {args.renorm_eps}")
     nonspd_safe_fallback_tol = (
         float(args.nonspd_safe_fallback_tol)
         if float(args.nonspd_safe_fallback_tol) > 0.0
@@ -767,4 +763,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

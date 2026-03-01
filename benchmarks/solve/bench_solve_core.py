@@ -24,8 +24,16 @@ BASE_MATRIX_SOLVE_METHODS: List[str] = [
     "PE-Quad-Coupled-Apply",
     "Inverse-Newton-Coupled-Apply",
 ]
-P_GT1_SPD_EXTRA_METHODS: List[str] = ["Chebyshev-Apply", "Torch-Linalg-Solve", "Torch-EVD-Solve"]
-P1_SPD_SOLVE_BASELINES: List[str] = ["Torch-Linalg-Solve", "Torch-Cholesky-Solve", "Torch-EVD-Solve"]
+P_GT1_SPD_EXTRA_METHODS: List[str] = [
+    "Chebyshev-Apply",
+    "Torch-Linalg-Solve",
+    "Torch-EVD-Solve",
+]
+P1_SPD_SOLVE_BASELINES: List[str] = [
+    "Torch-Linalg-Solve",
+    "Torch-Cholesky-Solve",
+    "Torch-EVD-Solve",
+]
 P1_SPD_SOLVE_EXTRA_CASES: List[str] = ["Torch-Cholesky-Solve-ReuseFactor"]
 
 
@@ -127,7 +135,7 @@ class SolvePreparedInput:
     B: torch.Tensor
     stats: object
     A_root_f64: Optional[torch.Tensor] = None  # Cached A^{1/p} in double
-    B_f64: Optional[torch.Tensor] = None       # Cached B in double
+    B_f64: Optional[torch.Tensor] = None  # Cached B in double
 
 
 @dataclass
@@ -190,7 +198,7 @@ def prepare_solve_inputs(
 
         A_f64 = A_norm.detach().cpu().double()
         B_f64 = B.detach().cpu().double()
-        
+
         if p_val == 1:
             A_root_f64 = A_f64
         else:
@@ -324,6 +332,7 @@ def _build_solve_runner(
         return run
 
     if method == "Torch-Linalg-Solve":
+
         def run(A_norm: torch.Tensor, B: torch.Tensor):
             if int(p_val) == 1:
                 A_f32 = A_norm.to(torch.float32)
@@ -603,7 +612,9 @@ def eval_solve_method(
                 target_err=float(online_coeff_target_interval_err),
                 min_steps=int(online_coeff_min_steps),
             )
-            pe_steps_used_eff = float(trim_meta.get("steps_used", len(pe_step_coeffs_eff)))
+            pe_steps_used_eff = float(
+                trim_meta.get("steps_used", len(pe_step_coeffs_eff))
+            )
         elif method == "PE-Quad-Coupled-Apply":
             pe_steps_used_eff = float(len(pe_step_coeffs_eff))
 
@@ -711,19 +722,21 @@ def eval_solve_method(
             # Compute relative error in double precision
             Zn_f64 = Zn.detach().cpu().double()
             Zt_f64 = Z_true.detach().cpu().double()
-            
+
             norm_zt = torch.linalg.matrix_norm(Zt_f64).clamp_min(1e-12)
             rel_err = float(torch.linalg.matrix_norm(Zn_f64 - Zt_f64) / norm_zt)
-            
+
             # Optimized residual calculation using cached A^{1/p} and B
             assert prep.A_root_f64 is not None
             assert prep.B_f64 is not None
             norm_b = torch.linalg.matrix_norm(prep.B_f64).clamp_min(1e-12)
-            resid = float(torch.linalg.matrix_norm(prep.A_root_f64 @ Zn_f64 - prep.B_f64) / norm_b)
-            
+            resid = float(
+                torch.linalg.matrix_norm(prep.A_root_f64 @ Zn_f64 - prep.B_f64) / norm_b
+            )
+
             err_list.append(rel_err)
             resid_list.append(resid)
-            
+
             # Failure accounting: finite but garbage result
             if rel_err > RELERR_MAX_FAIL or resid > RESID_MAX_FAIL:
                 quality_fail_count += 1
@@ -749,7 +762,9 @@ def eval_solve_method(
         float(nonfinite_count) / float(total_count) if total_count > 0 else float("nan")
     )
     qf_rate = (
-        float(quality_fail_count) / float(total_count) if total_count > 0 else float("nan")
+        float(quality_fail_count) / float(total_count)
+        if total_count > 0
+        else float("nan")
     )
     failure_rate = (
         float(nonfinite_count + quality_fail_count) / float(total_count)

@@ -23,12 +23,12 @@ class SpectralStepStats:
 @torch.no_grad()
 def analyze_spectral_convergence(Y: torch.Tensor, step: int) -> SpectralStepStats:
     """Analyze the eigenvalues of the iteration matrix Y.
-    
+
     Uses the symmetric part of Y to ensure real eigenvalues for SPD diagnostics.
     """
     # Move to CPU and double for accurate eigenvalue decomposition
     Y_f64 = Y.detach().cpu().double()
-    
+
     # Use symmetric part for robust SPD diagnostic: Y_s = 0.5 * (Y + Y^T)
     # This captures the 'actual' SPD quality even if there is slight drift.
     Y_s = 0.5 * (Y_f64 + Y_f64.mT)
@@ -53,16 +53,16 @@ def analyze_spectral_convergence(Y: torch.Tensor, step: int) -> SpectralStepStat
 
     abs_diff = torch.abs(1.0 - eigs)
     rho = float(abs_diff.max().item())
-    
+
     m_k = float(eigs.min().item())
     M_k = float(eigs.max().item())
-    
+
     # Avoid log of zero or negative for malformed iterations
     if m_k > 0 and M_k > 0:
         log_width = float(torch.log(torch.tensor(M_k / m_k)).item())
     else:
         log_width = float("inf")
-        
+
     err_id = max(1.0 - m_k, M_k - 1.0)
 
     c90 = float((abs_diff <= 0.1).float().mean().item())

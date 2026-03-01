@@ -91,18 +91,30 @@ def test_naive_newton_preprocess_scales_fro_norm_and_output():
 
 
 def test_effective_cheb_fixed_degree_caps_only_for_klt():
-    assert _effective_cheb_fixed_degree(
-        32, cheb_mode="fixed", n=1024, k=16, cheb_degree_klt=24
-    ) == 24
-    assert _effective_cheb_fixed_degree(
-        32, cheb_mode="fixed", n=1024, k=1024, cheb_degree_klt=24
-    ) == 32
-    assert _effective_cheb_fixed_degree(
-        32, cheb_mode="minimax-auto", n=1024, k=16, cheb_degree_klt=24
-    ) == 32
-    assert _effective_cheb_fixed_degree(
-        32, cheb_mode="fixed", n=1024, k=16, cheb_degree_klt=-1
-    ) == 32
+    assert (
+        _effective_cheb_fixed_degree(
+            32, cheb_mode="fixed", n=1024, k=16, cheb_degree_klt=24
+        )
+        == 24
+    )
+    assert (
+        _effective_cheb_fixed_degree(
+            32, cheb_mode="fixed", n=1024, k=1024, cheb_degree_klt=24
+        )
+        == 32
+    )
+    assert (
+        _effective_cheb_fixed_degree(
+            32, cheb_mode="minimax-auto", n=1024, k=16, cheb_degree_klt=24
+        )
+        == 32
+    )
+    assert (
+        _effective_cheb_fixed_degree(
+            32, cheb_mode="fixed", n=1024, k=16, cheb_degree_klt=-1
+        )
+        == 32
+    )
 
 
 def test_inverse_newton_coupled_runner_uses_reference_settings():
@@ -157,4 +169,3 @@ def test_inverse_newton_coupled_runner_uses_reference_settings():
     assert kwargs["online_stop_check_every"] == 1
     assert kwargs["post_correction_steps"] == 0
     assert kwargs["post_correction_order"] == 2
-

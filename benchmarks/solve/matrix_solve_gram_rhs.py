@@ -194,8 +194,12 @@ def main() -> None:
                     _ = _run_primal()
                     _ = _run_dual()
 
-                ms_p, z_p = time_ms_repeat(_run_primal, device, reps=int(args.timing_reps))
-                ms_d, z_d = time_ms_repeat(_run_dual, device, reps=int(args.timing_reps))
+                ms_p, z_p = time_ms_repeat(
+                    _run_primal, device, reps=int(args.timing_reps)
+                )
+                ms_d, z_d = time_ms_repeat(
+                    _run_dual, device, reps=int(args.timing_reps)
+                )
                 primal_ms.append(float(ms_p))
                 dual_ms.append(float(ms_d))
                 rel = float(

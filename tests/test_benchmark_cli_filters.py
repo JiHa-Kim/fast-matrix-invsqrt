@@ -3,7 +3,9 @@ import pytest
 from benchmarks.solve.bench_solve_core import matrix_solve_methods
 from benchmarks.solve.matrix_solve import _parse_methods_csv as parse_spd_methods
 from benchmarks.solve.matrix_solve_nonspd import METHODS as NONSPD_METHODS
-from benchmarks.solve.matrix_solve_nonspd import _parse_methods_csv as parse_nonspd_methods
+from benchmarks.solve.matrix_solve_nonspd import (
+    _parse_methods_csv as parse_nonspd_methods,
+)
 
 
 def test_parse_spd_methods_defaults_to_all():

@@ -171,9 +171,7 @@ def solve_nonspd(
     Non-SPD support is intentionally restricted to p=1 in the high-level API.
     """
     if int(p_val) != 1:
-        raise ValueError(
-            f"solve_nonspd currently supports p_val=1 only, got {p_val}"
-        )
+        raise ValueError(f"solve_nonspd currently supports p_val=1 only, got {p_val}")
     A_norm = precond_nonspd(
         A,
         mode=nonspd_precond_mode,

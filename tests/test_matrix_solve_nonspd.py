@@ -23,4 +23,3 @@ def test_precond_nonspd_ruiz_iters_validation():
     A = torch.eye(4)
     with pytest.raises(ValueError, match="ruiz_iters"):
         precond_nonspd(A, mode="ruiz", ruiz_iters=0)
-

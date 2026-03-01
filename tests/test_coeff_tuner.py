@@ -294,12 +294,12 @@ def test_plan_coupled_local_minimax_schedule_reports_step_counts():
         min_ns_logwidth_rel_improve=0.0,
     )
     assert len(sched) == 3
-    total_steps = (
-        meta["base_steps"] + meta["newton_steps"] + meta["minimax_steps"]
-    )
+    total_steps = meta["base_steps"] + meta["newton_steps"] + meta["minimax_steps"]
     assert math.isclose(total_steps, 3.0)
     assert math.isfinite(meta["pred_err_final"])
-    assert math.isfinite(interval_log_width(meta["pred_lo_final"], meta["pred_hi_final"]))
+    assert math.isfinite(
+        interval_log_width(meta["pred_lo_final"], meta["pred_hi_final"])
+    )
 
 
 def test_plan_coupled_quadratic_affine_opt_schedule_reports_step_counts():
@@ -312,9 +312,7 @@ def test_plan_coupled_quadratic_affine_opt_schedule_reports_step_counts():
         min_rel_improve=0.0,
     )
     assert len(sched) == 3
-    total_steps = (
-        meta["base_steps"] + meta["newton_steps"] + meta["affine_opt_steps"]
-    )
+    total_steps = meta["base_steps"] + meta["newton_steps"] + meta["affine_opt_steps"]
     assert math.isclose(total_steps, 3.0)
     assert math.isfinite(meta["pred_err_final"])
 

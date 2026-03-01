@@ -64,9 +64,7 @@ def test_apply_inverse_proot_chebyshev(p, n, k, case):
         p_val=p,
     )
     pe_quad_coeffs = _quad_coeffs(pe_quad_t)
-    X_pe, _ = inverse_proot_pe_quadratic_coupled(
-        A_norm, abc_t=pe_quad_coeffs, p_val=p
-    )
+    X_pe, _ = inverse_proot_pe_quadratic_coupled(A_norm, abc_t=pe_quad_coeffs, p_val=p)
     Z_expected = X_pe @ B
 
     # Test: Chebyshev Apply
@@ -188,5 +186,3 @@ def test_chebyshev_minimax_auto_rejects_invalid_relerr_multiplier():
             error_grid_n=1025,
             max_relerr_mult=0.99,
         )
-
-

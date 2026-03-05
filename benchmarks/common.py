@@ -133,62 +133,6 @@ def make_spd_cases(
     return mats
 
 
-def make_nonspd_cases(
-    case: str,
-    n: int,
-    count: int,
-    device: torch.device,
-    dtype: torch.dtype,
-    g: torch.Generator,
-) -> List[torch.Tensor]:
-    mats: List[torch.Tensor] = []
-    eye = torch.eye(n, device=device, dtype=dtype)
-    inv_sqrt_n = 1.0 / float(n) ** 0.5
-
-    for _ in range(int(count)):
-        if case == "gaussian_shifted":
-            # Well-conditioned dense non-symmetric matrix near identity.
-            R = torch.randn(n, n, device=device, dtype=dtype, generator=g)
-            A = eye + 0.35 * inv_sqrt_n * R
-        elif case == "nonnormal_upper":
-            # Strongly non-normal (strictly upper-triangular perturbation).
-            U = torch.randn(n, n, device=device, dtype=dtype, generator=g).triu(
-                diagonal=1
-            )
-            A = eye + 0.45 * inv_sqrt_n * U
-        elif case == "similarity_posspec":
-            # Positive real spectrum and moderate non-normality via a near-identity
-            # non-orthogonal similarity transform.
-            eigs = torch.linspace(0.2, 1.0, steps=n, device=device, dtype=dtype)
-            Q, _ = torch.linalg.qr(
-                torch.randn(n, n, device=device, dtype=dtype, generator=g),
-                mode="reduced",
-            )
-            S = torch.randn(n, n, device=device, dtype=dtype, generator=g).triu(
-                diagonal=1
-            )
-            P = Q @ (eye + 0.15 * inv_sqrt_n * S)
-            P_inv = torch.linalg.inv(P)
-            A = (P * eigs.unsqueeze(0)) @ P_inv
-        elif case == "similarity_posspec_hard":
-            # Harder non-normal variant with denser non-orthogonal similarity.
-            eigs = torch.linspace(0.05, 1.0, steps=n, device=device, dtype=dtype)
-            P = torch.randn(n, n, device=device, dtype=dtype, generator=g)
-            P = P + 0.1 * eye
-            try:
-                P_inv = torch.linalg.inv(P)
-            except RuntimeError:
-                P = P + 0.2 * eye
-                P_inv = torch.linalg.inv(P)
-            A = (P * eigs.unsqueeze(0)) @ P_inv
-        else:
-            raise ValueError(f"unknown non-SPD case: {case}")
-
-        mats.append(A)
-
-    return mats
-
-
 def maybe_compile(fn, enabled: bool):
     if not enabled:
         return fn

@@ -10,19 +10,6 @@ import sys
 from typing import Any
 
 
-def clean_method_name(name: str) -> str:
-    """Clean and shorten method names for report display."""
-    if not name:
-        return "N/A"
-    return (
-        name.replace("-Apply", "")
-        .replace("Torch-", "T-")
-        .replace("-ReuseFactor", "-Reuse")
-        .replace("-Dual-Gram-RHS", "-Dual-Gram")
-        .replace("-Primal-Gram-RHS", "-Primal-Gram")
-    )
-
-
 def format_scientific(val: float) -> str:
     """Standardize scientific notation for reports."""
     if val == 0:

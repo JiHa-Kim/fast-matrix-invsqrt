@@ -5,11 +5,23 @@ import argparse
 import csv
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass
 from typing import List
 
 import numpy as np
+
+# Ensure local module is importable
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from fast_iroot.eval import (
+    apply_poly_right_cheb,
+    apply_poly_right_mono,
+    choose_beta,
+    fro_norm,
+    jacobi_init,
+)
 
 try:
     import torch
@@ -33,84 +45,6 @@ def load_mats(npz_path: str) -> List[np.ndarray]:
     out = []
     for k in sorted(z.files):
         out.append(z[k])
-    return out
-
-
-def fro_norm(a: torch.Tensor) -> torch.Tensor:
-    return torch.linalg.norm(a, ord="fro")
-
-
-def jacobi_init(B: torch.Tensor, jacobi_eps: float) -> torch.Tensor:
-    d = torch.diagonal(B).to(torch.float32)
-    inv_sqrt = torch.rsqrt(d + jacobi_eps)
-    Z = torch.diag(inv_sqrt).to(torch.bfloat16)
-    return Z
-
-
-def choose_beta(S: torch.Tensor, mode: str = "fro") -> torch.Tensor:
-    # Must be the same for all methods being compared.
-    if mode == "fro":
-        # Upper bound-ish for lambda_max: ||S||_F >= ||S||_2
-        return fro_norm(S).clamp_min(1.0)
-    if mode == "trace":
-        n = S.shape[0]
-        return (torch.trace(S).abs() / n).clamp_min(1.0)
-    if mode == "maxdiag":
-        return torch.max(torch.diagonal(S)).clamp_min(1.0)
-    raise ValueError("beta mode must be fro|trace|maxdiag")
-
-
-def apply_poly_right_mono(
-    Z: torch.Tensor, S: torch.Tensor, a: torch.Tensor
-) -> torch.Tensor:
-    """
-    Compute Z q(S) with monomial Horner:
-      Y = a[d] Z
-      for k=d-1..0: Y = Y S + a[k] Z
-    """
-    d = a.numel() - 1
-    Y = a[d] * Z
-    for k in range(d - 1, -1, -1):
-        Y = Y @ S
-        Y = Y + a[k] * Z
-    return Y
-
-
-def apply_poly_right_cheb(
-    Z: torch.Tensor, S: torch.Tensor, c: torch.Tensor, ell: float
-) -> torch.Tensor:
-    """
-    Evaluate q(S) = sum_{k=0}^d c[k] T_k(t(S)) on [ell,1], but apply on the right to Z.
-    We avoid forming t explicitly by using:
-      t = alpha S + beta I,  alpha = 2/(1-ell), beta = -(1+ell)/(1-ell)
-
-    We use Clenshaw's algorithm (backward recurrence) for vastly improved numerical stability
-    over forward recurrence, particularly when S has eigenvalues outside the safe [ell, 1] range:
-      B_k = c_k Z + 2 B_{k+1} t - B_{k+2}   (for k = d down to 1)
-      out = c_0 Z + B_1 t - B_2
-    """
-    d = c.numel() - 1
-    if d == 0:
-        return c[0] * Z
-
-    alpha = 2.0 / (1.0 - ell)
-    beta = -(1.0 + ell) / (1.0 - ell)
-
-    B_k2 = torch.zeros_like(Z)
-    B_k1 = c[d] * Z  # Start at k=d
-
-    for k in range(d - 1, 0, -1):
-        # B_k = c_k Z + 2 B_{k+1} t - B_{k+2}
-        # B_{k+1} t = B_{k+1} @ (alpha S + beta I)
-        B_k1_S = B_k1 @ S
-        B_k = c[k] * Z + 2.0 * (alpha * B_k1_S + beta * B_k1) - B_k2
-        B_k2 = B_k1
-        B_k1 = B_k
-
-    # Final step for k=0 (the coefficient of B_1 is 1x, not 2x for standard Chebyshev)
-    B_k1_S = B_k1 @ S
-    out = c[0] * Z + (alpha * B_k1_S + beta * B_k1) - B_k2
-
     return out
 
 
@@ -155,26 +89,27 @@ def run_precond(
         torch.cuda.synchronize()
 
     t0 = time.perf_counter()
-    for _ in range(iters):
-        # S = Z^T B Z in fp32
-        Zf = Z.to(torch.float32)
-        tmp = B @ Zf
-        S = Zf.T @ tmp
+    with torch.inference_mode():
+        for _ in range(iters):
+            # S = Z^T B Z in fp32
+            Zf = Z.to(torch.float32)
+            tmp = B @ Zf
+            S = Zf.T @ tmp
 
-        deltaF = float(fro_norm(S - I_mat).item())
-        delta_traj.append(deltaF)
+            deltaF = float(fro_norm(S - I_mat).item())
+            delta_traj.append(deltaF)
 
-        beta = choose_beta(S, mode=beta_mode)
-        Shat = (S / beta).to(torch.float32)
+            beta = choose_beta(S, mode=beta_mode)
+            Shat = (S / beta).to(torch.float32)
 
-        # Apply polynomial in fp32 (matmuls dominate anyway), then cast back to bf16 Z
-        if basis == "mono":
-            Y = apply_mono(Zf, Shat, coeffs)
-        else:
-            Y = apply_cheb(Zf, Shat, coeffs, ell=ell)
+            # Apply polynomial in fp32 (matmuls dominate anyway), then cast back to bf16 Z
+            if basis == "mono":
+                Y = apply_mono(Zf, Shat, coeffs)
+            else:
+                Y = apply_cheb(Zf, Shat, coeffs, ell=ell)
 
-        Znew = (Y / torch.sqrt(beta)).to(torch.bfloat16)
-        Z = Znew
+            Znew = (Y / torch.sqrt(beta)).to(torch.bfloat16)
+            Z = Znew
 
     if B.is_cuda:
         torch.cuda.synchronize()
@@ -218,11 +153,12 @@ def microbench_apply(
         torch.cuda.synchronize()
 
     t0 = time.perf_counter()
-    for _ in range(reps):
-        if basis == "mono":
-            _ = apply_mono(Z, S, coeffs)
-        else:
-            _ = apply_cheb(Z, S, coeffs, ell=ell)
+    with torch.inference_mode():
+        for _ in range(reps):
+            if basis == "mono":
+                _ = apply_mono(Z, S, coeffs)
+            else:
+                _ = apply_cheb(Z, S, coeffs, ell=ell)
     if dev.type == "cuda":
         torch.cuda.synchronize()
     t1 = time.perf_counter()

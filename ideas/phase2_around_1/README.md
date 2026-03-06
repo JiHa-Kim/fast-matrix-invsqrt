@@ -15,9 +15,3 @@ We have established a rigorous 2-step preconditioning protocol to bridge the gap
 - `ideas/phase2_around_1/phase2_rigorous_math.md`: The definitive mathematical justification for the 2-step protocol and noise margins.
 - `scripts/verify_phase2_policy.py`: A lean, high-signal script to reproduce the convergence from Phase 1 output to the hardware floor using native CUDA `bf16` GEMMs.
 
----
-
-## Appendix: Research Path & "The Grid Problem"
-During the investigation into the optimal design grid (proxy set), we discovered that optimizing *only* on representable `bf16` points is catastrophic for tight intervals. Because `bf16` points are sparse (only 4 points in $[0.99, 1.01]$), the LP solver overfits, causing the polynomial to exhibit massive oscillations (Runge's Phenomenon) in the continuous spaces between representable values. 
-
-**Resolution**: All Phase 2 polynomials are designed on a hybrid grid of 3000+ continuous points + all `bf16` representables to ensure spectral stability across the entire real line.

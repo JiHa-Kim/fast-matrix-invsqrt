@@ -276,7 +276,7 @@ def scan_degrees(
     return results
 
 
-def print_summary(results: list[DegreeResult]) -> None:
+def print_summary(results: list[DegreeResult], print_degree: int) -> None:
     print()
     print("degree scan for first local reverse step")
     print("=" * 92)
@@ -310,10 +310,10 @@ def print_summary(results: list[DegreeResult]) -> None:
         f"(atanh(rho)/d = {cost_best.atanh_rho_over_degree:.6f})"
     )
     print()
-    print("degree-2 coeffs (Chebyshev on its own optimal interval):")
-    d2 = next((r for r in results if r.degree == 2), None)
-    if d2 is not None:
-        print(json.dumps(d2.coeffs_cheb))
+    print(f"degree-{print_degree} coeffs (Chebyshev on its own optimal interval):")
+    target = next((r for r in results if r.degree == print_degree), None)
+    if target is not None:
+        print(json.dumps(target.coeffs_cheb))
 
 
 def main() -> None:
@@ -330,6 +330,7 @@ def main() -> None:
     parser.add_argument("--verify-ngrid", type=int, default=12001)
     parser.add_argument("--skip-bf16", action="store_true")
     parser.add_argument("--json-out", type=str, default="")
+    parser.add_argument("--print-degree", type=int, default=3)
     args = parser.parse_args()
 
     degrees = list(range(args.min_degree, args.max_degree + 1))
@@ -341,7 +342,7 @@ def main() -> None:
         verify_ngrid=args.verify_ngrid,
         do_bf16_check=not args.skip_bf16,
     )
-    print_summary(results)
+    print_summary(results, args.print_degree)
 
     if args.json_out:
         payload = {

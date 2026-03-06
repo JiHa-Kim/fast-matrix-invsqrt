@@ -69,8 +69,14 @@ def run_precond(
     ridge: float,
     jacobi_eps: float,
     beta_mode: str,
+    symmetrize_input: bool = True,
 ) -> RunOut:
     n = B.shape[0]
+    
+    # Ensure input B is structurally symmetric in bf16
+    if symmetrize_input and not torch.equal(B, B.T):
+        B = symmetrize(B)
+
     I_mat = torch.eye(n, device=B.device, dtype=torch.bfloat16)
 
     # ridge in original coordinates: B <- B + ridge I

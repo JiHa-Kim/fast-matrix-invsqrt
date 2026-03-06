@@ -57,17 +57,20 @@ def apply_poly_right_mono(
 
 
 def apply_poly_right_cheb(
-    Z: torch.Tensor, S: torch.Tensor, c: torch.Tensor, ell: float
+    Z: torch.Tensor, S: torch.Tensor, c: torch.Tensor, a_dom: float, b_dom: float = 1.0
 ) -> torch.Tensor:
     """
-    Clenshaw's algorithm in pure bf16.
+    Clenshaw's algorithm in pure bf16 on interval [a_dom, b_dom].
+    Default b_dom=1.0 matches Phase 1 usage where a_dom=ell.
     """
     d = c.numel() - 1
     if d == 0:
         return c[0] * Z
 
-    alpha = 2.0 / (1.0 - ell)
-    beta_cheb = -(1.0 + ell) / (1.0 - ell)
+    # alpha = 2/(b-a), beta_cheb = -(b+a)/(b-a)
+    denom = b_dom - a_dom
+    alpha = 2.0 / denom
+    beta_cheb = -(b_dom + a_dom) / denom
 
     B_k2 = torch.zeros_like(Z)
     B_k1 = c[d] * Z 

@@ -115,7 +115,7 @@ def run_precond(
             if basis == "mono":
                 Y = apply_mono(Z, Shat, coeffs)
             else:
-                Y = apply_cheb(Z, Shat, coeffs, ell=ell)
+                Y = apply_cheb(Z, Shat, coeffs, a_dom=ell)
 
             Z = (Y / torch.sqrt(beta)).to(torch.bfloat16)
 

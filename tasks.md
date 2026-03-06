@@ -1,1 +1,0 @@
-- [ ] update quality statistics to assess worst-case eigenvalues + condition number + hard floor for relative error/precision instead of precision to time ratio

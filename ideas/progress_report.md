@@ -56,7 +56,10 @@ Our research has clarified several critical behaviors in $bf16$ arithmetic:
 
 ### Phase 2: Strategic Integration
 *   [ ] **Ridge & Jacobi Analysis**: Conduct a localized sweep over $\delta$ (ridge) and $\epsilon$ (Jacobi) to optimize residual floors.
-*   [ ] **Phase-2 Local Step**: Integrate the local minimax optimization step and policy switching logic.
+*   [x] **Phase-2 Local Step**: 
+    *   Formulated rigorous math for backward induction and hardware-optimal proxy grids.
+    *   Proven 2-step protocol via native bf16 GEMM quantization emulation.
+    *   Integrated minimal transition ($d=3$, $\rho=0.7653$) and terminal ($d=3$, $\rho=0.0816$) logic.
 *   [ ] **Full Policy Benchmarking**: Compare end-to-end policies ($P_1$-$P_4$) instead of isolated loops.
 
 ---

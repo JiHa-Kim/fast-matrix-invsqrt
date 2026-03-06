@@ -84,31 +84,3 @@ By enforcing that every estimator returns exactly $1.0$ when $S = I$, we decoupl
 2. Clamp below to ensure non-collapse: $e = \max(e, 1.0)$.
 3. Apply relative safety padding: $\beta = e \times (1 + \epsilon_\beta)$.
 4. Scale: $\widehat{S} = S / \beta$.
-
----
-
-## 5. Phase 2: Local Minimax Refinement
-
-Once the Phase 1 global step has compressed the spectrum of $S$ into a tight band $[\ell, 1]$, we can switch to a **Local Phase 2** step for quadratic convergence.
-
-### 5.1 The Local Interval
-We observe the residual $\delta_F = \|S - I\|_F$. In the local phase, we assume the eigenvalues of $S$ are contained within a symmetric interval $[1-\rho, 1+\rho]$ where $\rho \approx \delta_F$.
-
-The goal is to find a polynomial $p(x)$ that minimizes the maximum error of the target function $f(x) = x^{-1/r}$ on the interval $[1-\rho, 1+\rho]$.
-
-### 5.2 Weighted Minimax Design
-For local refinement, we optimize for the residual $\| I - Z_{\text{new}}^T B Z_{\text{new}} \|$. This leads to a weighted minimax problem:
-$$ \min_p \max_{x \in [1-\rho, 1+\rho]} | 1 - x \cdot p(x)^r | $$
-
-### 5.3 The Switching Policy ($\rho_{\text{switch}}$)
-The transition from Phase 1 to Phase 2 is governed by the switch threshold $\rho_{\text{switch}}$.
-- **Global (Phase 1)**: Robust, handles large dynamic range, but slow asymptotic convergence.
-- **Local (Phase 2)**: Extremely fast (quadratic-like) once the eigenvalues are close to $1.0$.
-
-**Policy Logic**:
-If $\delta_F > \rho_{\text{switch}}$:
-    Apply Phase 1 polynomial (designed for $[\ell, 1]$).
-Else:
-    Apply Phase 2 polynomial (designed for $[1-\rho, 1+\rho]$ where $\rho = \gamma \delta_F$).
-
-Using an inflation factor $\gamma \approx 1.2$ ensures the local minimax interval safely covers the actual (noisy) eigenvalues in `bf16`.

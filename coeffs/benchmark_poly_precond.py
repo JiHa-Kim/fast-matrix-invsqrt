@@ -84,31 +84,32 @@ def apply_poly_right_cheb(
     We avoid forming t explicitly by using:
       t = alpha S + beta I,  alpha = 2/(1-ell), beta = -(1+ell)/(1-ell)
 
-    Forward recurrence on ZT_k:
-      ZT0 = Z
-      ZT1 = Z t = alpha ZS + beta Z
-      ZTk = 2 (ZTk-1 t) - ZTk-2
-    Accumulate: sum c[k] * ZTk
+    We use Clenshaw's algorithm (backward recurrence) for vastly improved numerical stability
+    over forward recurrence, particularly when S has eigenvalues outside the safe [ell, 1] range:
+      B_k = c_k Z + 2 B_{k+1} t - B_{k+2}   (for k = d down to 1)
+      out = c_0 Z + B_1 t - B_2
     """
     d = c.numel() - 1
+    if d == 0:
+        return c[0] * Z
+
     alpha = 2.0 / (1.0 - ell)
     beta = -(1.0 + ell) / (1.0 - ell)
 
-    ZT0 = Z
-    out = c[0] * ZT0
-    if d == 0:
-        return out
+    B_k2 = torch.zeros_like(Z)
+    B_k1 = torch.zeros_like(Z)
 
-    ZS = Z @ S
-    ZT1 = alpha * ZS + beta * Z
-    out = out + c[1] * ZT1
+    for k in range(d, 0, -1):
+        # B_k = c_k Z + 2 B_{k+1} t - B_{k+2}
+        # B_{k+1} t = B_{k+1} @ (alpha S + beta I)
+        B_k1_S = B_k1 @ S
+        B_k = c[k] * Z + 2.0 * (alpha * B_k1_S + beta * B_k1) - B_k2
+        B_k2 = B_k1
+        B_k1 = B_k
 
-    for k in range(2, d + 1):
-        # ZT1 t = alpha (ZT1 S) + beta ZT1
-        ZT1S = ZT1 @ S
-        ZT2 = 2.0 * (alpha * ZT1S + beta * ZT1) - ZT0
-        out = out + c[k] * ZT2
-        ZT0, ZT1 = ZT1, ZT2
+    # Final step for k=0 (the coefficient of B_1 is 1x, not 2x for standard Chebyshev)
+    B_k1_S = B_k1 @ S
+    out = c[0] * Z + (alpha * B_k1_S + beta * B_k1) - B_k2
 
     return out
 

@@ -5,7 +5,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath('coeffs'))
 from design_local_poly import design_local
 
-def compute_ladder(target_rho0=0.1, eps_gemm=0.008):
+def compute_ladder(target_rho0=0.0816, eps_gemm=0.008):
     print(f"Target Terminal Rho: {target_rho0}")
     print(f"Assumed GEMM Noise Margin: {eps_gemm}")
     print("=" * 60)

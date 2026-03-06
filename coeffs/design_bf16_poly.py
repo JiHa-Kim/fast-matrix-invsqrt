@@ -165,6 +165,68 @@ def verify_bf16_no_overshoot(
     return ok, max_g, min_g
 
 
+def refine_bf16_coeffs(ell: float, initial_coeffs: np.ndarray, basis: str) -> Tuple[np.ndarray, float, float]:
+    def eval_g(c: np.ndarray) -> Tuple[float, float]:
+        _, max_g, min_g = verify_bf16_no_overshoot(ell, c, basis)
+        return max_g, min_g
+
+    def get_alpha_and_min(c: np.ndarray) -> Tuple[float, float, float]:
+        alpha_lo, alpha_hi = 0.0, 1.0
+        for _ in range(20):
+            max_g, _ = eval_g(c * alpha_hi)
+            if max_g <= 1.0:
+                alpha_lo = alpha_hi
+                alpha_hi *= 2.0
+            else:
+                break
+        
+        best_alpha = alpha_lo
+        for _ in range(40):
+            mid = 0.5 * (alpha_lo + alpha_hi)
+            max_g, _ = eval_g(c * mid)
+            if max_g <= 1.0:
+                best_alpha = mid
+                alpha_lo = mid
+            else:
+                alpha_hi = mid
+                
+        max_g, min_g = eval_g(c * best_alpha)
+        return best_alpha, max_g, min_g
+
+    current_c = initial_coeffs.copy()
+    alpha, _, current_m = get_alpha_and_min(current_c)
+    current_c = current_c * alpha
+
+    delta = 0.05 * np.max(np.abs(current_c))
+    min_delta = 1e-8 * np.max(np.abs(current_c))
+    if min_delta == 0:
+        min_delta = 1e-8
+
+    iters = 0
+    while delta > min_delta and iters < 500:
+        improved = False
+        for i in range(len(current_c)):
+            for sign in [1.0, -1.0]:
+                c_prop = current_c.copy()
+                c_prop[i] += sign * delta
+                
+                alpha_prop, max_g_prop, m_prop = get_alpha_and_min(c_prop)
+                if m_prop > current_m:
+                    current_c = c_prop * alpha_prop
+                    current_m = m_prop
+                    improved = True
+                    break
+            if improved:
+                break
+        
+        if not improved:
+            delta *= 0.5
+        iters += 1
+
+    max_g, min_g = eval_g(current_c)
+    return current_c, max_g, min_g
+
+
 def design(
     ell: float,
     deg: int,
@@ -175,6 +237,7 @@ def design(
     proxy_lin: int,
     coef_bound: float,
     include_bf16_in_proxy: bool,
+    refine_bf16: bool = False,
 ) -> dict:
     x_proxy = build_proxy_set(ell, proxy_log, proxy_lin)
     if include_bf16_in_proxy:
@@ -211,8 +274,14 @@ def design(
         raise RuntimeError("No feasible mu found. Increase mu_hi or coef_bound.")
 
     sol, c_eval, max_g, min_g = best
+    
+    kind = "phase1_bf16_safe"
+    if refine_bf16:
+        c_eval, max_g, min_g = refine_bf16_coeffs(ell, c_eval, basis)
+        kind = "phase1_bf16_safe_refined"
+
     return {
-        "kind": "phase1_bf16_safe",
+        "kind": kind,
         "basis": basis,
         "ell": ell,
         "deg": int(deg),
@@ -236,6 +305,7 @@ def main() -> None:
     ap.add_argument("--proxy-log", type=int, default=4000)
     ap.add_argument("--proxy-lin", type=int, default=4000)
     ap.add_argument("--include-bf16-in-proxy", action="store_true")
+    ap.add_argument("--refine-bf16", action="store_true", help="Refine coefficients using exact bf16-in-the-loop pattern search")
 
     ap.add_argument("--coef-bound", type=float, default=1e4)
     ap.add_argument("--out", type=str, required=True)
@@ -251,6 +321,7 @@ def main() -> None:
         proxy_lin=args.proxy_lin,
         coef_bound=args.coef_bound,
         include_bf16_in_proxy=args.include_bf16_in_proxy,
+        refine_bf16=args.refine_bf16,
     )
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2, sort_keys=True)

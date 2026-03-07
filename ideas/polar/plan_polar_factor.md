@@ -1,201 +1,301 @@
-# Fast finite-precision polar and inverse roots: lean execution plan (condition-number + log-centered)
+# Fast finite-precision polar and inverse roots: condition-number-driven, log-centered plan
 
-## 0. One-line objective
+## 1. Goal
 
-Minimize wall time to reach a target *residual anisotropy* after apply:
+Compute an ML-useful approximation to the polar factor
 $$
-S := Z^T B Z \approx I,\quad B := G^T G,\quad \widehat Q := GZ,\quad S=\widehat Q^T\widehat Q.
+Q = \operatorname{polar}(G) = G(G^T G)^{-1/2}
 $$
+as fast as possible in finite precision (bf16 compute, small-side fp32 certs).
+
+Primary objective:
+$$
+\text{minimize wall time to reach a target conditioning of the applied certificate.}
+$$
+
+The same framework extends to SPD inverse square root (whitening), inverse $r$-th roots, and applied transforms $G P^{-s/r}$.
 
 ---
 
-## 1. Primary spec: condition number (not additive radius)
+## 2. What quality means (make condition number the spec)
 
-For whitening / preconditioning, the most meaningful global quality spec is
+Assume $m \ge n$ (otherwise swap sides and certify on the smaller side). Define
+$$
+B := G^T G,\qquad \widehat Q := GZ,\qquad S := \widehat Q^T \widehat Q = Z^T B Z \succ 0.
+$$
+
+### 2.1 Primary spec: residual anisotropy after apply
+
+The preconditioning objective is the condition number of the whitened certificate:
 $$
 \kappa(S) := \frac{\lambda_{\max}(S)}{\lambda_{\min}(S)}.
 $$
 
-Use the log-width coordinate
+Use log-width:
 $$
-\eta(S) := \frac12 \log\kappa(S)
-= \frac12\log\!\left(\frac{\lambda_{\max}(S)}{\lambda_{\min}(S)}\right).
+\eta(S) := \frac12 \log\!\left(\frac{\lambda_{\max}(S)}{\lambda_{\min}(S)}\right)
+= \frac12\log \kappa(S).
 $$
 
-Target by tier (example):
-- medium: $\kappa(S)\le 1.5$ (equivalently $\eta(S)\le \tfrac12\log(1.5)$),
-- strong: choose smaller $\kappa_\star$ as needed.
+Targets are specified as $\kappa(S)\le \kappa_\star$ (equivalently $\eta(S)\le \eta_\star$ with $\eta_\star=\tfrac12\log\kappa_\star$).
 
-Connection to additive band near 1:
-if $\lambda(S)\subset[1-\rho,1+\rho]$ and $\rho<1$, then
+Example: $\kappa_\star=1.5$ implies $\eta_\star=\tfrac12\log(1.5)$.
+
+### 2.2 Secondary reporting (compatibility / debugging only)
+
+Define $E := S-I$ and report
 $$
-\kappa(S)\le \frac{1+\rho}{1-\rho},\quad
-\rho = \frac{\kappa-1}{\kappa+1}.
+\rho_2 := \|E\|_2,\qquad \delta_F := \|E\|_F,
 $$
-So $\kappa_\star=1.5$ corresponds to $\rho=0.2$.
+but these are not the primary design objective.
+
+If an additive band is needed for interpretation,
+$$
+\kappa(S) \le \kappa_\star \iff \rho_2 \le \frac{\kappa_\star-1}{\kappa_\star+1}.
+$$
+So $\kappa_\star=1.5$ corresponds exactly to $\rho_2 \le 0.2$.
 
 ---
 
-## 2. Log-centering is mandatory (remove scale drift)
+## 3. Log-centering is mandatory (remove scale drift)
 
-Scalar rescaling $Z\leftarrow \alpha Z$ induces $S\leftarrow \alpha^2 S$.
-We exploit this to remove multiplicative drift cheaply.
+Scalar rescaling of $Z$ does not change $\kappa(S)$, but it improves numerical stability and makes log-objectives symmetric.
 
-### 2.1 Cholesky-only log-center (recommended default)
-
-Define the mean-log drift
+We track and remove multiplicative drift via the mean-log drift:
 $$
-c_{\det}(S) := \frac{1}{n}\log\det(S).
+c_{\det}(S) := \frac{1}{n}\log\det(S)
+= \frac{1}{n}\sum_{i=1}^n \log \lambda_i(S).
 $$
+
 Recenter by
 $$
-Z \leftarrow \exp\!\left(-\frac{c_{\det}(S)}{2}\right) Z,
+Z \leftarrow e^{-c_{\det}(S)/2}\,Z
 \quad\Longrightarrow\quad
-S \leftarrow \exp(-c_{\det}(S))\,S,
+S \leftarrow e^{-c_{\det}(S)}\,S,
 $$
-so $\det(S)$ is normalized to 1 (mean log-eigenvalue is 0).
+so $\det(S)$ is driven to 1 (mean log-eigenvalue becomes 0).
 
-Compute $c_{\det}(S)$ via Cholesky: if $S=LL^T$ then
+Practical computation: if $S = LL^T$ (Cholesky),
 $$
-\log\det(S)=2\sum_{i=1}^n \log L_{ii}.
+\log\det(S) = 2\sum_{i=1}^n \log L_{ii}.
 $$
 
-### 2.2 Optional endpoint log-center (when eigs are cheap)
-
-If you already computed $\lambda_{\min},\lambda_{\max}$, you can also use
+Optional stronger recenter (if eigs are cheap): use endpoint geometric mean
 $$
-c_{\mathrm{end}}(S) := \tfrac12(\log\lambda_{\max}+\log\lambda_{\min})
+c_{\mathrm{end}}(S)=\log\sqrt{\lambda_{\min}(S)\lambda_{\max}(S)},
 $$
-to set the geometric mean of endpoints to 1.
+but this is not required if we use $c_{\det}$.
 
 ---
 
-## 3. Local update dynamics (exact arithmetic)
+## 4. Core exact dynamics (design in log space, not additive space)
 
-For a small-side step
+A right-update has the form
 $$
-Z_+ = Z\,q(S),\quad S=Z^T B Z,
+Z_+ = Z\,q(S),\qquad S=Z^T B Z,
 $$
-we get
+so
 $$
-S_+ = q(S)S q(S),
+S_+ = q(S)\,S\,q(S).
 $$
-so eigenvalues evolve by the scalar map
+Eigenvalues evolve by the scalar map
 $$
 x \mapsto \phi(x) := x\,q(x)^2.
 $$
 
-We design *policies* (sequences of steps + recenter + guards), not isolated polynomials.
+Define log-coordinate $z=\log x$ and
+$$
+\psi(z) := \log\!\big(\phi(e^z)\big).
+$$
+
+If we allow recentering after each step (using $c_{\det}$), the compression objective is to shrink $\eta(S)$:
+$$
+\eta(S_+) \le \eta_\phi(\eta(S)),
+$$
+where $\eta_\phi$ is the induced log-width map (measured after recenter).
+
+Reciprocal symmetry is ideal:
+$$
+\phi(1/x)=1/\phi(x) \iff \psi(-z)=-\psi(z),
+$$
+which makes log-centering "automatic" in exact arithmetic (we still recenter using $c_{\det}$ for robustness in fp).
 
 ---
 
-## 4. Rational one-solve family (fast if Cholesky is fast)
+## 5. Default algorithm family: 1-2 step rational Gram-side policy
 
-Use the 1-parameter Mobius family
+We adopt a fixed small number of steps because solves are fast and we want predictable wall time.
+
+### 5.1 Rational step family (1 Cholesky + 1 solve)
+
+Use the Mobius/Padé family
 $$
-q_c(x)=\frac{x+c}{cx+1},
-\qquad
-\phi_c(x)=x\left(\frac{x+c}{cx+1}\right)^2,
-\qquad c>0.
+q_c(x) = \frac{x+c}{cx+1},\qquad
+\phi_c(x)=x\left(\frac{x+c}{cx+1}\right)^2.
 $$
 
-Matrix implementation (one factorization + one solve with many RHS):
+Matrix update (one factorization + one solve with many RHS):
 $$
 Z_+ = Z\,(S+cI)\,(cS+I)^{-1}.
 $$
 
-This family is reciprocal-symmetric:
+### 5.2 Choose targets by condition number (log-symmetric)
+
+Choose a condition target $\kappa_\star$ (default: $1.5$).
+The terminal step is designed (offline, once) by the discrete predecessor problem in a log-symmetric way:
+find $c_2$ and a predecessor band around 1 such that
 $$
-q_c(1/x)=\frac{1}{q_c(x)},\quad \phi_c(1/x)=\frac{1}{\phi_c(x)},
+\phi_{c_2}(x) \in \left[\frac{1}{\sqrt{\kappa_\star}},\ \sqrt{\kappa_\star}\right]
+\quad\text{for all } x \text{ in the predecessor band.}
 $$
-so it naturally fits log-width objectives.
+
+### 5.3 Penultimate step is optimized to feed the terminal step (band-to-band)
+
+Once the terminal step and its predecessor band $X_2$ are fixed, the penultimate step is designed to map the widest possible band $X_1$ into $X_2$:
+$$
+\phi_{c_1}(x)\in X_2 \quad \forall x\in X_1,
+$$
+maximizing $\eta(X_1)=\tfrac12\log(x_{\max}/x_{\min})$.
+
+This is the correct "final step fixed, final-1 step optimal" design.
+
+### 5.4 Practical runtime policy (no power iteration)
+
+We do not estimate $(\lambda_{\min},\lambda_{\max})$ up front.
+
+Algorithm sketch (default path uses 2 solves total):
+
+0) Form $B=G^T G$ (or certify on the other side if $m<n$).
+
+1) Initialize with trace centering:
+$$
+\mu := \frac{1}{n}\operatorname{tr}(B),\qquad Z \leftarrow \mu^{-1/2} I.
+$$
+
+2) Step 1 (penultimate compressor): apply rational step with $c_1$.
+
+3) Recenter using $c_{\det}(S)$ (Cholesky logdet):
+$$
+S=Z^T B Z,\quad Z \leftarrow e^{-c_{\det}(S)/2} Z.
+$$
+
+4) Certify cheaply (Section 6). If already $\kappa(S)\le \kappa_\star$, stop (1-step success).
+
+5) Step 2 (terminal): apply rational step with $c_2$.
+
+6) Recenter again using $c_{\det}(S)$, certify again, stop.
+
+Important: 2 steps are extremely powerful, but not a universal deployment guarantee without any guard. Keep one fallback for rare pathologies.
 
 ---
 
-## 5. Certification without power iteration
+## 6. Certification without eigendecomposition (Cholesky + traces)
 
-Power iteration is not required (and can be fragile in bf16).
-We use one of:
+We want a cheap, robust certificate of $\kappa(S)$, avoiding eigvalsh and avoiding power iterations.
 
-### 5.1 Exact small-side eigs (when $n$ is modest)
-Compute $\lambda_{\min},\lambda_{\max}$ of $S_{\mathrm{sym}}=\tfrac12(S+S^T)$ in fp32,
-then $\kappa(S)$ and $\eta(S)$ exactly.
+### 6.1 Log-center (always do)
+Compute $c_{\det}(S)$ via Cholesky and recenter $Z$.
 
-### 5.2 Cholesky-only conservative $\kappa$ bound (no eigs)
+### 6.2 Conservative $\kappa$ upper bound using $(\operatorname{tr}S,\log\det S)$
+
 Let
 $$
-a := \frac{1}{n}\operatorname{tr}(S),\quad
-g := \exp\!\left(\frac{1}{n}\log\det(S)\right),\quad r:=\frac{a}{g}\ge 1.
+a := \frac{1}{n}\operatorname{tr}(S),\qquad
+g := \exp\!\left(\frac{1}{n}\log\det(S)\right),\qquad
+r := \frac{a}{g}\ge 1.
 $$
-Then solve for $\kappa_{\mathrm{bound}}\ge 1$ from
+Define
 $$
-r = \frac{(n-1)+\kappa}{n\,\kappa^{1/n}}
+F_n(\kappa) := \frac{(n-1)+\kappa}{n\,\kappa^{1/n}}.
 $$
-(by 1D bisection). This gives a rigorous upper bound $\kappa(S)\le \kappa_{\mathrm{bound}}$.
+A rigorous worst-case bound is obtained by solving
+$$
+F_n(\kappa_{\text{bound}})=r,\qquad \kappa_{\text{bound}}\ge 1
+$$
+by 1D monotone bisection. If $\kappa_{\text{bound}} \le \kappa_\star$, stop.
 
-### 5.3 Optional trace-based spread surrogates (very cheap)
-If you need ultra-cheap early-stage screening, use trace/Frobenius/trace-of-powers style bounds
-as surrogates for spread/condition; validate periodically with 5.1 or 5.2.
+### 6.3 Optional sharper moment bounds (GPU-friendly)
+If needed, also compute
+$$
+\operatorname{tr}(S^2)\ \text{(equivalently } \|S\|_F^2\text{)},
+$$
+and combine with trace-based inequalities to tighten decisions. Use only if it reduces total wall time.
 
 ---
 
-## 6. Default policy for $\kappa_\star=1.5$ (1 or 2 steps, log-centered)
+## 7. Guards and fallbacks
 
-We treat "1 vs 2 steps" as a policy choice, decided by cheap certification.
+Always:
+- symmetrize $B$ and $S$ before factorization/certification: $X \leftarrow \tfrac12(X+X^T)$,
+- check NaN/Inf,
+- check Cholesky failure; allow tiny ridge $\epsilon I$ (log it),
+- check non-monotone spikes in $\kappa_{\text{bound}}$; if spike, recenter and retry once.
 
-### Constants (from scalar predecessor design; fp32 scalar model)
-- Final spec: $\kappa_\star=1.5$  (equivalently additive $\rho=0.2$ near 1).
-- Final rational parameter: $c_2 = 4.24603987205059$.
+Fallbacks:
+- if 2-step rational fails to reduce $\kappa_{\text{bound}}$, run one safer step (either a more conservative rational parameter or a GEMM-only odd polynomial step), then re-enter the 2-step pipeline.
 
-### Policy (Gram-side)
-Input: SPD $B$ (or $B=G^T G$), start with $Z=I$.
-
-Repeat for up to 2 steps:
-1) Form certificate $S=Z^T B Z$ (small side, fp32), symmetrize.
-2) Log-center using $c_{\det}(S)$ (Cholesky-only): $Z\leftarrow e^{-c_{\det}(S)/2}Z$.
-3) Apply one rational step with chosen $c$:
-   - Try $c=c_2$ first (fast path).
-   - If certification says still too wide (or if you want a safer wide-basin first step),
-     do one "compression" step (choose a larger-basin $c_1$), then finish with $c_2$.
-4) Certify $\kappa(S)$ (exact eigs if cheap, else Cholesky-only bound).
-5) Stop if $\kappa(S)\le \kappa_\star$ (or if the tier metric $\delta_F$ is satisfied).
-
-Return:
-- Gram-side: $Z$ for inverse sqrt use.
-- Polar: $\widehat Q = GZ$ (one final apply).
-
-Guards:
-- NaN/Inf detection
-- Cholesky failure: add tiny ridge $\epsilon I$ and log it
-- Non-monotone spikes in $\kappa$ or $\delta_F$: restart with Frobenius safety scaling
-
----
-
-## 7. Do we still need Frobenius scaling?
-
-Not as the main design axis.
-
-Keep it as:
+### Do we still need Frobenius scaling?
+Not as a primary design component. Keep it only as:
 - a cheap magnitude safety cap (avoid overflow; crude $\lambda_{\max}$ upper bound),
-- a fallback restart when something goes unstable,
-- an optional comparison baseline.
-
-The primary path is condition-number + log-centering + 1-2 rational steps.
+- a restart tool if Cholesky becomes ill-behaved,
+- a baseline for comparisons.
 
 ---
 
-## 8. Benchmark plan (minimal)
+## 8. Policy comparison (direct vs Gram-side vs hybrid)
 
-For each snapshot/policy:
-- time (median, p95)
-- final $\kappa(S)$ and $\eta(S)$
-- final $\delta_F$ (optional, for compatibility with prior reporting)
-- # small Cholesky factorizations, # small GEMMs, # tall passes (if polar)
-- guard triggers, failures, restarts
+Compare policies, not single steps:
+
+A) Direct: update $G$ with odd polynomials/rationals $X_+=Xq(X^T X)$.
+
+B) Gram-side: form $B=G^T G$, refine $Z\approx B^{-1/2}$ on the small side, apply once.
+
+C) Hybrid: a few direct global-compression steps, then small-side refinement and one final apply.
+
+Winner is the policy with best time-to-target conditioning and acceptable tail risk.
+
+---
+
+## 9. Benchmark plan (simplified)
+
+We no longer split many cases up front; we benchmark the policy "1 step if possible, else 2 steps".
+
+Record:
+- wall time (median, p95),
+- $\kappa_{\text{bound}}$ after each step and final,
+- optional $\delta_F$ for compatibility,
+- number of solves, number of small GEMMs, tall passes,
+- failure/guard triggers.
 
 Compare:
-- Gram-side 1-step vs 2-step (condition-driven stopping),
-- Direct odd (GEMM-only) vs Gram-side (solve-heavy),
-- Hybrid schedules.
+- 1-step vs 2-step (same final $\kappa_\star$),
+- rational vs direct odd polynomial baseline,
+- effect of $c_{\det}$ recentering.
 
 ---
+
+## 10. Optional: using spectrum-spread bounds to predict 1-step vs 2-step
+
+The goal is to decide whether the terminal step alone will succeed (skip penultimate), without eigenvalues.
+
+Preferred:
+- use $\kappa_{\text{bound}}$ from (6.2) and compare to the terminal predecessor allowance.
+
+Optional:
+- use normal-matrix spread / Kantorovich-ratio style bounds as additional cheap surrogates for spread (relevant since $S$ is Hermitian/normal), if they improve decisions in practice.
+
+---
+
+## 11. Immediate tasks
+
+1) Implement the condition-number certificate:
+   - Cholesky logdet for $c_{\det}(S)$,
+   - $(\operatorname{tr}S,\log\det S)\to \kappa_{\text{bound}}$ bisection.
+
+2) Extend the scalar predecessor solver to:
+   - log-symmetric terminal target for chosen $\kappa_\star$,
+   - band-to-band design for $c_1$ feeding the terminal predecessor set.
+
+3) Implement the 2-step rational policy with recenter+certify between steps.
+
+4) Benchmark: how often 1 step suffices vs needing 2 steps, and tail failures.

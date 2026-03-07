@@ -230,7 +230,45 @@ We want a cheap, robust certificate of $\kappa(S)$, avoiding eigvalsh and avoidi
 ### 6.1 Log-center (always do)
 Compute $c_{\det}(S)$ via Cholesky and recenter $Z$.
 
-### 6.2 Moment bounds (GPU-friendly)
+### 6.2 Conservative $\kappa$ upper bound using $(\operatorname{tr}S,\log\det S)$
+
+We want a cheap, robust certificate of $\kappa(S)$ that avoids eigendecomposition and power iteration, using only the trace and log-determinant.
+
+Define
+$$
+a := \frac{1}{n}\operatorname{tr}(S),\qquad
+g := \exp\!\left(\frac{1}{n}\log\det(S)\right),\qquad
+r := \frac{a}{g}\ge 1.
+$$
+
+A rigorous worst-case (trace + determinant) condition-number upper bound is
+$$
+u := r^{n/2},\qquad
+\kappa_{\mathrm{ub}}(r,n) := \left(u+\sqrt{u^2-1}\right)^2,
+$$
+so that for any SPD $S$,
+$$
+\kappa(S) \le \kappa_{\mathrm{ub}}(r,n).
+$$
+
+**Decision rule:** if $\kappa_{\mathrm{ub}}(r,n) \le \kappa_\star$, stop.
+
+**Practical computation:**
+- Compute $\log\det(S)$ from a Cholesky factorization $S=LL^T$:
+  $$
+  \log\det(S)=2\sum_{i=1}^n \log L_{ii}.
+  $$
+- To avoid overflow when $u=r^{n/2}$ is large, use log-space:
+  $$
+  \log u=\frac{n}{2}\log r.
+  $$
+  A stable equivalent form uses $\operatorname{acosh}$:
+  $$
+  \operatorname{acosh}(u)=\log\!\left(u+\sqrt{u^2-1}\right),\qquad
+  \kappa_{\mathrm{ub}}(r,n)=\exp\!\left(2\,\operatorname{acosh}(u)\right).
+  $$
+
+### 6.3 Eigenvalue bounds (GPU-friendly)
 If needed, also compute
 $$
 \operatorname{tr}(S^2)\ \text{(equivalently } \|S\|_F^2\text{)},

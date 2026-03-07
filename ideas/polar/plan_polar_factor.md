@@ -124,68 +124,102 @@ which makes log-centering "automatic" in exact arithmetic (we still recenter usi
 
 ## 5. Default algorithm family: 1-2 step rational Gram-side policy
 
-We adopt a fixed small number of steps because solves are fast and we want predictable wall time.
+We use a fixed small number of Gram-side steps (usually 1 or 2) because they are solve-dominated, predictable, and directly target the applied certificate conditioning.
 
-### 5.1 Rational step family (1 Cholesky + 1 solve)
+### 5.1 One-solve rational step (Mobius/Padé)
 
-Use the Mobius/Padé family
+Use
 $$
-q_c(x) = \frac{x+c}{cx+1},\qquad
-\phi_c(x)=x\left(\frac{x+c}{cx+1}\right)^2.
+q_c(x) := \frac{x+c}{cx+1},\qquad c>0,
 $$
-
-Matrix update (one factorization + one solve with many RHS):
+so the eigenvalue map is
 $$
-Z_+ = Z\,(S+cI)\,(cS+I)^{-1}.
-$$
-
-### 5.2 Choose targets by condition number (log-symmetric)
-
-Choose a condition target $\kappa_\star$ (default: $1.5$).
-The terminal step is designed (offline, once) by the discrete predecessor problem in a log-symmetric way:
-find $c_2$ and a predecessor band around 1 such that
-$$
-\phi_{c_2}(x) \in \left[\frac{1}{\sqrt{\kappa_\star}},\ \sqrt{\kappa_\star}\right]
-\quad\text{for all } x \text{ in the predecessor band.}
+\phi_c(x) := x\,q_c(x)^2
+= x\left(\frac{x+c}{cx+1}\right)^2.
 $$
 
-### 5.3 Penultimate step is optimized to feed the terminal step (band-to-band)
-
-Once the terminal step and its predecessor band $X_2$ are fixed, the penultimate step is designed to map the widest possible band $X_1$ into $X_2$:
+Matrix update (one Cholesky + one solve with many RHS):
 $$
-\phi_{c_1}(x)\in X_2 \quad \forall x\in X_1,
-$$
-maximizing $\eta(X_1)=\tfrac12\log(x_{\max}/x_{\min})$.
-
-This is the correct "final step fixed, final-1 step optimal" design.
-
-### 5.4 Practical runtime policy (no power iteration)
-
-We do not estimate $(\lambda_{\min},\lambda_{\max})$ up front.
-
-Algorithm sketch (default path uses 2 solves total):
-
-0) Form $B=G^T G$ (or certify on the other side if $m<n$).
-
-1) Initialize with trace centering:
-$$
-\mu := \frac{1}{n}\operatorname{tr}(B),\qquad Z \leftarrow \mu^{-1/2} I.
+Z_+ = Z\,q_c(S) = Z\,(S+cI)\,(cS+I)^{-1},
+\qquad S = Z^T B Z.
 $$
 
-2) Step 1 (penultimate compressor): apply rational step with $c_1$.
+After the step we recenter (Section 3) using $c_{\det}(S)$.
 
-3) Recenter using $c_{\det}(S)$ (Cholesky logdet):
+---
+
+### 5.2 Terminal step: pick $c_2$ by a log-symmetric predecessor band
+
+Fix the target conditioning $\kappa_\star>1$ and set
 $$
-S=Z^T B Z,\quad Z \leftarrow e^{-c_{\det}(S)/2} Z.
+\eta_\star := \tfrac12\log \kappa_\star,
+\qquad
+T := \left[e^{-\eta_\star},\,e^{\eta_\star}\right].
 $$
 
-4) Certify cheaply (Section 6). If already $\kappa(S)\le \kappa_\star$, stop (1-step success).
+Because $\phi_c(1/x)=1/\phi_c(x)$, it is natural (after recentering) to model inputs by a reciprocal band
+$$
+X(\eta) := \left[e^{-\eta},\,e^{\eta}\right].
+$$
 
-5) Step 2 (terminal): apply rational step with $c_2$.
+Define the induced worst-case output half log-width
+$$
+\eta_+(c,\eta)
+:= \max_{x\in X(\eta)} \left|\log \phi_c(x)\right|
+= \max_{|z|\le \eta} \left|\log\!\big(\phi_c(e^z)\big)\right|.
+$$
 
-6) Recenter again using $c_{\det}(S)$, certify again, stop.
+The terminal predecessor width for $c$ is
+$$
+\eta_2(c) := \sup\{\eta\ge 0:\ \eta_+(c,\eta)\le \eta_\star\}.
+$$
+Equivalently, $X(\eta_2(c))$ is the widest log-centered band that the step maps into the target band $T$.
 
-Important: 2 steps are extremely powerful, but not a universal deployment guarantee without any guard. Keep one fallback for rare pathologies.
+Offline, choose
+$$
+c_2 \in \arg\max_{c>0}\ \eta_2(c),
+\qquad
+\eta_2 := \eta_2(c_2),
+\qquad
+X_2 := X(\eta_2).
+$$
+
+Practical note (finite precision): compute $\eta_+(c,\eta)$ on a log-grid (optionally aligned to bf16-representable $x$ in the expected range) and enforce a small safety margin.
+
+---
+
+### 5.3 Penultimate step: maximize incoming width that lands inside $X_2$
+
+With $(c_2,\eta_2)$ fixed, define
+$$
+\eta_1(c) := \sup\{\eta\ge 0:\ \eta_+(c,\eta)\le \eta_2\}.
+$$
+Offline, choose
+$$
+c_1 \in \arg\max_{c>0}\ \eta_1(c),
+\qquad
+\eta_1 := \eta_1(c_1).
+$$
+This is the "band-to-band" design: map the widest possible log-centered band into the terminal predecessor band.
+
+---
+
+### 5.4 Runtime policy (default: up to 2 solves, no eigs / power iteration)
+
+0) Form $B=G^T G$ (or certify on the smaller side if $m<n$).
+
+1) Trace-center init:
+$$
+\mu := \tfrac1n \operatorname{tr}(B),\qquad Z \leftarrow \mu^{-1/2} I.
+$$
+
+2) Step 1: apply $c_1$ update, then recenter using $c_{\det}(S)$.
+
+3) Certify $\kappa(S)$ cheaply (Section 6). If $\kappa(S)\le \kappa_\star$, stop.
+
+4) Step 2: apply $c_2$ update, recenter again, certify, stop.
+
+Keep one fallback path (Section 7) for rare numerical pathologies.
 
 ---
 

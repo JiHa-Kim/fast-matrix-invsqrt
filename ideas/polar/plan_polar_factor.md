@@ -1,230 +1,398 @@
-# Fastest path to ML-useful polar factor:
-# direct odd update vs preconditioner-first vs hybrid
+# Fast finite-precision polar and inverse roots: lean execution plan
 
-## 0. Core question and success criteria
+## 1. Goal
 
-Given $G \in \mathbb{R}^{m \times n}$, compute
+Compute an ML-useful approximation to the polar factor
 $$
 Q = \operatorname{polar}(G) = G(G^T G)^{-1/2}
 $$
-as fast as possible on GPU in low precision (bf16/FP16 compute), subject to runtime-checkable correctness.
+as fast as possible in finite precision.
 
-We optimize *applied* orthogonality, not SVD-accurate factors.
-
-Let $r=\min(m,n)$. Use the small-side certificate:
-- if $m \ge n$: $S := Q^T Q \in \mathbb{R}^{n\times n}$
-- if $m < n$:  $S := Q Q^T \in \mathbb{R}^{m\times m}$
-
-Metrics (do not mix):
+Primary objective:
 $$
-\rho_2 := \|S-I\|_2,\qquad \delta_F := \|S-I\|_F,
-\qquad \rho_2 \le \delta_F \le \sqrt{r}\,\rho_2.
+\text{minimize wall time to target applied quality, not raw approximation error.}
+$$
+
+The same framework should later extend to SPD inverse square roots, inverse $r$-th roots, and applied transforms such as
+$$
+G P^{-s/r}.
+$$
+
+---
+
+## 2. What quality means
+
+For $m \ge n$, define
+$$
+B := G^T G,
+\qquad
+\widehat Q := GZ,
+\qquad
+S := \widehat Q^T \widehat Q = Z^T B Z.
+$$
+
+For $m < n$, swap sides and certify on the smaller side.
+
+The error certificate is
+$$
+E := S - I.
+$$
+
+Main metrics:
+$$
+\rho_2 := \|E\|_2,
+\qquad
+\delta_F := \|E\|_F.
+$$
+
+Always,
+$$
+\rho_2 \le \delta_F \le \sqrt{r}\,\rho_2,
+\qquad
+r := \min(m,n).
+$$
+
+If $\rho_2 < 1$, then
+$$
+\kappa(S) \le \frac{1+\rho_2}{1-\rho_2}.
+$$
+
+Useful log-conditioning coordinate:
+$$
+\eta := \frac12 \log\!\left(\frac{\lambda_{\max}(S)}{\lambda_{\min}(S)}\right).
+$$
+For a symmetric band $[1-\rho,1+\rho]$,
+$$
+\eta = \frac12 \log\!\left(\frac{1+\rho}{1-\rho}\right) = \operatorname{atanh}(\rho).
 $$
 
 Target tiers:
-- light: $\delta_F \le 0.35$
-- medium: $\delta_F \le 0.20$
-- strong: $\delta_F \le 0.10$
-
-Primary benchmark: wall time to hit tier (median + p95), plus failure/guard rates.
-
-## 1. The meta iteration and the key equivalence
-
-### 1.1 Direct odd polynomial on $G$ (current meta)
-Baseline family uses odd matrix polynomials (GEMM-friendly):
 $$
-X_{k+1} = a_k X_k + b_k X_k(X_k^T X_k) + c_k X_k(X_k^T X_k)^2.
+\text{light: } \delta_F \le 0.35 \quad (\text{or } 0.5 \text{ if very cheap}),
 $$
-If $X_k = U\Sigma V^T$, then $X_{k+1} = U\big(\Sigma\,p_k(\Sigma^2)\big)V^T$ where
 $$
-p_k(t) = a_k + b_k t + c_k t^2,
-\qquad \sigma \mapsto \sigma\,p_k(\sigma^2).
-$$
-This is exactly the singular-value map you are optimizing (make $\sigma \approx 1$ quickly).
-
-Polar Express is a strong instance of this approach: GEMM-only odd updates, Frobenius-based normalization and bf16 stabilizations, and adaptive coefficient choice via minimax design. 
-
-### 1.2 Preconditioner-first on the Gram (inverse modulus view)
-Let the small-side Gram be
-- if $m\ge n$: $B := G^T G \in \mathbb{R}^{n\times n}$
-- else:        $B := G G^T \in \mathbb{R}^{m\times m}$
-
-Compute/apply $Z \approx B^{-1/2}$ and return $Q = GZ$ (or $Q=ZG$ depending on orientation). Then
-$$
-S = Q^T Q = Z^T B Z.
+\text{medium: } \delta_F \le 0.20,
+\qquad
+\text{strong: } \delta_F \le 0.10.
 $$
 
-### 1.3 The crucial point (do not miss this)
-The direct and preconditioner views do **not** enable fundamentally different singular-value maps.
+---
 
-Any direct odd update can be written as
+## 3. Compare policies, not isolated polynomials
+
+We compare three policy families.
+
+### A. Direct
+Update $G$ directly with odd matrix polynomials, e.g.
 $$
-Q_{k+1} = Q_k\,q_k(S_k),\qquad S_k = Q_k^T Q_k,
+X_+ = X q(X^T X).
 $$
-and the same $q_k$ can be applied by maintaining $Z_k$ with
+For the cubic family,
 $$
-Z_{k+1} = Z_k\,q_k(S_k),\qquad S_k = Z_k^T B Z_k.
+X_+ = aX + bX(X^T X) + cX(X^T X)^2.
 $$
 
-So the preconditioner advantage is not a larger polynomial class. It is:
-- iterating on the small side ($r\times r$) instead of repeatedly multiplying tall matrices,
-- cleaner certificates and switch logic,
-- cheaper local refinement when $m\gg n$ (or $n\gg m$),
-- more freedom to use aggressive local steps because they are cheap on $r\times r$.
+### B. Gram-side
+Form
+$$
+B = G^T G,
+$$
+refine only
+$$
+Z \approx B^{-1/2},
+$$
+then apply once:
+$$
+\widehat Q = GZ.
+$$
 
-## 2. The three policy families to compare
+### C. Hybrid
+Do a small number of direct global-compression steps, then switch to small-side refinement and apply once at the end.
 
-### Family D (Direct-only): odd updates on $G$
-Run direct odd steps until tier or cap.
-This is the baseline to beat (Polar Express schedule is the must-match strong baseline). 
+The winner is the policy with the best time-to-target and acceptable tail risk.
 
-### Family P (Preconditioner-first): Gram-side refinement then apply once
-1) Form $B$ once.
-2) Iterate on small-side state/certificate to get $Z$.
-3) Apply once: $Q = GZ$.
-This should win when aspect ratio is large and/or you need >1-2 refinement steps.
+---
 
-AOL-style preprocessing can shift the frontier enough to remove an iteration in low-step regimes; include it as a preprocessing variant. 
+## 4. Core exact fact
 
-### Family H (Hybrid): a few direct steps then small-side finish
-Do 1-2 direct steps (fast global compression), then switch to Gram-side local finish and apply once.
-This is the high-priority "likely winner" in the middle regime.
+For a local step
+$$
+Z_+ = Z q(S),
+\qquad
+S = Z^T B Z,
+$$
+we get
+$$
+S_+ = q(S) S q(S).
+$$
 
-## 3. The reverse-engineered 2-phase structure (shared across families)
+So certificate eigenvalues evolve by the scalar map
+$$
+x \mapsto x q(x)^2.
+$$
 
-### Phase 2 (local finish, certified and aggressive)
-Once $S$ is near identity, use 1-2 low-degree polynomials designed on $[1-\rho,1+\rho]$:
-- exact arithmetic: eigenvalues map via $x \mapsto x q(x)^2$
-- contraction number:
-  $$
-  m_q(\rho) := \sup_{x\in[1-\rho,1+\rho]} |x q(x)^2 - 1|
-  $$
-- bf16 deployment: treat deviation as calibrated envelope + guards (not a universal constant).
+The same map appears for direct odd updates on $G$. Therefore direct and Gram-side methods share the same exact local scalar dynamics. The difference is cost, state location, certification, and finite-precision behavior.
 
-(Reuse the Phase 2 local designer + verifier you already built.)
+For a candidate $q$, define the local contraction function
+$$
+m_q(\rho) := \sup_{x \in [1-\rho,1+\rho]} |x q(x)^2 - 1|.
+$$
 
-### Phase 1 (global compression, bf16-safe)
-Goal: enter the Phase 2 band with minimal time and low risk.
-Candidates:
-- Polar Express adaptive minimax schedule (direct) 
-- fixed odd degree-3/5 schedules (direct)
-- preprocessing that tightens the starting spectrum (Frobenius scaling, AOL-like) 
+Exact arithmetic guarantee:
+if
+$$
+\rho_2(S) \le \rho,
+$$
+then after one step
+$$
+\rho_2(S_+) \le m_q(\rho).
+$$
 
-Reverse-engineering workflow:
-1) Choose Phase 2 terminal band $\rho_\star$ and a 1-step local polynomial.
-2) Design transition step(s) that land inside $\rho_\star$ with calibrated margin.
-3) Only then pick Phase 1 policy to hit the transition radius fastest.
+---
 
-## 4. The most important missing operational piece: break-even experiment
+## 5. Default design: two phases
 
-Before doing giant sweeps, fit an empirical time model on your actual GPU and kernel path:
+### Phase 1: global compression
+Use a cheap, wide-basin, bf16-safe policy to move the spectrum into a profitable local basin.
 
-Let:
-- $T_{\text{tall}}$: time for one tall-side pass involving an $(m\times n)\cdot(n\times n)$ GEMM (or symmetric equivalent)
-- $T_{\text{small}}$: time for one $n\times n$ refinement step (your exact Phase 2 apply path on small side)
-- $T_{\text{apply}}$: time for final apply $GZ$ (one tall GEMM)
-- $T_{\text{gram}}$: time to form $B=G^T G$ once
+Default candidates:
+- direct odd degree-$3$ or degree-$5$ schedules,
+- simple adaptive direct schedules,
+- Frobenius normalization with a safety factor,
+- Gram-side scaling or preprocessing when clearly helpful.
 
-Then compare:
-- one extra direct step (typically ~2 tall passes + small work)
-vs
-- one extra small-side refinement step (+ maybe the eventual final apply if not yet counted)
+### Phase 2: local finish
+Use one or two aggressive local steps designed from the certificate map.
 
-Use this to predict an aspect-ratio frontier where preconditioner-first/hybrid overtakes direct-only.
+Default local model:
+- center at $1$,
+- represent $q$ in shifted Chebyshev form,
+- evaluate with Clenshaw,
+- optimize the deployed scalar step directly in bf16.
 
-Deliverable:
-- `report_polar_break_even.md` + JSON with measured times and the inferred crossover.
+Rationale: centering at $1$ avoids interval remapping noise and keeps the local coordinate naturally in the stable Chebyshev region.
 
-## 5. Cost model (for intuition, then validate empirically)
+---
 
-Assume $m\ge n$ (swap similarly otherwise).
+## 6. Exact bf16 local design problem
 
-### Direct odd step
-Approx FLOP scales:
-- form $A=X^T X$: $m n^2$
-- form $A^2$: $n^3$
-- apply $X \leftarrow X p(A)$: $m n^2$
-So one step ~ $2 m n^2 + n^3$ (kernel constants dominate in practice).
+For the local scalar step, fix the deployed model
+$$
+t = \operatorname{rn}_{bf16}(x-1),
+$$
+$$
+q(x) = \sum_{j=0}^d c_j T_j(t),
+$$
+with bf16 Clenshaw evaluation, and deployed certificate map
+$$
+\Phi(x) := \operatorname{rn}_{bf16}\!\left(x \cdot \operatorname{rn}_{bf16}(q(x)^2)\right).
+$$
 
-### Preconditioner-first
-- one-time: form $B=G^T G$: $m n^2$
-- per step: only $n^3$-scale work
-- final: apply $Q=GZ$: $m n^2$
-So big cost is 2 tall GEMMs total, independent of iteration count.
+Let the terminal target set be
+$$
+\mathcal T_\tau := \{ y \in \mathrm{BF16} : |y-1| \le \tau \}.
+$$
 
-### Hybrid
-Pay 1-2 direct steps (some tall GEMMs), then small-side finishing, then one final apply.
+Then for each degree $d$, solve the discrete predecessor problem:
+find the largest contiguous bf16 input band around $1$ such that
+$$
+\forall x \in \mathcal X_d,
+\qquad
+\Phi(x) \in \mathcal T_\tau.
+$$
 
-## 6. Scaling / preprocessing sweep (do not hardcode one choice)
+This is the correct finite-precision local object.
 
-Minimum required baseline:
-- Frobenius-based normalization with a safety factor (as used in Polar Express code) 
+Use the log-width score
+$$
+\eta(\mathcal X_d) := \frac12 \log\!\left(\frac{x_{\max}}{x_{\min}}\right)
+$$
+for the band $\mathcal X_d = [x_{\min},x_{\max}] \cap \mathrm{BF16}$.
 
-Include as candidate options:
-- AOL-like preprocessing (can change low-step frontier) 
-- Gram scaling variants (e.g., based on Frobenius inner products; useful when working directly with $B$) 
+Why this score:
+- it matches conditioning,
+- it reduces to $\operatorname{atanh}(\rho)$ for a symmetric continuous band,
+- it is more meaningful than plain additive radius once the band is not tiny.
 
-Treat scaling as part of the policy, not a fixed assumption.
+Practical rule:
+- optimize $\eta$ for raw basin width,
+- optimize $\eta / \text{cost}(d)$ for step efficiency.
 
-## 7. Benchmark suite (what to sweep)
+Default degree search for the first step:
+$$
+d \in \{2,3,4\}.
+$$
 
-### Synthetic sweeps
-- aspect ratios: $m/n \in \{1,2,4,8,16,32\}$
-- sizes: several $n$ values (cover typical ML regimes)
-- spectral shapes (via controlled singular values):
-  - near-flat
-  - moderately decaying
-  - highly ill-conditioned
-  - clustered endpoints / two-mass mixtures (stress minimax)
+---
 
-### Real ML snapshots
-Use saved training snapshots of $G$ (and/or gradients/moment estimates):
-- log shape, norms, estimated spread
-- run all policy families to tier or cap
+## 7. Finite-precision stance
 
-## 8. What to log (non-negotiable)
+Separate three levels.
 
-Per run:
-- wall time (median/p95 across repeats)
-- final $\delta_F$, $\rho_2$
-- number of tall passes over $G$
-- number of $n\times n$ GEMMs
-- guard triggers (NaN/Inf, spike, overshoot)
-- which fallback used
+### A. Exact arithmetic theory
+This gives the rigorous scalar map
+$$
+x \mapsto x q(x)^2
+$$
+and guarantees through $m_q(\rho)$.
 
-## 9. Implementation contract: certification + guards
+### B. Exact scalar bf16 deployment model
+This is the centered-at-$1$ Chebyshev + bf16 Clenshaw predecessor solve above.
 
-At each step:
-1) form certificate $S$ on the small side
-2) symmetrize $S_{sym} = 0.5(S+S^T)$
-3) measure $\rho_2$ and $\delta_F$ (eigs on $r\times r$ are feasible up to a few thousand; otherwise use power iteration for $\rho_2$)
-4) accept if within policy envelope; else guard:
-   - rescale and retry once, or
-   - fall back to Phase 1 safe compression
+### C. Real matrix-kernel deployment
+This includes GEMM accumulation, reduction order, casts, and backend details. It must be calibrated empirically.
 
-This is how you get practical "always safe" behavior without pretending there is a universal bf16 theorem constant.
+Do not claim:
+- a universal bf16 floor,
+- a universal GEMM perturbation constant,
+- theorem-level deployed guarantees for full matrix kernels without calibration.
 
-## 10. Deliverables (minimal, actionable)
+---
 
-### Code
-- `bench_polar_policies.py` (unified harness)
-- `policy_direct_odd.py` (match strongest direct baseline; include Polar Express schedule) 
-- `policy_precond_inv_modulus.py` (Gram-side 2-phase; small-side iterate then apply once)
-- `policy_hybrid_switch.py` (1-2 direct steps then small-side finish)
-- `analyze_break_even.py` (fit time model and frontier)
-- `calibrate_hw_envelope.py` (estimate bf16 envelope and plateau for Phase 2)
+## 8. Certification and guards
 
-### Reports
-- `report_polar_break_even.md`
-- `report_polar_aspect_ratio_sweep.md`
-- `report_polar_real_snapshots.md`
+Always certify on the small side.
 
-## 11. Decision rule: what we ship
+Symmetrize before spectral measurement:
+$$
+S_{\mathrm{sym}} := \tfrac12(S + S^T).
+$$
 
-For each tier and shape regime:
-1) choose lowest median wall time
-2) require acceptable p95 and failure rate
-3) publish a simple decision heuristic (aspect-ratio-aware):
-   - direct-only for near-square and light targets if it wins
-   - preconditioner-first for very rectangular
-   - hybrid as default in the middle regime if it dominates
+Then measure in fp32 or fp64 when cheap enough:
+$$
+\rho_2 = \|S_{\mathrm{sym}} - I\|_2,
+\qquad
+\delta_F = \|S_{\mathrm{sym}} - I\|_F.
+$$
+
+Every deployed policy should include:
+- NaN or Inf detection,
+- non-monotone spike detection,
+- overshoot detection,
+- one restart or rescale path,
+- one safer fallback.
+
+---
+
+## 9. Cost model and regime split
+
+Assume $m \ge n$.
+
+A direct odd step costs roughly:
+- one tall Gram-like build,
+- small-side products,
+- one tall apply back to $G$.
+
+A Gram-side policy costs:
+- one-time formation of $B = G^T G$,
+- only small-side refinement after that,
+- one final apply $GZ$.
+
+So the regime split is empirical.
+
+Key break-even comparison:
+- one more direct step,
+versus
+- one more small-side step plus the final apply.
+
+Expectation:
+- direct may win near square or for light targets,
+- Gram-side may win for very rectangular matrices,
+- hybrid may win in the middle.
+
+But this is a benchmark question, not a theorem.
+
+---
+
+## 10. Minimal benchmark plan
+
+### Synthetic coverage
+Sweep:
+$$
+\frac{m}{n} \in \{1,2,4,8,16,32\},
+$$
+with several $n$ values and spectra such as:
+- flat,
+- moderate decay,
+- severe ill-conditioning,
+- clustered endpoints,
+- two-mass adversarial mixtures.
+
+### Real snapshots
+Use saved training matrices or Gram snapshots whenever possible.
+
+### Record per run
+- wall time,
+- median and $p95$ over repeats,
+- final $\rho_2$ and $\delta_F$,
+- number of tall passes,
+- number of small-side GEMMs,
+- switch point for hybrid,
+- scaling used,
+- guard triggers,
+- failures and fallback use,
+- monotonicity of the certificate.
+
+---
+
+## 11. Default execution order
+
+### Step 1
+Lock the local evaluator to centered-at-$1$ shifted Chebyshev with Clenshaw.
+
+### Step 2
+Solve the exact scalar bf16 predecessor problem for degrees $2,3,4$ and pick:
+- the widest local basin,
+- the best $\eta / \text{cost}$ tradeoff.
+
+### Step 3
+Build a minimal Phase 1 baseline using direct odd updates with simple safe scaling.
+
+### Step 4
+Benchmark three policy families:
+- direct,
+- Gram-side,
+- hybrid.
+
+### Step 5
+For each target tier, ship:
+- one default fast policy,
+- one safer fallback.
+
+---
+
+## 12. What not to optimize directly
+
+Do not optimize
+$$
+\|Z - B^{-1/r}\|
+$$
+unless it clearly improves the applied objective.
+
+For polar and whitening-style use, the primary object is
+$$
+S = Z^T B Z \approx I,
+$$
+or equivalently
+$$
+\widehat Q^T \widehat Q \approx I.
+$$
+
+So optimize applied whitening quality and time, not abstract root approximation in isolation.
+
+---
+
+## 13. Immediate tasks
+
+1. Finish the exact scalar bf16 predecessor solve for degrees $2,3,4$.
+2. Choose the best first local step by $\eta$ and by $\eta / \text{cost}$.
+3. Implement a minimal direct Phase 1 baseline with certification.
+4. Add a Gram-side baseline with final apply.
+5. Benchmark direct vs Gram-side vs hybrid on aspect-ratio sweeps and real snapshots.
+6. Ship one default fast policy and one fallback per target tier.
+
+---
+
+## 14. One-sentence project statement
+
+Find the fastest finite-precision policy for producing an ML-useful polar factor approximation by combining bf16-safe global compression, exact local certificate design, small-side certification, and aspect-ratio-aware switching between direct, Gram-side, and hybrid policies.

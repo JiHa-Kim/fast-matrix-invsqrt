@@ -1,473 +1,201 @@
-# Fast finite-precision polar and inverse roots: lean execution plan (log-centered)
+# Fast finite-precision polar and inverse roots: lean execution plan (condition-number + log-centered)
 
-## 1. Goal
+## 0. One-line objective
 
-Compute an ML-useful approximation to the polar factor
+Minimize wall time to reach a target *residual anisotropy* after apply:
 $$
-Q = \operatorname{polar}(G) = G(G^T G)^{-1/2}
-$$
-as fast as possible in finite precision.
-
-Primary objective:
-$$
-\text{minimize wall time to target applied quality, not raw root approximation error.}
-$$
-
-The same framework should later extend to SPD inverse square roots, inverse $r$-th roots, and applied transforms such as
-$$
-G P^{-s/r}.
+S := Z^T B Z \approx I,\quad B := G^T G,\quad \widehat Q := GZ,\quad S=\widehat Q^T\widehat Q.
 $$
 
 ---
 
-## 2. What quality means
+## 1. Primary spec: condition number (not additive radius)
 
-Assume $m \ge n$ (otherwise swap sides and certify on the smaller side). Define
+For whitening / preconditioning, the most meaningful global quality spec is
 $$
-B := G^T G,
-\qquad
-\widehat Q := GZ,
-\qquad
-S := \widehat Q^T \widehat Q = Z^T B Z.
+\kappa(S) := \frac{\lambda_{\max}(S)}{\lambda_{\min}(S)}.
 $$
 
-To quantify $Z \approx B^{-1/2}$, we need to measure $S \approx I$.
-
-The error certificate is
+Use the log-width coordinate
 $$
-E := S - I.
-$$
-
-Main metrics:
-$$
-\rho_2 := \|E\|_2,
-\qquad
-\delta_F := \|E\|_F.
+\eta(S) := \frac12 \log\kappa(S)
+= \frac12\log\!\left(\frac{\lambda_{\max}(S)}{\lambda_{\min}(S)}\right).
 $$
 
-Always,
-$$
-\rho_2 \le \delta_F \le \sqrt{r}\,\rho_2,
-\qquad
-r := \min(m,n).
-$$
+Target by tier (example):
+- medium: $\kappa(S)\le 1.5$ (equivalently $\eta(S)\le \tfrac12\log(1.5)$),
+- strong: choose smaller $\kappa_\star$ as needed.
 
-If $\rho_2 < 1$, then
+Connection to additive band near 1:
+if $\lambda(S)\subset[1-\rho,1+\rho]$ and $\rho<1$, then
 $$
-\kappa(S) \le \frac{1+\rho_2}{1-\rho_2}.
+\kappa(S)\le \frac{1+\rho}{1-\rho},\quad
+\rho = \frac{\kappa-1}{\kappa+1}.
 $$
+So $\kappa_\star=1.5$ corresponds to $\rho=0.2$.
 
-### Condition-number target is the right spec
+---
 
-For preconditioning/whitening, the natural global objective is
-$$
-\kappa(S) := \frac{\lambda_{\max}(S)}{\lambda_{\min}(S)}
-\quad\text{(multiplicative residual anisotropy).}
-$$
+## 2. Log-centering is mandatory (remove scale drift)
 
-A convenient log-width coordinate is
-$$
-\eta(S) := \frac12 \log\!\left(\frac{\lambda_{\max}(S)}{\lambda_{\min}(S)}\right)
-= \frac12 \log \kappa(S).
-$$
+Scalar rescaling $Z\leftarrow \alpha Z$ induces $S\leftarrow \alpha^2 S$.
+We exploit this to remove multiplicative drift cheaply.
 
-Equivalently, if $U := GZ$ has singular values $\{s_i\}$, then $\lambda_i(S)=s_i^2$ and
-$$
-\eta(S) = \log\!\left(\frac{s_{\max}}{s_{\min}}\right) = \log \kappa(U).
-$$
+### 2.1 Cholesky-only log-center (recommended default)
 
-A condition-number spec $\kappa(S)\le \kappa_\star$ is equivalent to
+Define the mean-log drift
 $$
-\eta(S) \le \eta_\star := \frac12\log \kappa_\star.
+c_{\det}(S) := \frac{1}{n}\log\det(S).
 $$
-
-Example: $\kappa_\star=1.5$ corresponds to $\eta_\star=\tfrac12\log(1.5)$.
-
-### Log-center (multiplicative scale drift) and cheap recentering
-
-Define log-center drift in two ways:
-
-1) Endpoint drift (needs $\lambda_{\min},\lambda_{\max}$):
+Recenter by
 $$
-c_{\mathrm{end}}(S) := \frac12\big(\log \lambda_{\max}(S) + \log \lambda_{\min}(S)\big)
-= \log \sqrt{\lambda_{\max}(S)\lambda_{\min}(S)}.
-$$
-
-2) Mean-log drift (cheap via Cholesky):
-$$
-c_{\det}(S) := \frac{1}{n}\log\det(S)
-= \frac{1}{n}\sum_{i=1}^n \log \lambda_i(S).
-$$
-
-If scalar rescaling of $Z$ is allowed (cheap), then recenter multiplicatively using either drift:
-$$
-Z \leftarrow e^{-c(S)/2} Z
+Z \leftarrow \exp\!\left(-\frac{c_{\det}(S)}{2}\right) Z,
 \quad\Longrightarrow\quad
-S \leftarrow e^{-c(S)} S.
+S \leftarrow \exp(-c_{\det}(S))\,S,
+$$
+so $\det(S)$ is normalized to 1 (mean log-eigenvalue is 0).
+
+Compute $c_{\det}(S)$ via Cholesky: if $S=LL^T$ then
+$$
+\log\det(S)=2\sum_{i=1}^n \log L_{ii}.
 $$
 
-Using $c_{\det}(S)$ is especially practical: if $S=LL^T$ (Cholesky), then
-$$
-\log\det(S) = 2\sum_{i=1}^n \log L_{ii}.
-$$
+### 2.2 Optional endpoint log-center (when eigs are cheap)
 
-Interpretation:
-- $\eta(S)$ measures multiplicative spread (primary global width metric).
-- $c(S)$ measures multiplicative scale drift away from 1 (remove by cheap rescaling).
-
-Target tiers (evaluated on $E=S-I$):
+If you already computed $\lambda_{\min},\lambda_{\max}$, you can also use
 $$
-\text{light: } \delta_F \le 0.35 \quad (\text{or } 0.5 \text{ if very cheap}),
+c_{\mathrm{end}}(S) := \tfrac12(\log\lambda_{\max}+\log\lambda_{\min})
 $$
-$$
-\text{medium: } \delta_F \le 0.20,
-\qquad
-\text{strong: } \delta_F \le 0.10.
-$$
+to set the geometric mean of endpoints to 1.
 
 ---
 
-## 3. Compare policies, not isolated polynomials
+## 3. Local update dynamics (exact arithmetic)
 
-We compare three policy families.
-
-### A. Direct
-Update $G$ directly with odd matrix polynomials/rationals, e.g.
+For a small-side step
 $$
-X_+ = X q(X^T X).
-$$
-For a cubic family,
-$$
-X_+ = aX + bX(X^T X) + cX(X^T X)^2.
-$$
-
-### B. Gram-side
-Form
-$$
-B = G^T G,
-$$
-refine only
-$$
-Z \approx B^{-1/2},
-$$
-then apply once:
-$$
-\widehat Q = GZ.
-$$
-
-### C. Hybrid
-Do a small number of direct global-compression steps, then switch to small-side refinement and apply once at the end.
-
-The winner is the policy with the best time-to-target and acceptable tail risk.
-
----
-
-## 4. Core exact fact
-
-For a local step
-$$
-Z_+ = Z q(S),
-\qquad
-S = Z^T B Z,
+Z_+ = Z\,q(S),\quad S=Z^T B Z,
 $$
 we get
 $$
-S_+ = q(S) S q(S).
+S_+ = q(S)S q(S),
+$$
+so eigenvalues evolve by the scalar map
+$$
+x \mapsto \phi(x) := x\,q(x)^2.
 $$
 
-So certificate eigenvalues evolve by the scalar map
-$$
-x \mapsto \phi(x) := x q(x)^2.
-$$
+We design *policies* (sequences of steps + recenter + guards), not isolated polynomials.
 
-The same map appears for direct odd updates on $G$. Therefore direct and Gram-side methods share the same exact local scalar dynamics. The difference is cost, state location, certification, and finite-precision behavior.
+---
 
-### Additive local contraction metric (near 1)
+## 4. Rational one-solve family (fast if Cholesky is fast)
 
-For a candidate $q$ and additive band around 1,
+Use the 1-parameter Mobius family
 $$
-m_q(\rho) := \sup_{x \in [1-\rho,\,1+\rho]} |x q(x)^2 - 1|.
-$$
-Exact arithmetic guarantee: if $\rho_2(S)\le \rho$, then
-$$
-\rho_2(S_+) \le m_q(\rho).
-$$
-
-### Multiplicative (log-space) global contraction metric
-
-For log-band $x \in [e^{-\eta},e^\eta]$, define
-$$
-\psi(z) := \log\!\big(\phi(e^z)\big),
-\qquad z=\log x,
-$$
-and the output log-width
-$$
-\eta_\phi(\eta) :=
-\frac12\Big(\sup_{|z|\le \eta}\psi(z) - \inf_{|z|\le \eta}\psi(z)\Big).
-$$
-
-If scalar recentering is allowed after the step, then the main global objective of a compression step is to shrink $\eta(S)$:
-$$
-\eta(S_+) \ \le\ \eta_\phi(\eta(S)).
-$$
-
-For reciprocal-symmetric updates (common in inverse-root design), $\phi(1/x)=1/\phi(x)$, hence $\psi(-z)=-\psi(z)$ and the log-center drift is automatically 0.
-
-Example: Mobius family $q_c(x) = \dfrac{x+c}{cx+1}$ has
-$$
-\phi(x) = x\left(\dfrac{x+c}{cx+1}\right)^2,
+q_c(x)=\frac{x+c}{cx+1},
 \qquad
-q_c(1/x) = \dfrac{1}{q_c(x)}.
+\phi_c(x)=x\left(\frac{x+c}{cx+1}\right)^2,
+\qquad c>0.
 $$
+
+Matrix implementation (one factorization + one solve with many RHS):
+$$
+Z_+ = Z\,(S+cI)\,(cS+I)^{-1}.
+$$
+
+This family is reciprocal-symmetric:
+$$
+q_c(1/x)=\frac{1}{q_c(x)},\quad \phi_c(1/x)=\frac{1}{\phi_c(x)},
+$$
+so it naturally fits log-width objectives.
 
 ---
 
-## 5. Default design: two phases
+## 5. Certification without power iteration
 
-### Phase 1: global compression (log-centered)
-Use a cheap, wide-basin, bf16-safe policy to reduce log-width $\eta(S)$ quickly.
+Power iteration is not required (and can be fragile in bf16).
+We use one of:
 
-Default candidates:
-- direct odd degree-$3$ or degree-$5$ schedules,
-- simple adaptive direct schedules,
-- Frobenius-based scaling as a fallback (upper-bound control),
-- Gram-side scaling / preprocessing when clearly helpful,
-- one-solve rational Gram-side compression steps if Cholesky/solve is cheap enough.
+### 5.1 Exact small-side eigs (when $n$ is modest)
+Compute $\lambda_{\min},\lambda_{\max}$ of $S_{\mathrm{sym}}=\tfrac12(S+S^T)$ in fp32,
+then $\kappa(S)$ and $\eta(S)$ exactly.
 
-Measure and compare Phase 1 steps primarily by $\eta$ shrinkage per wall time (with guards).
+### 5.2 Cholesky-only conservative $\kappa$ bound (no eigs)
+Let
+$$
+a := \frac{1}{n}\operatorname{tr}(S),\quad
+g := \exp\!\left(\frac{1}{n}\log\det(S)\right),\quad r:=\frac{a}{g}\ge 1.
+$$
+Then solve for $\kappa_{\mathrm{bound}}\ge 1$ from
+$$
+r = \frac{(n-1)+\kappa}{n\,\kappa^{1/n}}
+$$
+(by 1D bisection). This gives a rigorous upper bound $\kappa(S)\le \kappa_{\mathrm{bound}}$.
 
-### Phase 2: local finish (near 1)
-Use one or two aggressive local steps designed from the certificate map once the spectrum is near 1.
-
-Local model:
-- work near $x=1$ (additive coordinate),
-- represent $q$ in shifted Chebyshev form,
-- evaluate with Clenshaw,
-- optimize the deployed scalar step directly in bf16.
-
-Rationale: additive coordinates are efficient and stable once the spectrum has been multiplicatively compressed so that $x\approx 1$.
+### 5.3 Optional trace-based spread surrogates (very cheap)
+If you need ultra-cheap early-stage screening, use trace/Frobenius/trace-of-powers style bounds
+as surrogates for spread/condition; validate periodically with 5.1 or 5.2.
 
 ---
 
-## 6. Exact bf16 local design problem (terminal step)
+## 6. Default policy for $\kappa_\star=1.5$ (1 or 2 steps, log-centered)
 
-For the local scalar step, fix the deployed model
-$$
-t = \operatorname{rn}_{bf16}(x-1),
-$$
-$$
-q(x) = \sum_{j=0}^d c_j T_j(t),
-$$
-with bf16 Clenshaw evaluation, and deployed certificate map
-$$
-\Phi(x) := \operatorname{rn}_{bf16}\!\left(x \cdot \operatorname{rn}_{bf16}(q(x)^2)\right).
-$$
+We treat "1 vs 2 steps" as a policy choice, decided by cheap certification.
 
-Let the terminal target set be
-$$
-\mathcal T_\tau := \{ y \in \mathrm{BF16} : |y-1| \le \tau \}.
-$$
+### Constants (from scalar predecessor design; fp32 scalar model)
+- Final spec: $\kappa_\star=1.5$  (equivalently additive $\rho=0.2$ near 1).
+- Final rational parameter: $c_2 = 4.24603987205059$.
 
-For each degree $d$, solve the discrete predecessor problem:
-find the largest contiguous bf16 input band around 1 such that
-$$
-\forall x \in \mathcal X_d,
-\qquad
-\Phi(x) \in \mathcal T_\tau.
-$$
+### Policy (Gram-side)
+Input: SPD $B$ (or $B=G^T G$), start with $Z=I$.
 
-Score band width by the log-width
-$$
-\eta(\mathcal X_d) := \frac12 \log\!\left(\frac{x_{\max}}{x_{\min}}\right),
-$$
-for $\mathcal X_d = [x_{\min},x_{\max}] \cap \mathrm{BF16}$.
+Repeat for up to 2 steps:
+1) Form certificate $S=Z^T B Z$ (small side, fp32), symmetrize.
+2) Log-center using $c_{\det}(S)$ (Cholesky-only): $Z\leftarrow e^{-c_{\det}(S)/2}Z$.
+3) Apply one rational step with chosen $c$:
+   - Try $c=c_2$ first (fast path).
+   - If certification says still too wide (or if you want a safer wide-basin first step),
+     do one "compression" step (choose a larger-basin $c_1$), then finish with $c_2$.
+4) Certify $\kappa(S)$ (exact eigs if cheap, else Cholesky-only bound).
+5) Stop if $\kappa(S)\le \kappa_\star$ (or if the tier metric $\delta_F$ is satisfied).
 
-Practical rule:
-- optimize $\eta$ for raw basin width,
-- optimize $\eta / \text{cost}(d)$ for step efficiency.
+Return:
+- Gram-side: $Z$ for inverse sqrt use.
+- Polar: $\widehat Q = GZ$ (one final apply).
 
-Default degree search for terminal local steps:
-$$
-d \in \{2,3,4\}.
-$$
+Guards:
+- NaN/Inf detection
+- Cholesky failure: add tiny ridge $\epsilon I$ and log it
+- Non-monotone spikes in $\kappa$ or $\delta_F$: restart with Frobenius safety scaling
 
 ---
 
-## 7. Finite-precision stance
+## 7. Do we still need Frobenius scaling?
 
-Separate three levels.
+Not as the main design axis.
 
-### A. Exact arithmetic theory
-Rigorous scalar map:
-$$
-x \mapsto x q(x)^2,
-$$
-with exact contraction bounds via $m_q(\rho)$ or log-width maps $\eta_\phi$.
+Keep it as:
+- a cheap magnitude safety cap (avoid overflow; crude $\lambda_{\max}$ upper bound),
+- a fallback restart when something goes unstable,
+- an optional comparison baseline.
 
-### B. Exact scalar bf16 deployment model
-Centered-at-1 Chebyshev + bf16 Clenshaw predecessor solve above.
-
-### C. Real matrix-kernel deployment
-GEMM accumulation, reduction order, casts, and backend details. Must be calibrated empirically.
-
-Do not claim:
-- a universal bf16 floor,
-- a universal GEMM perturbation constant,
-- theorem-level deployed guarantees for full matrix kernels without calibration.
+The primary path is condition-number + log-centering + 1-2 rational steps.
 
 ---
 
-## 8. Certification and guards
+## 8. Benchmark plan (minimal)
 
-Always certify on the small side.
+For each snapshot/policy:
+- time (median, p95)
+- final $\kappa(S)$ and $\eta(S)$
+- final $\delta_F$ (optional, for compatibility with prior reporting)
+- # small Cholesky factorizations, # small GEMMs, # tall passes (if polar)
+- guard triggers, failures, restarts
 
-Symmetrize before spectral measurement:
-$$
-S_{\mathrm{sym}} := \tfrac12(S + S^T).
-$$
-
-Then measure (fp32/fp64 on small side when cheap enough):
-$$
-\rho_2 = \|S_{\mathrm{sym}} - I\|_2,
-\qquad
-\delta_F = \|S_{\mathrm{sym}} - I\|_F,
-\qquad
-\eta = \frac12 \log\!\left(\frac{\lambda_{\max}(S_{\mathrm{sym}})}{\lambda_{\min}(S_{\mathrm{sym}})}\right).
-$$
-
-Optional: avoid eigendecompositions for global width by using a Cholesky-only log-center and a conservative $\kappa$ bound derived from $\operatorname{tr}(S)$ and $\log\det(S)$.
-
-Every deployed policy should include:
-- NaN/Inf detection,
-- non-monotone spike detection,
-- overshoot detection,
-- one restart or rescale path,
-- one safer fallback.
+Compare:
+- Gram-side 1-step vs 2-step (condition-driven stopping),
+- Direct odd (GEMM-only) vs Gram-side (solve-heavy),
+- Hybrid schedules.
 
 ---
-
-## 9. Cost model and regime split
-
-Assume $m \ge n$.
-
-A direct odd step costs roughly:
-- one tall Gram-like build,
-- small-side products,
-- one tall apply back to $G$.
-
-A Gram-side policy costs:
-- one-time formation of $B = G^T G$,
-- only small-side refinement after that,
-- one final apply $GZ$.
-
-So the regime split is empirical.
-
-Key break-even comparison:
-- one more direct step,
-versus
-- one more small-side step plus the final apply.
-
-Expectation:
-- direct may win near square or for light targets,
-- Gram-side may win for very rectangular matrices,
-- hybrid may win in the middle.
-
-But this is a benchmark question, not a theorem.
-
----
-
-## 10. Minimal benchmark plan
-
-### Synthetic coverage
-Sweep:
-$$
-\frac{m}{n} \in \{1,2,4,8,16,32\},
-$$
-with several $n$ values and spectra such as:
-- flat,
-- moderate decay,
-- severe ill-conditioning,
-- clustered endpoints,
-- two-mass adversarial mixtures.
-
-### Real snapshots
-Use saved training matrices or Gram snapshots whenever possible.
-
-### Record per run
-- wall time (median and $p95$),
-- final $\rho_2$, $\delta_F$, and $\eta$,
-- number of tall passes,
-- number of small-side GEMMs,
-- switch point for hybrid,
-- scaling used (including recentering),
-- guard triggers,
-- failures and fallback use,
-- monotonicity of the certificate.
-
----
-
-## 11. Default execution order
-
-### Step 1
-Lock the local evaluator to centered-at-1 shifted Chebyshev with Clenshaw.
-
-### Step 2
-Solve the exact scalar bf16 predecessor problem for degrees $2,3,4$ and pick:
-- the widest local basin by $\eta$,
-- the best $\eta / \text{cost}$ tradeoff.
-
-### Step 3
-Build a minimal Phase 1 baseline using direct odd updates with simple safe scaling and log-width tracking.
-
-### Step 4
-Add a Gram-side baseline with refinement and optional multiplicative recentering.
-
-### Step 5
-Benchmark three policy families:
-- direct,
-- Gram-side,
-- hybrid,
-using aspect-ratio sweeps and real snapshots.
-
-### Step 6
-For each target tier, ship:
-- one default fast policy,
-- one safer fallback.
-
----
-
-## 12. What not to optimize directly
-
-Do not optimize
-$$
-\|Z - B^{-1/r}\|
-$$
-unless it clearly improves the applied objective.
-
-For polar and whitening-style use, the primary object is
-$$
-S = Z^T B Z \approx I,
-$$
-or equivalently
-$$
-\widehat Q^T \widehat Q \approx I.
-$$
-
-So optimize applied whitening quality and time, not abstract root approximation in isolation.
-
----
-
-## 13. Immediate tasks
-
-1. Finish the exact scalar bf16 predecessor solve for degrees $2,3,4$.
-2. Choose the best terminal local step by $\eta$ and by $\eta / \text{cost}$.
-3. Implement a minimal direct Phase 1 baseline with certification and log-width $\eta$ tracking.
-4. Add a Gram-side baseline with refinement and optional multiplicative recentering.
-5. Benchmark direct vs Gram-side vs hybrid on aspect-ratio sweeps and real snapshots.
-6. Ship one default fast policy and one fallback per target tier.
-
----
-
-## 14. One-sentence project statement
-
-Find the fastest finite-precision policy for producing an ML-useful polar factor approximation by combining bf16-safe global log-width compression, exact local certificate design, small-side certification, and aspect-ratio-aware switching between direct, Gram-side, and hybrid policies.

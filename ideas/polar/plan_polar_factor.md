@@ -230,30 +230,14 @@ We want a cheap, robust certificate of $\kappa(S)$, avoiding eigvalsh and avoidi
 ### 6.1 Log-center (always do)
 Compute $c_{\det}(S)$ via Cholesky and recenter $Z$.
 
-### 6.2 Conservative $\kappa$ upper bound using $(\operatorname{tr}S,\log\det S)$
-
-Let
-$$
-a := \frac{1}{n}\operatorname{tr}(S),\qquad
-g := \exp\!\left(\frac{1}{n}\log\det(S)\right),\qquad
-r := \frac{a}{g}\ge 1.
-$$
-Define
-$$
-F_n(\kappa) := \frac{(n-1)+\kappa}{n\,\kappa^{1/n}}.
-$$
-A rigorous worst-case bound is obtained by solving
-$$
-F_n(\kappa_{\text{bound}})=r,\qquad \kappa_{\text{bound}}\ge 1
-$$
-by 1D monotone bisection. If $\kappa_{\text{bound}} \le \kappa_\star$, stop.
-
-### 6.3 Optional sharper moment bounds (GPU-friendly)
+### 6.2 Moment bounds (GPU-friendly)
 If needed, also compute
 $$
 \operatorname{tr}(S^2)\ \text{(equivalently } \|S\|_F^2\text{)},
 $$
 and combine with trace-based inequalities to tighten decisions. Use only if it reduces total wall time.
+
+$$\min{\text{Fro}, \text{GeoMean } \sqrt{\|S\|_1 \|S\|_\infty}, \text{Gershgorin}}$$
 
 ---
 

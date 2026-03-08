@@ -178,6 +178,31 @@
   urldate = {2026-02-22}
 }
 
+@article{nakatsukasaComputingFundamentalMatrix2016,
+  title = {Computing {{Fundamental Matrix Decompositions Accurately}} via the {{Matrix Sign Function}} in {{Two Iterations}}: {{The Power}} of {{Zolotarev}}'s {{Functions}}},
+  shorttitle = {Computing {{Fundamental Matrix Decompositions Accurately}} via the {{Matrix Sign Function}} in {{Two Iterations}}},
+  author = {Nakatsukasa, Yuji and Freund, Roland W.},
+  year = 2016,
+  month = jan,
+  journal = {SIAM Review},
+  volume = {58},
+  number = {3},
+  pages = {461--493},
+  issn = {0036-1445, 1095-7200},
+  doi = {10.1137/140990334},
+  url = {http://epubs.siam.org/doi/10.1137/140990334},
+  urldate = {2026-03-08},
+  abstract = {The symmetric eigenvalue decomposition and the singular value decomposition (SVD) are fundamental matrix decompositions with many applications. Conventional algorithms for computing these decompositions are suboptimal in view of recent trends in computer architectures which require minimizing communication together with arithmetic costs. Spectral divide-and-conquer algorithms, which recursively decouple the problem into two smaller subproblems, can achieve both requirements. Such algorithms can be constructed with the polar decomposition playing two key roles: it forms a bridge between the symmetric eigendecomposition and the SVD, and its connection to the matrix sign function naturally leads to spectral-decoupling. For computing the polar decomposition, the scaled Newton and QDWH iterations are two of the most popular algorithms, as they are backward stable and converge in at most nine and six iterations, respectively. Following this framework, we develop a higher-order variant of the QDWH iteration for the polar decomposition. The key idea of this algorithm comes from approximation theory: we use the best rational approximant for the scalar sign function due to Zolotarev in 1877. The algorithm exploits the extraordinary property enjoyed by the sign function that a high-degree Zolotarev function (best rational approximant) can be obtained by appropriately composing low-degree Zolotarev functions. This lets the algorithm converge in just two iterations in double-precision arithmetic, with the whopping rate of convergence seventeen. The resulting algorithms for the symmetric eigendecompositions and the SVD have higher arithmetic costs than the QDWH-based algorithms, but are better suited for parallel computing and exhibit excellent numerical backward stability.},
+  langid = {english}
+}
+
+@article{nakatsukasaUSINGZOLOTAREVSRATIONAL,
+  title = {{{USING ZOLOTAREV}}'{{S RATIONAL APPROXIMATION FOR COMPUTING THE POLAR}}, {{SYMMETRIC EIGENVALUE}}, {{AND SINGULAR VALUE DECOMPOSITIONS}}},
+  author = {Nakatsukasa, Yuji and Freund, Roland W},
+  abstract = {The polar decomposition A = UpH finds many uses in applications, and it is a fundamental tool for computing the symmetric eigenvalue decomposition and the singular value decomposition via a spectral divide-and-conquer process. Conventional algorithms for these decompositions are suboptimal in view of recent trends in computer architectures, which require minimizing communication together with arithmetic costs. Spectral divide-and-conquer algorithms, which recursively decouple the problem into two smaller subproblems, can achieve both requirements. For computing the polar decomposition, the scaled Newton and QDWH iterations are two of the most popular algorithms, as they are backward stable and converge in at most nine and six iterations, respectively. Following this framework, in this paper, we develop a higher-order variant of the QDWH iteration for the polar decomposition. The key idea of this algorithm comes from approximation theory: we use the best rational approximant for the scalar sign function due to Zolotarev in 1877. The algorithm exploits the extraordinary property enjoyed by the sign function that a high-degree Zolotarev function (best rational approximant) can be obtained by appropriately composing low-degree Zolotarev functions. This lets the algorithm converge in just two iterations in double-precision arithmetic, with the whopping rate of convergence seventeen. The resulting algorithms for the symmetric eigenvalue and singular value decompositions have higher arithmetic costs than the QDWH-based algorithms, but are better-suited for parallel computing and exhibit excellent numerical backward stability.},
+  langid = {english}
+}
+
 @misc{NewtonSchulzDocsmodulasystems,
   title = {Newton-{{Schulz}} - Docs.Modula.Systems},
   url = {https://docs.modula.systems/algorithms/newton-schulz/},

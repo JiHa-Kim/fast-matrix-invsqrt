@@ -47,17 +47,17 @@ def build_w_from_M(
       h(z, alpha) = p * mu^{p-1} / (z + (p-1) * mu^p).
     Returns W = h(M, alpha), the shift b = (p-1) * mu^p, mu, and Cholesky jitter shift.
     """
-    M = symmetrize(M.to(torch.float64))
-    n = M.shape[0]
-    I = torch.eye(n, device=M.device, dtype=torch.float64)
-
     mu = mu_from_alpha(alpha, p)
     a1 = float(p) * (mu**(p - 1))
     b1 = float(p - 1) * (mu**p)
 
-    A = symmetrize(M + b1 * I)
+    # A = M + b1 * I. Since M is symmetric, A is symmetric.
+    A = M.clone()
+    A.diagonal().add_(b1)
+    
     L, shift = chol_with_jitter_fp64(A, jitter_rel=solve_jitter_rel)
-    W = a1 * torch.cholesky_solve(I, L)
+    # W = a1 * inv(A) = a1 * cholesky_inverse(L)
+    W = a1 * torch.cholesky_inverse(L)
     W = symmetrize(W)
     return W, float(b1), float(mu), float(shift)
 
@@ -65,6 +65,11 @@ def build_w_from_M(
 @torch.no_grad()
 def update_M(M: Tensor, W: Tensor, p: int) -> Tensor:
     # M_{k+1} = h(M_k, alpha_k)^p M_k = W^p M_k
+    if p == 4:
+        W2 = symmetrize(W @ W)
+        W4 = symmetrize(W2 @ W2)
+        return symmetrize(W4 @ M)
+    
     Wk = W
     for _ in range(p - 1):
         Wk = symmetrize(Wk @ W)

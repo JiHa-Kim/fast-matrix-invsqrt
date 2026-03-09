@@ -65,7 +65,12 @@ def run_one_case(
     alpha = float((lam_min / lam_max) ** (1.0 / float(p_root)))
 
     M = symmetrize(P_honest / tau)
-    Z = torch.eye(n, device=P_honest.device, dtype=torch.float64)
+    do_oracle = oracle_mode == "on" or (oracle_mode == "auto" and n <= oracle_n_max)
+    
+    Z = None
+    if do_oracle:
+        Z = torch.eye(n, device=P_honest.device, dtype=torch.float64)
+    
     B = G_storage.to(iter_dtype)
 
     ms_small_sum = 0.0
@@ -92,45 +97,37 @@ def run_one_case(
         ms_apply_sum += ms_apply
 
         # Small-side exact state.
-        Z = symmetrize(W @ Z)
+        if do_oracle:
+            Z = symmetrize(W @ Z)
         M = update_M(M, W, p=p_root)
         alpha = alpha_next(alpha, mu, p=p_root)
 
-        def cert_step():
-            # Theorem-based certificate from Gawlik's Corollary 3.4 for Z_tilde A^{1/p} - I.
-            eps = (1.0 - alpha) / (1.0 + alpha)
-            cert_theory = float(eps / max(1.0 - eps, 1e-300))
-
-            # A posteriori exact/bound diagnostic from M_tilde = Z_tilde^p P.
-            scale = (tau**(-1.0 / float(p_root))) * ((1.0 + alpha) / (2.0 * alpha))
-            Zt = scale * Z
-            
-            # Mtilde = Zt^p P
-            Zpk = Zt
-            for _ in range(p_root - 1):
-                Zpk = symmetrize(Zpk @ Zt)
-            Mtilde = symmetrize(Zpk @ P_honest)
-
-            cert_post = cert_action_rel_from_M(
-                Mtilde, p=p_root, cert_mode=cert_mode, exact_threshold=exact_threshold
-            )
-            return cert_theory, cert_post, float(eps)
-
-        ms_cert, (cert_theory, cert_post, eps) = cuda_time_ms(cert_step)
-        ms_cert_sum += ms_cert
-
-        final_action_rel_cert = cert_theory
-        final_resid_M_cert = float(cert_post.resid_M_cert)
-        final_resid_M_exact = float(cert_post.resid_M_exact)
+        # Theorem-based certificate from Gawlik's Corollary 3.4 for Z_tilde A^{1/p} - I.
+        eps = (1.0 - alpha) / (1.0 + alpha)
+        final_action_rel_cert = float(eps / max(1.0 - eps, 1e-300))
 
         if final_action_rel_cert <= target_action_rel:
             break
 
-    alpha_pred_action_rel = float((1.0 - alpha) / (1.0 + alpha))
-    scale = (tau**(-1.0 / float(p_root))) * ((1.0 + alpha) / (2.0 * alpha))
-    Z_tilde = scale * Z
-    B_tilde = B.float().to(torch.float64) * scale
+    def cert_step_final():
+        # A posteriori exact/bound diagnostic from M_tilde = Z_tilde^p P.
+        # Note: M_tilde = ((1+alpha)/(2*alpha))^p * M_k
+        scale_m = ((1.0 + alpha) / (2.0 * alpha)) ** p_root
+        Mtilde = symmetrize(M * scale_m)
 
+        cert_post = cert_action_rel_from_M(
+            Mtilde, p=p_root, cert_mode=cert_mode, exact_threshold=exact_threshold
+        )
+        return cert_post
+
+    ms_cert, cert_post = cuda_time_ms(cert_step_final)
+    ms_cert_sum += ms_cert
+
+    final_resid_M_cert = float(cert_post.resid_M_cert)
+    final_resid_M_exact = float(cert_post.resid_M_exact)
+
+    alpha_pred_action_rel = float((1.0 - alpha) / (1.0 + alpha))
+    
     ms_oracle = 0.0
     oracle_action_rel_fro = float("nan")
     oracle_action_rel_spec = float("nan")
@@ -138,9 +135,10 @@ def run_one_case(
     oracle_root_rel_fro = float("nan")
     oracle_root_resid = float("nan")
 
-    do_oracle = oracle_mode == "on" or (oracle_mode == "auto" and n <= oracle_n_max)
-
     if do_oracle:
+        scale = (tau**(-1.0 / float(p_root))) * ((1.0 + alpha) / (2.0 * alpha))
+        Z_tilde = scale * Z
+        B_tilde = B.float().to(torch.float64) * scale
 
         def oracle_step():
             X_exact = exact_invroot_fp64(P_honest, p=p_root)

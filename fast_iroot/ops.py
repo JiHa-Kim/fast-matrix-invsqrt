@@ -110,10 +110,27 @@ def apply_right_chunked(
     Y: Tensor, Q: Tensor, chunk_rows: int, out_dtype: torch.dtype
 ) -> Tensor:
     m, n = Y.shape
+    # If out_dtype is float32, we can usually afford to do the GEMM in float32.
+    # Gawlik minimax iterations are robust. For p-th roots, the "small" side
+    # MUST be float64, but applying it to the "large" side can often be float32.
+    comp_dtype = Q.dtype
+    if out_dtype == torch.float32 and Q.dtype == torch.float64:
+        # On consumer GPUs, float64 is 32x slower than float32.
+        # If the user chose float32 for iterations, they likely want speed.
+        comp_dtype = torch.float32
+
     out = torch.empty((m, n), device=Y.device, dtype=out_dtype)
-    Q64 = Q.to(torch.float64)
+    Q_comp = Q.to(comp_dtype)
+    
+    # If m is small enough, avoid chunking overhead.
+    # 32768 * 8192 * 4 bytes is 1GB, which fits in most GPUs.
+    # Let's use a heuristic for chunking.
+    if m <= chunk_rows:
+        return (Y.to(comp_dtype) @ Q_comp).to(out_dtype)
+
     for i in range(0, m, chunk_rows):
-        Yi = Y[i : i + chunk_rows].float().to(torch.float64)
-        Zi = Yi @ Q64
-        out[i : i + chunk_rows] = Zi.to(out_dtype)
+        end = min(i + chunk_rows, m)
+        Yi = Y[i:end].to(comp_dtype)
+        Zi = Yi @ Q_comp
+        out[i:end] = Zi.to(out_dtype)
     return out

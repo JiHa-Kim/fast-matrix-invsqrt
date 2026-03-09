@@ -105,6 +105,12 @@ def main() -> None:
         )
 
     if args.mode == "demo":
+        # Warmup
+        for _ in range(2):
+            G, P = make_case(args.m, args.n, args.seed, 0)
+            _ = run_case(G, P)
+            del G, P
+        
         G, P = make_case(args.m, args.n, args.seed, 0)
         res = run_case(G, P)
         print("")

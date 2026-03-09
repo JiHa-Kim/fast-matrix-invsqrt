@@ -97,20 +97,20 @@ product-form Cholesky realization matters: it preserves the same scalar map as
 the exact Zolotarev step while avoiding the numerical instability of the
 partial-fraction sum.
 
-## Current fast schedule
+## Current fixed schedules
 
-For the hard case $\kappa_G = 10^7$, the stable two-step CUDA schedule found in
-practice is:
+The repository now keeps a small fixed schedule set instead of a large search
+surface:
 
-1. exact Zolo with $r = 3$,
-2. exact Zolo with $r = 2$,
+1. `zolo22` for the fast target near $1 + 2^{-7}$,
+2. `zolo32` as the stronger two-step fallback,
+3. `dwh3` as the baseline.
 
-both applied with the product-form Cholesky realization.
-
-This gives a guaranteed scalar contraction
+All Zolo schedules use the product-form Cholesky realization. The scalar
+guarantee is still
 
 $$
 \kappa_O^{(2)} \le \frac{1}{r_2(r_1(\ell_0))},
 $$
 
-and on CUDA it avoids the failure mode of the older sum-based implementation.
+but the repository surface is smaller and easier to benchmark cleanly.

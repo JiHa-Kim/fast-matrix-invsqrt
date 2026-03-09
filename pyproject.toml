@@ -50,3 +50,7 @@ torchvision = { index = "pytorch" }
 
 [tool.pytest.ini_options]
 pythonpath = "."
+
+[tool.ruff.lint]
+# E741: Ambiguous variable name (I, l, O)
+ignore = ["E741"]

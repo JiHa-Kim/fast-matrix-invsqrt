@@ -3,13 +3,13 @@
 Lean experimental kernels for two related problems:
 
 - `polar/`: two-step rational polar iteration using product-form Zolotarev steps and Cholesky-only updates
-- `fast_iroot/`: inverse fourth-root action baseline
+- `fast_iroot/`: action-only baseline for computing G P^(-1/p) using Principled Gawlik minimax iterations
 
 ## Layout
 
 - `polar_schedule.py`: CLI for the polar benchmark/demo runner
 - `polar/`: modular polar implementation
-- `fast_iroot/inv_fourthroot.py`: inverse fourth-root runner and oracle checks
+- `fast_iroot/main.py`: unified inverse p-th root action baseline (p=2, 4)
 - `ideas/polar/`: short notes on the current polar design
 
 ## Polar usage
@@ -26,8 +26,9 @@ The current fixed schedules are:
 
 Exact success is measured with final `eigvalsh` verification.
 
-## Inverse fourth-root usage
+## Inverse root usage
 
 ```powershell
-python -m fast_iroot.inv_fourthroot --help
+python -m fast_iroot.main --p_root 4 --mode demo --m 2048 --n 256
 ```
+

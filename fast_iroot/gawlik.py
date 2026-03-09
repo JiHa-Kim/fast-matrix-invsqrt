@@ -65,15 +65,23 @@ def build_w_from_M(
 @torch.no_grad()
 def update_M(M: Tensor, W: Tensor, p: int) -> Tensor:
     # M_{k+1} = h(M_k, alpha_k)^p M_k = W^p M_k
+    # For large n, MMM is O(n^3). On consumer GPUs, f64 is very slow.
+    # W is close to M^{-1/p}. M is close to I.
+    # We can do the multiplications in float32 and convert back to float64.
+    W32 = W.to(torch.float32)
+    M32 = M.to(torch.float32)
+
     if p == 4:
-        W2 = symmetrize(W @ W)
+        W2 = symmetrize(W32 @ W32)
         W4 = symmetrize(W2 @ W2)
-        return symmetrize(W4 @ M)
+        res32 = symmetrize(W4 @ M32)
+        return res32.to(torch.float64)
     
-    Wk = W
+    Wk = W32
     for _ in range(p - 1):
-        Wk = symmetrize(Wk @ W)
-    return symmetrize(Wk @ M)
+        Wk = symmetrize(Wk @ W32)
+    res32 = symmetrize(Wk @ M32)
+    return res32.to(torch.float64)
 
 
 @dataclasses.dataclass

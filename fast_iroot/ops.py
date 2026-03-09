@@ -10,7 +10,9 @@ Tensor = torch.Tensor
 
 
 def symmetrize(A: Tensor) -> Tensor:
-    return 0.5 * (A + A.T)
+    # A.add_(A.mT) fails because A.mT is a view of A.
+    # We use the standard form which is safe and reasonably fast.
+    return 0.5 * (A + A.mT)
 
 
 def pct(xs: List[float], p: float) -> float:

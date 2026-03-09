@@ -10,7 +10,7 @@ Tensor = torch.Tensor
 
 
 def symmetrize(A: Tensor) -> Tensor:
-    return 0.5 * (A + A.T)
+    return 0.5 * (A + A.mT)
 
 
 def cuda_time_ms(fn):
@@ -48,6 +48,8 @@ def gram_xtx_chunked_fp64(X: Tensor, chunk_rows: int) -> Tensor:
     m, n = X.shape
     S = torch.zeros((n, n), device=X.device, dtype=torch.float64)
     for i in range(0, m, chunk_rows):
+        # The user wants to keep original precision logic.
+        # This code explicitly converts to float64 for the MMM.
         Xi = X[i : i + chunk_rows].float().to(torch.float64)
         S.addmm_(Xi.T, Xi)
     return symmetrize(S)
@@ -57,11 +59,13 @@ def gram_xtx_chunked_fp64(X: Tensor, chunk_rows: int) -> Tensor:
 def chol_with_jitter_fp64(
     A: Tensor, jitter_rel: float, max_tries: int = 8
 ) -> Tuple[Tensor, float]:
+    # Ensure input is float64 and symmetric as per original
     A = symmetrize(A.to(torch.float64))
     if not torch.isfinite(A).all():
         raise RuntimeError("non-finite matrix before Cholesky")
 
     n = A.shape[0]
+    # Keep trace and eye logic as per original to preserve exact numerical behavior
     I = torch.eye(n, device=A.device, dtype=torch.float64)
     scale = float((torch.trace(A).abs() / max(n, 1)).item())
     base = max(float(jitter_rel) * max(scale, 1.0), 1e-30)

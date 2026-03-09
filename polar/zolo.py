@@ -52,21 +52,27 @@ def dwh_step_chunked(
     jitter_rel: float,
     out_dtype: torch.dtype,
 ) -> Tuple[Tensor, float]:
+    # Mathematical Form: X_{k+1} = X_k (a I + b S) (I + c S)^{-1}
+    # This is equivalent to X_k [ (b/c) I + (a - b/c) (I + c S)^{-1} ]
     a, b, c = dwh_coeffs_from_ell(ell)
     n = S.shape[0]
     I = torch.eye(n, device=S.device, dtype=torch.float64)
     M = symmetrize(I + float(c) * S)
     L, shift = chol_with_jitter_fp64(M, jitter_rel=jitter_rel)
+    
+    # We precompute the n x n update matrix Q.
+    # GEMM (X @ Q) is much faster than TRSM (cholesky_solve).
+    invM = torch.cholesky_inverse(L)
     alpha = float(b / c)
     beta = float(a - b / c)
+    Q = alpha * I + beta * invM
 
     X_next = torch.empty_like(X, dtype=out_dtype)
     for i in range(0, X.shape[0], rhs_chunk_rows):
-        Xi = X[i : i + rhs_chunk_rows].float().to(torch.float64)
-        Yi_t = torch.cholesky_solve(Xi.T.contiguous(), L)
-        Yi = Yi_t.T
-        Zi = alpha * Xi + beta * Yi
-        X_next[i : i + rhs_chunk_rows] = Zi.to(dtype=out_dtype)
+        end = min(i + rhs_chunk_rows, X.shape[0])
+        Xi = X[i:end].to(torch.float64)
+        Zi = Xi @ Q
+        X_next[i:end] = Zi.to(dtype=out_dtype)
 
     return X_next, float(shift)
 
@@ -143,10 +149,16 @@ def zolo_product_step_chunked(
     jitter_rel: float,
     out_dtype: torch.dtype,
 ) -> Tuple[Tensor, float]:
+    # Mathematical Form: X_{k+1} = mhat * X_k * product( (S + co I)^{-1} (S + ce I) )
+    # This is equivalent to X_k * [ mhat * product( I + (ce - co) (S + co I)^{-1} ) ]
+    # The term in brackets is a pure n x n matrix. By computing it first, 
+    # we reduce the number of passes over the large matrix X from r to 1.
     n = S.shape[0]
     I = torch.eye(n, device=S.device, dtype=torch.float64)
-    X_work = X.to(dtype=out_dtype)
     max_shift = 0.0
+
+    # Initialize n x n update matrix Q
+    Q = torch.eye(n, device=S.device, dtype=torch.float64)
 
     for ce, co in zip(coeffs.c_even, coeffs.c_odd):
         Z = symmetrize(S + float(co) * I)
@@ -154,18 +166,18 @@ def zolo_product_step_chunked(
         max_shift = max(max_shift, float(shift))
         delta = float(ce - co)
 
-        X_next = torch.empty_like(X_work)
-        for i in range(0, X_work.shape[0], rhs_chunk_rows):
-            Xi = X_work[i : i + rhs_chunk_rows].float().to(torch.float64)
-            Yi_t = torch.cholesky_solve(Xi.T.contiguous(), L)
-            Yi = Yi_t.T
-            Zi = Xi + delta * Yi
-            X_next[i : i + rhs_chunk_rows] = Zi.to(dtype=out_dtype)
-        X_work = X_next
+        # Update Q: Q_next = Q @ (I + delta * Z^{-1}) = Q + delta * (Q @ Z^{-1})
+        invZ = torch.cholesky_inverse(L)
+        Q = Q + delta * (Q @ invZ)
 
-    if out_dtype == torch.float64:
-        X_work = float(coeffs.mhat) * X_work
-    else:
-        X_work = (float(coeffs.mhat) * X_work.float()).to(dtype=out_dtype)
+    Q = float(coeffs.mhat) * Q
 
-    return X_work, float(max_shift)
+    # One pass over X using GEMM
+    X_next = torch.empty_like(X, dtype=out_dtype)
+    for i in range(0, X.shape[0], rhs_chunk_rows):
+        end = min(i + rhs_chunk_rows, X.shape[0])
+        Xi = X[i:end].to(torch.float64)
+        Zi = Xi @ Q
+        X_next[i:end] = Zi.to(dtype=out_dtype)
+
+    return X_next, float(max_shift)

@@ -73,6 +73,35 @@ def test_poly_schedule_smoke() -> None:
     assert res.final_kO_exact < 2.0
 
 
+def test_poly_schedule_smoke_bf16() -> None:
+    singulars = torch.logspace(0.0, -1.0, 16, base=10.0, dtype=torch.float32)
+    G = make_matrix_from_singulars(
+        m=64,
+        singulars=singulars,
+        seed=2,
+        device=_device(),
+        storage_dtype=torch.bfloat16,
+    )
+    from polar.schedules import build_schedule
+
+    res = run_one_case(
+        G_storage=G,
+        target_kappa_O=2.5,
+        schedule=build_schedule("poly16x2", 1.0 / 10.0, 100),
+        iter_dtype=torch.bfloat16,
+        gram_chunk_rows=64,
+        rhs_chunk_rows=64,
+        jitter_rel=1e-15,
+        cert_jitter_rel=1e-15,
+        tf32=False,
+        exact_verify_device="cpu",
+        zolo_coeff_dps=100,
+        stop_on_cert=False,
+    )
+    assert torch.isfinite(torch.tensor(res.final_kO_exact))
+    assert res.last_step_kind == "POLY(d=16)"
+
+
 def test_polar_express_chebyshev_matches_monomial() -> None:
     S = torch.diag(torch.tensor([0.2, 0.6, 1.0], dtype=torch.bfloat16, device=_device()))
     step_mono = polar_express_step(0.2, 1.0, degree_q=2, basis="monomial")

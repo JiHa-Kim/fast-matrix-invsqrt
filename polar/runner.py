@@ -96,15 +96,17 @@ def run_one_case(
     last_step_kind = "none"
     final_kO_cert = float("inf")
 
+    # Polynomial schedules are intended to stay in the iteration dtype end to end.
+    poly_schedule = any(step.kind in {"POLY", "PE"} for step in schedule)
+
     # Q_acc accumulates all updates to X. X_final = X_init @ Q_acc.
-    Q_acc = torch.eye(G_storage.shape[1], device=device, dtype=torch.float64)
-    pe_schedule = any(step.kind == "PE" for step in schedule)
-    if pe_schedule:
+    q_acc_dtype = iter_dtype if poly_schedule else torch.float64
+    Q_acc = torch.eye(G_storage.shape[1], device=device, dtype=q_acc_dtype)
+    if poly_schedule:
         ms_upd, (X, _fro_scale) = cuda_time_ms(lambda: polar_express_fro_scale(X))
         ms_upd_sum += ms_upd
-        Q_acc = torch.eye(G_storage.shape[1], device=device, dtype=iter_dtype)
     # The Gram matrix S is updated in O(n^3) to avoid O(mn^2) passes.
-    if pe_schedule:
+    if poly_schedule:
         ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked(X, gram_chunk_rows, iter_dtype))
     else:
         ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fp64(X, gram_chunk_rows))
@@ -157,7 +159,7 @@ def run_one_case(
                     lambda: poly_step_matrix_only(
                         S=S,
                         coeffs=coeffs,
-                        matmul_dtype=torch.float32,
+                        matmul_dtype=iter_dtype,
                     )
                 )
                 last_step_kind = f"POLY(d={step.degree})"
@@ -222,7 +224,7 @@ def run_one_case(
         guards += int(shift > 0.0)
 
     # Finalize the fusion: One pass over X.
-    if pe_schedule:
+    if poly_schedule:
         ms_upd, X = cuda_time_ms(
             lambda: apply_right_small_chunked_typed(X, Q_acc, rhs_chunk_rows, iter_dtype, iter_dtype)
         )

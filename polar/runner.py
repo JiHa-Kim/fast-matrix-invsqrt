@@ -172,6 +172,8 @@ def run_one_case(
                     coeffs=step.pe_coeffs,
                     shifted_coeffs=step.pe_shifted_coeffs,
                     shift_center=step.pe_shift_center,
+                    shift_scale=step.pe_shift_scale,
+                    shift_gain=step.pe_shift_gain,
                     max_step_err=float("nan"),
                     pred_sigma_min=step.ell_out,
                     pred_sigma_max=step.u_out,

@@ -9,7 +9,7 @@ import torch
 
 from polar.ops import bf16_target
 from polar.runner import RunSummary, run_one_case
-from polar.runner_fast import run_one_case_fast
+from polar.rational.runner_fast import run_one_case_fast
 from polar.schedules import StepSpec, auto_schedule_name, build_schedule
 from polar.synthetic import (
     dtype_from_name,

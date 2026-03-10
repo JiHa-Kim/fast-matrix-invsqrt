@@ -27,9 +27,67 @@ class PolarExpressStep:
     coeffs: Tuple[float, ...]
     shifted_coeffs: Tuple[float, ...]
     shift_center: float
+    shift_scale: float
+    shift_gain: float
     max_step_err: float
     pred_sigma_min: float
     pred_sigma_max: float
+
+
+def _scaled_horner_action(Xi: Tensor, T: Tensor, power_coeffs: tuple[float, ...], gain: float) -> Tensor:
+    Z = float(power_coeffs[-1]) * Xi
+    for ck in reversed(power_coeffs[:-1]):
+        Z = (Z @ T) + float(ck) * Xi
+    return float(gain) * Z
+
+
+def _scaled_horner_matrix(T: Tensor, power_coeffs: tuple[float, ...], gain: float, out_dtype: torch.dtype) -> Tensor:
+    n = T.shape[0]
+    I = torch.eye(n, device=T.device, dtype=out_dtype)
+    Z = float(power_coeffs[-1]) * I
+    for ck in reversed(power_coeffs[:-1]):
+        Z = symmetrize((Z @ T) + float(ck) * I)
+    return symmetrize(float(gain) * Z)
+
+
+def _recenter_power_coeffs(
+    power_coeffs: np.ndarray,
+    center: float,
+    scale: float,
+) -> np.ndarray:
+    shifted = np.zeros_like(power_coeffs)
+    for j, aj in enumerate(power_coeffs):
+        for k in range(j + 1):
+            shifted[k] += aj * math.comb(j, k) * (center ** (j - k))
+    scaled = shifted.copy()
+    for k in range(scaled.shape[0]):
+        scaled[k] *= float(scale) ** k
+    return scaled
+
+
+def _choose_scaled_parameterization(
+    power_coeffs: np.ndarray,
+    x_lo: float,
+    x_hi: float,
+) -> tuple[float, float, np.ndarray]:
+    mid = 0.5 * (x_lo + x_hi)
+    centers = np.linspace(x_lo, x_hi, 17, dtype=np.float64)
+    centers = np.unique(np.concatenate([centers, np.array([mid, 1.0], dtype=np.float64)]))
+    candidates = []
+    for center in centers:
+        radius = max(abs(x_lo - float(center)), abs(x_hi - float(center)), 1e-30)
+        coeffs = _recenter_power_coeffs(power_coeffs, float(center), radius)
+        candidates.append((float(center), float(radius), coeffs))
+
+    def _score(item: tuple[float, float, np.ndarray]) -> tuple[float, float, float]:
+        center, _scale, coeffs = item
+        return (
+            float(np.max(np.abs(coeffs))),
+            float(np.sum(np.abs(coeffs))),
+            abs(center - 1.0),
+        )
+
+    return min(candidates, key=_score)
 
 
 def _sigma_grid(sigma_lo: float, sigma_hi: float, num_log: int = 1024, num_lin: int = 1024) -> np.ndarray:
@@ -255,6 +313,8 @@ def polar_express_step(
         coeffs=tuple(float(v) for v in coeffs),
         shifted_coeffs=(),
         shift_center=0.0,
+        shift_scale=1.0,
+        shift_gain=1.0,
         max_step_err=0.0,
         pred_sigma_min=0.0,
         pred_sigma_max=0.0,
@@ -278,10 +338,12 @@ def polar_express_step(
         anchored_power[:-1] -= power_coeffs
         power_coeffs = anchored_power
     shift_center = 0.5 * (x_lo + x_hi)
-    shifted = np.zeros_like(power_coeffs)
-    for j, aj in enumerate(power_coeffs):
-        for k in range(j + 1):
-            shifted[k] += aj * math.comb(j, k) * (shift_center ** (j - k))
+    shift_scale = 1.0
+    shifted = _recenter_power_coeffs(power_coeffs, shift_center, shift_scale)
+    if not anchored and degree_q <= 3:
+        shift_center, shift_scale, shifted = _choose_scaled_parameterization(power_coeffs, x_lo, x_hi)
+    shift_gain = float(max(np.max(np.abs(shifted)), 1e-30))
+    shifted = shifted / shift_gain
     return PolarExpressStep(
         sigma_lo=sigma_lo,
         sigma_hi=sigma_hi,
@@ -293,6 +355,8 @@ def polar_express_step(
         coeffs=tuple(float(v) for v in coeffs),
         shifted_coeffs=tuple(float(v) for v in shifted),
         shift_center=float(shift_center),
+        shift_scale=float(shift_scale),
+        shift_gain=float(shift_gain),
         max_step_err=max_step_err,
         pred_sigma_min=float(sigma_min),
         pred_sigma_max=float(sigma_max),
@@ -309,13 +373,11 @@ def polar_express_step_matrix_only(
     if coeffs.basis == "monomial":
         n = S.shape[0]
         I = torch.eye(n, device=S.device, dtype=matmul_dtype)
-        Delta = symmetrize(S_work - float(coeffs.shift_center) * I)
-        Q = torch.zeros_like(S_work)
-        power = I
-        for ck in coeffs.shifted_coeffs:
-            Q = symmetrize(Q + float(ck) * power)
-            power = symmetrize(power @ Delta)
+        V = symmetrize((S_work - float(coeffs.shift_center) * I) / max(float(coeffs.shift_scale), 1e-30))
+        Q = _scaled_horner_matrix(V, coeffs.shifted_coeffs, coeffs.shift_gain, matmul_dtype)
     elif coeffs.basis == "chebyshev":
+        n = S.shape[0]
+        I = torch.eye(n, device=S.device, dtype=matmul_dtype)
         if coeffs.anchored:
             R = chebyshev_clenshaw_matrix(
                 S_work,
@@ -324,28 +386,10 @@ def polar_express_step_matrix_only(
                 interval_hi=coeffs.interval_hi,
                 out_dtype=matmul_dtype,
             )
-            n = S.shape[0]
-            I = torch.eye(n, device=S.device, dtype=matmul_dtype)
             Q = symmetrize(I + (S_work - I) @ R)
-        elif coeffs.degree_q == 2:
-            c0, c1, c2 = (float(v) for v in coeffs.coeffs)
-            n = S.shape[0]
-            I = torch.eye(n, device=S.device, dtype=matmul_dtype)
-            mid = 0.5 * (coeffs.interval_lo + coeffs.interval_hi)
-            radius = 0.5 * (coeffs.interval_hi - coeffs.interval_lo)
-            T = symmetrize((S_work - float(mid) * I) / max(float(radius), 1e-30))
-            T2 = symmetrize(T @ T)
-            Q = symmetrize((c0 - c2) * I + c1 * T + (2.0 * c2) * T2)
-        elif coeffs.degree_q == 3:
-            c0, c1, c2, c3 = (float(v) for v in coeffs.coeffs)
-            n = S.shape[0]
-            I = torch.eye(n, device=S.device, dtype=matmul_dtype)
-            mid = 0.5 * (coeffs.interval_lo + coeffs.interval_hi)
-            radius = 0.5 * (coeffs.interval_hi - coeffs.interval_lo)
-            T = symmetrize((S_work - float(mid) * I) / max(float(radius), 1e-30))
-            T2 = symmetrize(T @ T)
-            T3 = symmetrize(T2 @ T)
-            Q = symmetrize((c0 - c2) * I + (c1 - 3.0 * c3) * T + (2.0 * c2) * T2 + (4.0 * c3) * T3)
+        elif coeffs.degree_q <= 3:
+            V = symmetrize((S_work - float(coeffs.shift_center) * I) / max(float(coeffs.shift_scale), 1e-30))
+            Q = _scaled_horner_matrix(V, coeffs.shifted_coeffs, coeffs.shift_gain, matmul_dtype)
         else:
             Q = chebyshev_clenshaw_matrix(
                 S_work,
@@ -376,18 +420,20 @@ def polar_express_action_chunked(
 
     if coeffs.basis == "monomial":
         I = torch.eye(n, device=S.device, dtype=out_dtype)
-        Delta = symmetrize(S_work - float(coeffs.shift_center) * I)
+        V = symmetrize((S_work - float(coeffs.shift_center) * I) / max(float(coeffs.shift_scale), 1e-30))
         for i in range(0, m, rhs_chunk_rows):
             Xi = X[i : i + rhs_chunk_rows].to(dtype=out_dtype)
-            Zi = float(coeffs.shifted_coeffs[-1]) * Xi
-            for ck in reversed(coeffs.shifted_coeffs[:-1]):
-                Zi = (Zi @ Delta) + float(ck) * Xi
-            Y[i : i + rhs_chunk_rows] = Zi
+            Y[i : i + rhs_chunk_rows] = _scaled_horner_action(Xi, V, coeffs.shifted_coeffs, coeffs.shift_gain)
     elif coeffs.basis == "chebyshev":
-        mid = 0.5 * (coeffs.interval_lo + coeffs.interval_hi)
-        radius = 0.5 * (coeffs.interval_hi - coeffs.interval_lo)
         I = torch.eye(n, device=S.device, dtype=out_dtype)
-        T = symmetrize((S_work - float(mid) * I) / max(float(radius), 1e-30))
+        T = None
+        V = None
+        if coeffs.anchored or coeffs.degree_q > 3:
+            mid = 0.5 * (coeffs.interval_lo + coeffs.interval_hi)
+            radius = 0.5 * (coeffs.interval_hi - coeffs.interval_lo)
+            T = symmetrize((S_work - float(mid) * I) / max(float(radius), 1e-30))
+        else:
+            V = symmetrize((S_work - float(coeffs.shift_center) * I) / max(float(coeffs.shift_scale), 1e-30))
         for i in range(0, m, rhs_chunk_rows):
             Xi = X[i : i + rhs_chunk_rows].to(dtype=out_dtype)
             if coeffs.anchored:
@@ -400,22 +446,8 @@ def polar_express_action_chunked(
                     b_kplus1 = b_k
                 Ri = (b_kplus1 @ T) - b_kplus2 + float(coeffs.coeffs[0]) * rhs
                 Y[i : i + rhs_chunk_rows] = Xi + Ri
-            elif coeffs.degree_q == 2:
-                c0, c1, c2 = (float(v) for v in coeffs.coeffs)
-                XiT = Xi @ T
-                XiT2 = XiT @ T
-                Y[i : i + rhs_chunk_rows] = (c0 - c2) * Xi + c1 * XiT + (2.0 * c2) * XiT2
-            elif coeffs.degree_q == 3:
-                c0, c1, c2, c3 = (float(v) for v in coeffs.coeffs)
-                XiT = Xi @ T
-                XiT2 = XiT @ T
-                XiT3 = XiT2 @ T
-                Y[i : i + rhs_chunk_rows] = (
-                    (c0 - c2) * Xi
-                    + (c1 - 3.0 * c3) * XiT
-                    + (2.0 * c2) * XiT2
-                    + (4.0 * c3) * XiT3
-                )
+            elif coeffs.degree_q <= 3:
+                Y[i : i + rhs_chunk_rows] = _scaled_horner_action(Xi, V, coeffs.shifted_coeffs, coeffs.shift_gain)
             else:
                 b_kplus1 = torch.zeros_like(Xi)
                 b_kplus2 = torch.zeros_like(Xi)

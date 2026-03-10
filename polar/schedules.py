@@ -27,6 +27,8 @@ class StepSpec:
     pe_interval_lo: float = 0.0
     pe_interval_hi: float = 0.0
     pe_shift_center: float = 0.0
+    pe_shift_scale: float = 1.0
+    pe_shift_gain: float = 1.0
 
 
 def _zolo_step(ell: float, r: int, zolo_coeff_dps: int) -> StepSpec:
@@ -190,6 +192,8 @@ def _pe_step_from_interval(
         pe_interval_lo=float(coeffs.interval_lo),
         pe_interval_hi=float(coeffs.interval_hi),
         pe_shift_center=float(coeffs.shift_center),
+        pe_shift_scale=float(coeffs.shift_scale),
+        pe_shift_gain=float(coeffs.shift_gain),
     )
 
 

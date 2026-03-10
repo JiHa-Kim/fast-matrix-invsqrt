@@ -5,7 +5,12 @@ from typing import Tuple
 
 import torch
 
-from polar.ops import symmetrize, safe_exp, acosh_exp, chol_with_jitter_fp64
+from polar.ops import (
+    symmetrize,
+    safe_exp,
+    acosh_exp,
+    chol_with_jitter_fp64,
+)
 
 Tensor = torch.Tensor
 
@@ -36,3 +41,29 @@ def cert_bound_trace_logdet_stable(S: Tensor, jitter_rel: float) -> Tuple[float,
     logu = 0.5 * n * math.log(r)
     eta_ub = acosh_exp(logu)
     return float(safe_exp(eta_ub)), float(shift)
+
+
+@torch.no_grad()
+def apply_right_small_chunked_fast(
+    X: Tensor, U: Tensor, rhs_chunk_rows: int, out_dtype: torch.dtype
+) -> Tensor:
+    """
+    Lower-precision version of apply_right_small_chunked.
+    """
+    m, n = X.shape
+    X_next = torch.empty((m, n), device=X.device, dtype=out_dtype)
+    
+    # Use the higher precision of X or U for the intermediate multiplication
+    work_dtype = torch.promote_types(X.dtype, U.dtype)
+    if work_dtype == torch.float16 or work_dtype == torch.bfloat16:
+        # Avoid half precision for the actual matmul if possible for stability
+        work_dtype = torch.float32
+        
+    U_work = U.to(dtype=work_dtype)
+
+    for i in range(0, m, rhs_chunk_rows):
+        Xi = X[i : i + rhs_chunk_rows].to(dtype=work_dtype)
+        Zi = Xi @ U_work
+        X_next[i : i + rhs_chunk_rows] = Zi.to(dtype=out_dtype)
+
+    return X_next

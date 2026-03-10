@@ -7,12 +7,11 @@ from typing import Sequence
 import torch
 
 from polar.ops import (
-    apply_right_small_chunked,
     cuda_time_ms,
     gram_xtx_chunked,
     symmetrize,
 )
-from polar.rational.ops_stable import cert_bound_trace_logdet_stable
+from polar.rational.ops import cert_bound_trace_logdet_stable, apply_right_small_chunked_fast
 from polar.rational.dwh import (
     dwh_ell_next,
     dwh_step_chunked,
@@ -109,41 +108,16 @@ def run_one_case_fast(
                 dwh_steps += 1
                 last_step_kind = "DWH_STABLE_SOLVE"
             elif step.kind == "DWH_TUNED_FP32":
-                # Special case: direct update on X, but we can also return Q for S update
-                # Actually, tuned_fp32 does its own chunked update.
-                # To keep S update O(n^3), we'd need Q. 
-                # Let's use the matrix_only version if we want O(n^3).
-                # But tuned_fp32 was designed for direct update stability.
-                # For 'fast' runner, we prefer O(n^3) if possible.
-                from polar.rational.dwh_tuned_fp32 import get_tuned_dwh_coeffs_fp32
-                a, b, c = get_tuned_dwh_coeffs_fp32(step.ell_in)
-                
-                def tuned_step_matrix_only():
-                    I = torch.eye(S.shape[0], device=S.device, dtype=S.dtype)
-                    M = symmetrize(I + float(c) * S)
-                    invM, info = torch.linalg.solve_ex(M, I)
-                    # Handle failure similarly to tuned implementation
-                    if (info != 0).any():
-                        scale = float((torch.trace(M).abs() / max(S.shape[0], 1)).item())
-                        base = max(float(jitter_rel) * max(scale, 1.0), 1e-7 * scale)
-                        delta = base
-                        for _ in range(8):
-                            Mt = M + delta * I
-                            invM, info = torch.linalg.solve_ex(Mt, I)
-                            if (info == 0).all():
-                                break
-                            delta *= 2.0
-                        else:
-                            raise RuntimeError("tuned_fp32_fast: solve_ex failed")
-                    
-                    alpha = float(b / c)
-                    beta = float(a - b / c)
-                    Q = alpha * I + beta * invM
-                    return Q, 0.0 # shift ignored for now
-                
-                ms_solve, (Q_step, shift) = cuda_time_ms(tuned_step_matrix_only)
+                from polar.rational.dwh_tuned_fp32 import dwh_step_matrix_only_tuned_fp32
+                ms_solve, (Q_step, shift) = cuda_time_ms(
+                    lambda: dwh_step_matrix_only_tuned_fp32(
+                        S=S,
+                        ell=step.ell_in,
+                        jitter_rel=jitter_rel,
+                    )
+                )
                 dwh_steps += 1
-                last_step_kind = "DWH_TUNED_FP32_FAST"
+                last_step_kind = "DWH_TUNED_FP32"
             elif step.kind == "DWH_MIXED":
                 ms_solve, (Q_step, shift) = cuda_time_ms(
                     lambda: dwh_step_mixed(
@@ -164,26 +138,53 @@ def run_one_case_fast(
                 )
                 dwh_steps += 1
                 last_step_kind = "DWH_MIXED_SOLVE"
-                # Update X and recompute S
+            elif step.kind == "ZOLO":
+                # For aggressive speed, we use mixed-precision ZOLO with direct X update
+                coeffs = zolo_coeffs_from_ell(step.r, step.ell_in, dps=zolo_coeff_dps)
+                
+                def zolo_mixed_step_stable():
+                    S_fp64 = S.to(torch.float64)
+                    n = S_fp64.shape[0]
+                    I_fp64 = torch.eye(n, device=S_fp64.device, dtype=torch.float64)
+                    Q_fp64 = torch.eye(n, device=S_fp64.device, dtype=torch.float64)
+                    max_shift = 0.0
+                    for ce, co in zip(coeffs.c_even, coeffs.c_odd):
+                        M = symmetrize(S_fp64 + float(co) * I_fp64)
+                        invM, info = torch.linalg.solve_ex(M, I_fp64)
+                        if (info != 0).any():
+                            # Escalation
+                            scale = float((torch.trace(M).abs() / max(n, 1)).item())
+                            base = max(float(jitter_rel) * max(scale, 1.0), 1e-30)
+                            delta_jitter = base
+                            for _ in range(8):
+                                Mt = M + delta_jitter * I_fp64
+                                invM, info = torch.linalg.solve_ex(Mt, I_fp64)
+                                if (info == 0).all():
+                                    max_shift = max(max_shift, delta_jitter)
+                                    break
+                                delta_jitter *= 2.0
+                            else:
+                                raise RuntimeError("Zolo solve failed even after jitter")
+                        
+                        delta = float(ce - co)
+                        Q_fp64 = Q_fp64 + delta * (Q_fp64 @ invM)
+                    
+                    Q_fp64 = float(coeffs.mhat) * Q_fp64
+                    return Q_fp64.to(iter_dtype), max_shift
+                
+                ms_solve, (Q_step, shift) = cuda_time_ms(zolo_mixed_step_stable)
+                zolo_steps += 1
+                last_step_kind = f"ZOLO_MIXED(r={step.r})"
+                
+                # Direct update on X and recompute S for maximum accuracy in pure FP32
                 if Q_step.dtype != iter_dtype:
                     Q_step = Q_step.to(dtype=iter_dtype)
-                X = X @ Q_step # O(mn^2) update for now to be safe
+                X = X @ Q_step
                 ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked(X, gram_chunk_rows, iter_dtype))
                 ms_gram_sum += ms_gram
                 ms_solve_sum += ms_solve
                 guards += int(shift > 0.0)
                 continue
-            else:
-                coeffs = zolo_coeffs_from_ell(step.r, step.ell_in, dps=zolo_coeff_dps)
-                ms_solve, (Q_step, shift) = cuda_time_ms(
-                    lambda: zolo_step_matrix_only(
-                        S=S,
-                        coeffs=coeffs,
-                        jitter_rel=jitter_rel,
-                    )
-                )
-                zolo_steps += 1
-                last_step_kind = f"ZOLO(r={step.r})"
         except Exception as e:
             # Fallback to DWH step
             fallbacks += 1
@@ -208,7 +209,7 @@ def run_one_case_fast(
 
     # Finalize the fusion: One pass over X in lower precision.
     ms_upd, X = cuda_time_ms(
-        lambda: apply_right_small_chunked(X, Q_acc, rhs_chunk_rows, iter_dtype)
+        lambda: apply_right_small_chunked_fast(X, Q_acc, rhs_chunk_rows, iter_dtype)
     )
     ms_upd_sum += ms_upd
 

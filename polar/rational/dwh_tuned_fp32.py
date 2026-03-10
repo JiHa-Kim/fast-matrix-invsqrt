@@ -93,3 +93,44 @@ def dwh_step_tuned_fp32(
         X_next[i:end] = Zi.to(dtype=out_dtype)
         
     return X_next, float(shift)
+
+@torch.no_grad()
+def dwh_step_matrix_only_tuned_fp32(
+    S: Tensor,
+    ell: float,
+    jitter_rel: float,
+) -> Tuple[Tensor, float]:
+    """
+    Tuned DWH step for FP32, returns Q matrix for O(n^3) updates.
+    """
+    a, b, c = get_tuned_dwh_coeffs_fp32(ell)
+    n = S.shape[0]
+    device = S.device
+    dtype = S.dtype
+    
+    I = torch.eye(n, device=device, dtype=dtype)
+    M = symmetrize(I + float(c) * S)
+    
+    # Use solve_ex for robustness in fp32
+    invM, info = torch.linalg.solve_ex(M, I)
+    
+    shift = 0.0
+    if (info != 0).any():
+        scale = float((torch.trace(M).abs() / max(n, 1)).item())
+        base = max(float(jitter_rel) * max(scale, 1.0), 1e-7 * scale)
+        delta = base
+        for _ in range(8):
+            Mt = M + delta * I
+            invM, info = torch.linalg.solve_ex(Mt, I)
+            if (info == 0).all():
+                shift = delta
+                break
+            delta *= 2.0
+        else:
+            raise RuntimeError("tuned_fp32_matrix: solve_ex failed")
+
+    alpha = float(b / c)
+    beta = float(a - b / c)
+    
+    Q = alpha * I + beta * invM
+    return symmetrize(Q), float(shift)

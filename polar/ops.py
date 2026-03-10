@@ -9,6 +9,15 @@ import torch
 Tensor = torch.Tensor
 
 
+def bf16_target(mode: str) -> float:
+    u = 2.0**-8
+    if mode == "aggressive":
+        return float(1.0 + u)
+    if mode == "robust":
+        return float((1.0 + u) / (1.0 - u))
+    raise ValueError(mode)
+
+
 def symmetrize(A: Tensor) -> Tensor:
     return 0.5 * (A + A.mT)
 
@@ -122,10 +131,12 @@ def apply_right_small_chunked(
 ) -> Tensor:
     m, n = X.shape
     X_next = torch.empty((m, n), device=X.device, dtype=out_dtype)
-    U_work = U if out_dtype == torch.float64 else U.float()
+    # Always use float64 for the multiplication if U is float64 to maintain stability
+    # especially when U is ill-conditioned (which happens in DWH/Zolo steps).
+    U_work = U.to(torch.float64)
 
     for i in range(0, m, rhs_chunk_rows):
-        Xi = X[i : i + rhs_chunk_rows].to(dtype=U_work.dtype)
+        Xi = X[i : i + rhs_chunk_rows].to(dtype=torch.float64)
         Zi = Xi @ U_work
         X_next[i : i + rhs_chunk_rows] = Zi.to(dtype=out_dtype)
 

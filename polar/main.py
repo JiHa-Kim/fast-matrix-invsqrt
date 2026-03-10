@@ -7,6 +7,7 @@ import time
 
 import torch
 
+from polar.ops import bf16_target
 from polar.runner import RunSummary, run_one_case
 from polar.schedules import StepSpec, auto_schedule_name, build_schedule
 from polar.synthetic import (
@@ -16,7 +17,7 @@ from polar.synthetic import (
     pct,
     suite_shapes_kimi_glm5,
 )
-from polar.zolo import bf16_target, mp
+from polar.zolo import mp
 
 Tensor = torch.Tensor
 

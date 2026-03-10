@@ -3,7 +3,8 @@ from __future__ import annotations
 import dataclasses
 from typing import List
 
-from polar.zolo import dwh_ell_next, zolo_coeffs_from_ell, zolo_ell_next
+from polar.dwh import dwh_ell_next
+from polar.zolo import zolo_coeffs_from_ell, zolo_ell_next
 
 
 @dataclasses.dataclass(frozen=True)

@@ -14,13 +14,14 @@ from polar.ops import (
     gram_xtx_chunked_fp64,
     symmetrize,
 )
-from polar.schedules import StepSpec
-from polar.zolo import (
+from polar.dwh import (
     dwh_ell_next,
     dwh_step_chunked,
     dwh_step_matrix_only,
+)
+from polar.schedules import StepSpec
+from polar.zolo import (
     zolo_coeffs_from_ell,
-    zolo_product_step_chunked,
     zolo_step_matrix_only,
 )
 
@@ -74,7 +75,10 @@ def run_one_case(
     if device.type == "cuda":
         torch.backends.cuda.matmul.allow_tf32 = bool(tf32)
         torch.backends.cudnn.allow_tf32 = bool(tf32)
-        torch.set_float32_matmul_precision("high")
+        if tf32:
+            torch.set_float32_matmul_precision("high")
+        else:
+            torch.set_float32_matmul_precision("highest")
 
     X = G_storage.to(dtype=iter_dtype)
     ms_gram_sum = 0.0
@@ -117,19 +121,8 @@ def run_one_case(
                 )
                 zolo_steps += 1
                 last_step_kind = f"ZOLO(r={step.r})"
-            
-            # Update the accumulated transform and the Gram matrix.
-            # S_next = Q_step^T @ S @ Q_step. Since Q_step is symmetric here? 
-            # In Zolo/DWH, Q is symmetric.
-            Q_acc = Q_acc @ Q_step
-            S = symmetrize(Q_step.mT @ S @ Q_step)
-            
-            ms_solve_sum += ms_solve
-            guards += int(shift > 0.0)
         except Exception:
-            # Fallback needs to touch X to be safe? 
-            # Or we can still fallback in O(n^3).
-            # For simplicity, let's just do it in O(n^3).
+            # Fallback to DWH step if something goes wrong (e.g. ZOLO instability)
             fallbacks += 1
             ms_solve, (Q_step, shift) = cuda_time_ms(
                 lambda: dwh_step_matrix_only(
@@ -138,12 +131,16 @@ def run_one_case(
                     jitter_rel=jitter_rel,
                 )
             )
-            Q_acc = Q_acc @ Q_step
-            S = symmetrize(Q_step.mT @ S @ Q_step)
-            ms_solve_sum += ms_solve
-            guards += int(shift > 0.0)
             dwh_steps += 1
             last_step_kind = "DWH(fallback)"
+
+        # Update the accumulated transform and the Gram matrix.
+        # S_next = Q_step^T @ S @ Q_step. In Zolo/DWH, Q is symmetric.
+        Q_acc = Q_acc @ Q_step
+        S = symmetrize(Q_step @ S @ Q_step)
+        
+        ms_solve_sum += ms_solve
+        guards += int(shift > 0.0)
 
     # Finalize the fusion: One pass over X.
     ms_upd, X = cuda_time_ms(

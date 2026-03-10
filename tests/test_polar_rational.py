@@ -21,8 +21,6 @@ def test_fast_runner_matches_baseline_on_mixed_dwh_zolo_schedule() -> None:
         target_kappa_O=10.0,
         schedule=schedule,
         iter_dtype=torch.float32,
-        gram_chunk_rows=64,
-        rhs_chunk_rows=64,
         jitter_rel=1e-12,
         tf32=False,
         exact_verify_device="cpu",

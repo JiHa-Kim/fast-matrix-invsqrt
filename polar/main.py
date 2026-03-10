@@ -37,6 +37,9 @@ def print_schedule(schedule_name: str, schedule: list[StepSpec]) -> None:
                 f"  step {i}: PE qdeg={st.pe_degree:<2d} {st.basis:<9s} "
                 f"sigma_in=[{st.ell_in:.3e}, {st.u_in:.3e}]  pred_kappa(O)_after={st.pred_kappa_after:.8g}"
             )
+        elif st.kind == "PEPAPER5":
+            a, b, c = st.paper_coeffs
+            print(f"  step {i}: PEPAPER5          a={a:.6g} b={b:.6g} c={c:.6g}")
         else:
             print(f"  step {i}: ZOLO r={st.r:<2d} ell_in={st.ell_in:.3e}  pred_kappa(O)_after={st.pred_kappa_after:.8g}")
 
@@ -69,13 +72,12 @@ def make_parser() -> argparse.ArgumentParser:
             "pe2cheb12",
             "pe3cheb12",
             "pe32hyb12",
+            "pe5paper",
         ],
         default="auto",
     )
     ap.add_argument("--input_dtype", choices=["float32", "bfloat16", "float64"], default="float32")
     ap.add_argument("--iter_dtype", choices=["float32", "bfloat16", "float64"], default="float32")
-    ap.add_argument("--gram_chunk_rows", type=int, default=2048)
-    ap.add_argument("--rhs_chunk_rows", type=int, default=2048)
     ap.add_argument("--jitter_rel", type=float, default=1e-15)
     ap.add_argument("--tf32", action="store_true")
     ap.add_argument("--ell0", type=float, default=0.0)
@@ -132,7 +134,6 @@ def main() -> None:
     print(
         "knobs: "
         f"input_dtype={args.input_dtype} iter_dtype={args.iter_dtype} "
-        f"gram_chunk_rows={args.gram_chunk_rows} rhs_chunk_rows={args.rhs_chunk_rows} "
         f"jitter_rel={args.jitter_rel:g} "
         f"tf32={args.tf32} exact_verify_device={args.exact_verify_device}"
     )
@@ -156,8 +157,6 @@ def main() -> None:
                 target_kappa_O=target_kappa_O,
                 schedule=schedule,
                 iter_dtype=iter_dtype,
-                gram_chunk_rows=args.gram_chunk_rows,
-                rhs_chunk_rows=args.rhs_chunk_rows,
                 jitter_rel=args.jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
@@ -170,8 +169,6 @@ def main() -> None:
                 target_kappa_O=target_kappa_O,
                 schedule=schedule,
                 iter_dtype=iter_dtype,
-                gram_chunk_rows=args.gram_chunk_rows,
-                rhs_chunk_rows=args.rhs_chunk_rows,
                 jitter_rel=args.jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
@@ -183,8 +180,6 @@ def main() -> None:
                 target_kappa_O=target_kappa_O,
                 schedule=schedule,
                 iter_dtype=iter_dtype,
-                gram_chunk_rows=args.gram_chunk_rows,
-                rhs_chunk_rows=args.rhs_chunk_rows,
                 jitter_rel=args.jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
@@ -196,8 +191,6 @@ def main() -> None:
                 target_kappa_O=target_kappa_O,
                 schedule=schedule,
                 iter_dtype=iter_dtype,
-                gram_chunk_rows=args.gram_chunk_rows,
-                rhs_chunk_rows=args.rhs_chunk_rows,
                 jitter_rel=args.jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
@@ -208,8 +201,6 @@ def main() -> None:
             target_kappa_O=target_kappa_O,
             schedule=schedule,
             iter_dtype=iter_dtype,
-            gram_chunk_rows=args.gram_chunk_rows,
-            rhs_chunk_rows=args.rhs_chunk_rows,
             jitter_rel=args.jitter_rel,
             tf32=args.tf32,
             exact_verify_device=args.exact_verify_device,

@@ -46,7 +46,6 @@ def dwh_step_tuned_fp32(
     X: Tensor,
     S: Tensor,
     ell: float,
-    rhs_chunk_rows: int,
     jitter_rel: float,
     out_dtype: torch.dtype,
 ) -> Tuple[Tensor, float]:
@@ -84,17 +83,8 @@ def dwh_step_tuned_fp32(
     alpha = float(b / c)
     beta = float(a - b / c)
     
-    # Direct update: X_next = alpha * X + beta * (X @ invM)
-    # We do this in chunks to save memory and potentially gain speed.
-    X_next = torch.empty_like(X, dtype=out_dtype)
     invM_work = invM.to(dtype=X.dtype)
-    for i in range(0, X.shape[0], rhs_chunk_rows):
-        end = min(i + rhs_chunk_rows, X.shape[0])
-        Xi = X[i:end]
-        # Zi = alpha * Xi + beta * (Xi @ invM)
-        Zi = torch.addmm(Xi, Xi, invM_work, beta=alpha, alpha=beta)
-        X_next[i:end] = Zi.to(dtype=out_dtype)
-        
+    X_next = torch.addmm(X, X, invM_work, beta=alpha, alpha=beta).to(dtype=out_dtype)
     return X_next, float(shift)
 
 @torch.no_grad()

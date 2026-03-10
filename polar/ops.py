@@ -53,25 +53,14 @@ def acosh_exp(logu: float) -> float:
 
 
 @torch.no_grad()
-def gram_xtx_chunked(X: Tensor, chunk_rows: int, accum_dtype: torch.dtype) -> Tensor:
-    m, n = X.shape
-    S = torch.zeros((n, n), device=X.device, dtype=accum_dtype)
-    for i in range(0, m, chunk_rows):
-        Xi = X[i : i + chunk_rows].to(dtype=accum_dtype)
-        S.addmm_(Xi.T, Xi)
-    return symmetrize(S)
+def gram_xtx(X: Tensor, accum_dtype: torch.dtype) -> Tensor:
+    return symmetrize((X.to(dtype=accum_dtype)).mT @ X.to(dtype=accum_dtype))
 
 
 @torch.no_grad()
-def gram_xtx_chunked_fp64(X: Tensor, chunk_rows: int) -> Tensor:
-    m, n = X.shape
-    S = torch.zeros((n, n), device=X.device, dtype=torch.float64)
-    for i in range(0, m, chunk_rows):
-        # The user wants to keep original precision logic.
-        # This code explicitly converts to float64 for the MMM.
-        Xi = X[i : i + chunk_rows].float().to(torch.float64)
-        S.addmm_(Xi.T, Xi)
-    return symmetrize(S)
+def gram_xtx_fp64(X: Tensor) -> Tensor:
+    X64 = X.float().to(torch.float64)
+    return symmetrize(X64.mT @ X64)
 
 
 @torch.no_grad()
@@ -136,44 +125,22 @@ def exact_eigvalsh(S: Tensor, eig_device: str = "auto") -> Tensor:
 
 
 @torch.no_grad()
-def apply_right_small_chunked(
-    X: Tensor, U: Tensor, rhs_chunk_rows: int, out_dtype: torch.dtype
-) -> Tensor:
-    m, n = X.shape
-    X_next = torch.empty((m, n), device=X.device, dtype=out_dtype)
-    # Always use float64 for the multiplication if U is float64 to maintain stability
-    # especially when U is ill-conditioned (which happens in DWH/Zolo steps).
-    U_work = U.to(torch.float64)
-
-    for i in range(0, m, rhs_chunk_rows):
-        Xi = X[i : i + rhs_chunk_rows].to(dtype=torch.float64)
-        Zi = Xi @ U_work
-        X_next[i : i + rhs_chunk_rows] = Zi.to(dtype=out_dtype)
-
-    return X_next
+def apply_right(X: Tensor, U: Tensor, out_dtype: torch.dtype) -> Tensor:
+    return (X.to(torch.float64) @ U.to(torch.float64)).to(dtype=out_dtype)
 
 
 @torch.no_grad()
-def apply_right_small_chunked_typed(
+def apply_right_typed(
     X: Tensor,
     U: Tensor,
-    rhs_chunk_rows: int,
     matmul_dtype: torch.dtype,
     out_dtype: torch.dtype,
 ) -> Tensor:
-    m, n = X.shape
-    X_next = torch.empty((m, n), device=X.device, dtype=out_dtype)
     orig_precision = torch.get_float32_matmul_precision()
     if matmul_dtype == torch.float32:
         torch.set_float32_matmul_precision("high")
 
     try:
-        U_work = U.to(dtype=matmul_dtype)
-        for i in range(0, m, rhs_chunk_rows):
-            Xi = X[i : i + rhs_chunk_rows].to(dtype=matmul_dtype)
-            Zi = Xi @ U_work
-            X_next[i : i + rhs_chunk_rows] = Zi.to(dtype=out_dtype)
+        return (X.to(dtype=matmul_dtype) @ U.to(dtype=matmul_dtype)).to(dtype=out_dtype)
     finally:
         torch.set_float32_matmul_precision(orig_precision)
-
-    return X_next

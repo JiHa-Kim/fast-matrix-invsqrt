@@ -7,9 +7,8 @@ from typing import Sequence
 import torch
 
 from polar.ops import (
-    apply_right_small_chunked,
     cuda_time_ms,
-    gram_xtx_chunked_fp64,
+    gram_xtx_fp64,
     symmetrize,
 )
 from polar.rational.dwh import (
@@ -35,8 +34,6 @@ def run_one_case_hybrid(
     target_kappa_O: float,
     schedule: Sequence[StepSpec],
     iter_dtype: torch.dtype,
-    gram_chunk_rows: int,
-    rhs_chunk_rows: int,
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
@@ -65,7 +62,7 @@ def run_one_case_hybrid(
     Q_acc = torch.eye(G_storage.shape[1], device=device, dtype=torch.float64)
     
     # Gram matrix S in FP64
-    ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fp64(X, gram_chunk_rows))
+    ms_gram, S = cuda_time_ms(lambda: gram_xtx_fp64(X))
     ms_gram_sum += ms_gram
 
     for i, step in enumerate(schedule):
@@ -114,15 +111,15 @@ def run_one_case_hybrid(
 
     # Finalize fusion: ONE pass over X (O(mn^2))
     # We can use TF32 here if iter_dtype is FP32
-    from polar.rational.ops import apply_right_small_chunked_fast
+    from polar.rational.ops import apply_right_fast_full
     ms_upd, X = cuda_time_ms(
-        lambda: apply_right_small_chunked_fast(X, Q_acc.to(iter_dtype), rhs_chunk_rows, iter_dtype)
+        lambda: apply_right_fast_full(X, Q_acc.to(iter_dtype), iter_dtype)
     )
     ms_upd_sum += ms_upd
 
     # Verification
     ms_exact_verify, final_kO_exact = cuda_time_ms(
-        lambda: exact_final_kappa_O(X, gram_chunk_rows, exact_verify_device)
+        lambda: exact_final_kappa_O(X, exact_verify_device)
     )
     
     ms_total = ms_gram_sum + ms_solve_sum + ms_upd_sum

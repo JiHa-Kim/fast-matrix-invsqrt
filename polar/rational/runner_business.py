@@ -11,7 +11,7 @@ from polar.rational.ops import (
 )
 from polar.rational.dwh import dwh_ell_next
 from polar.rational.dwh_stable_solve import dwh_step_matrix_only_stable_solve
-from polar.polynomial.express import polar_express_action_chunked, polar_express_fro_scale
+from polar.polynomial.express import polar_express_action, polar_express_fro_scale
 from polar.schedules import StepSpec
 from polar.runner import RunSummary
 
@@ -23,8 +23,6 @@ def run_one_case_business(
     target_kappa_O: float,
     schedule: Sequence[StepSpec],
     iter_dtype: torch.dtype,
-    gram_chunk_rows: int,
-    rhs_chunk_rows: int,
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
@@ -90,7 +88,7 @@ def run_one_case_business(
             
             # Action step
             ms_solve, (X_bf16, _) = cuda_time_ms(
-                lambda: polar_express_action_chunked(X_bf16, S_bf16, pe_coeffs, X_bf16.shape[0], torch.bfloat16)
+                lambda: polar_express_action(X_bf16, S_bf16, pe_coeffs, torch.bfloat16)
             )
             ms_solve_sum += ms_solve
             zolo_steps += 1

@@ -7,7 +7,7 @@ from polar.polynomial.minimax import (
 )
 from polar.polynomial.express import (
     PolarExpressStep,
-    polar_express_action_chunked,
+    polar_express_action,
     polar_express_aol_scale,
     polar_express_fro_scale,
     polar_express_step,
@@ -16,7 +16,7 @@ from polar.polynomial.express import (
 
 __all__ = [
     "PolarExpressStep",
-    "polar_express_action_chunked",
+    "polar_express_action",
     "polar_express_aol_scale",
     "polar_express_fro_scale",
     "PolyInvSqrtCoeffs",

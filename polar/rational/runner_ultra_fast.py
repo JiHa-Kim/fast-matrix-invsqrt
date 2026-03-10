@@ -8,7 +8,7 @@ from polar.ops import (
     symmetrize,
 )
 from polar.rational.ops import (
-    gram_xtx_chunked_fast,
+    gram_xtx_fast,
 )
 from polar.rational.dwh_stable_solve import (
     dwh_step_matrix_only_stable_solve,
@@ -30,8 +30,6 @@ def run_one_case_ultra_fast(
     target_kappa_O: float,
     schedule: Sequence[StepSpec],
     iter_dtype: torch.dtype,
-    gram_chunk_rows: int,
-    rhs_chunk_rows: int,
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
@@ -63,7 +61,7 @@ def run_one_case_ultra_fast(
 
     for i, step in enumerate(schedule):
         # 1. Compute S accurately and fast using TF32
-        ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fast(X, gram_chunk_rows, iter_dtype))
+        ms_gram, S = cuda_time_ms(lambda: gram_xtx_fast(X, iter_dtype))
         ms_gram_sum += ms_gram
         
         try:
@@ -74,7 +72,6 @@ def run_one_case_ultra_fast(
                         X=X,
                         S=S,
                         ell=step.ell_in,
-                        rhs_chunk_rows=rhs_chunk_rows,
                         jitter_rel=jitter_rel,
                         out_dtype=iter_dtype,
                     )
@@ -148,7 +145,7 @@ def run_one_case_ultra_fast(
 
     # Verification
     ms_exact_verify, final_kO_exact = cuda_time_ms(
-        lambda: exact_final_kappa_O(X, gram_chunk_rows, exact_verify_device)
+        lambda: exact_final_kappa_O(X, exact_verify_device)
     )
     
     ms_total = ms_gram_sum + ms_solve_sum + ms_upd_sum

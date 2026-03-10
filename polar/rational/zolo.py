@@ -101,23 +101,3 @@ def zolo_step_matrix_only(
     Q = float(coeffs.mhat) * Q
     return Q, float(max_shift)
 
-
-@torch.no_grad()
-def zolo_product_step_chunked(
-    X: Tensor,
-    S: Tensor,
-    coeffs: ZoloCoeffs,
-    rhs_chunk_rows: int,
-    jitter_rel: float,
-    out_dtype: torch.dtype,
-) -> Tuple[Tensor, float]:
-    Q, shift = zolo_step_matrix_only(S, coeffs, jitter_rel)
-
-    X_next = torch.empty_like(X, dtype=out_dtype)
-    for i in range(0, X.shape[0], rhs_chunk_rows):
-        end = min(i + rhs_chunk_rows, X.shape[0])
-        Xi = X[i:end].to(torch.float64)
-        Zi = Xi @ Q
-        X_next[i:end] = Zi.to(dtype=out_dtype)
-
-    return X_next, float(shift)

@@ -23,3 +23,4 @@ class StepSpec:
     pe_shift_center: float = 0.0
     pe_shift_scale: float = 1.0
     pe_shift_gain: float = 1.0
+    paper_coeffs: tuple[float, ...] = ()

@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import List
 
-from polar.polynomial.express import polar_express_step, polar_express_step_bf16_quadratic, scalar_map_bounds
+from polar.polynomial.express import (
+    paper_polar_express_coeff,
+    polar_express_step,
+    polar_express_step_bf16_quadratic,
+    scalar_map_bounds,
+)
 from polar.polynomial.minimax import poly_inv_sqrt_coeffs_from_ell
 from polar.schedule_spec import StepSpec
 
@@ -289,5 +294,23 @@ def build_polynomial_schedule(schedule_name: str, ell: float) -> List[StepSpec] 
 
     if schedule_name == "pe32hyb12":
         return _select_best_pe_hybrid(ell, "chebyshev")
+
+    if schedule_name == "pe5paper":
+        out: List[StepSpec] = []
+        sigma_lo = max(float(ell), 1e-8)
+        for i in range(5):
+            coeffs = paper_polar_express_coeff(i)
+            out.append(
+                StepSpec(
+                    kind="PEPAPER5",
+                    ell_in=float(sigma_lo),
+                    ell_out=float(sigma_lo),
+                    pred_kappa_after=float(1.0 / max(sigma_lo, 1e-300)),
+                    pe_degree=5,
+                    basis="paper",
+                    paper_coeffs=(coeffs.a, coeffs.b, coeffs.c),
+                )
+            )
+        return out
 
     return None

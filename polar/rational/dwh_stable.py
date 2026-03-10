@@ -76,25 +76,3 @@ def dwh_step_matrix_only_stable(
     return Q, float(shift)
 
 
-@torch.no_grad()
-def dwh_step_chunked_stable(
-    X: Tensor,
-    S: Tensor,
-    ell: float,
-    rhs_chunk_rows: int,
-    jitter_rel: float,
-    out_dtype: torch.dtype,
-    force_fp32_solver: bool = False,
-) -> Tuple[Tensor, float]:
-    # We pass S (which is gram matrix) to dwh_step_matrix_only_stable
-    # S should already be in the desired precision (e.g. fp32) for this stable version
-    Q, shift = dwh_step_matrix_only_stable(S, ell, jitter_rel, force_fp32_solver=force_fp32_solver)
-
-    X_next = torch.empty_like(X, dtype=out_dtype)
-    for i in range(0, X.shape[0], rhs_chunk_rows):
-        end = min(i + rhs_chunk_rows, X.shape[0])
-        Xi = X[i:end].to(dtype=Q.dtype)
-        Zi = Xi @ Q
-        X_next[i:end] = Zi.to(dtype=out_dtype)
-
-    return X_next, float(shift)

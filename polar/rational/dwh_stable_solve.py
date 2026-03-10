@@ -53,22 +53,3 @@ def dwh_step_matrix_only_stable_solve(
     return Q, float(shift)
 
 
-@torch.no_grad()
-def dwh_step_chunked_stable_solve(
-    X: Tensor,
-    S: Tensor,
-    ell: float,
-    rhs_chunk_rows: int,
-    jitter_rel: float,
-    out_dtype: torch.dtype,
-) -> Tuple[Tensor, float]:
-    Q, shift = dwh_step_matrix_only_stable_solve(S, ell, jitter_rel)
-
-    X_next = torch.empty_like(X, dtype=out_dtype)
-    for i in range(0, X.shape[0], rhs_chunk_rows):
-        end = min(i + rhs_chunk_rows, X.shape[0])
-        Xi = X[i:end].to(dtype=Q.dtype)
-        Zi = Xi @ Q
-        X_next[i:end] = Zi.to(dtype=out_dtype)
-
-    return X_next, float(shift)

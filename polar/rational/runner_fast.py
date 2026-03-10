@@ -8,8 +8,8 @@ from polar.ops import (
     symmetrize,
 )
 from polar.rational.ops import (
-    apply_right_small_chunked_fast,
-    gram_xtx_chunked_fast,
+    apply_right_fast_full,
+    gram_xtx_fast,
 )
 from polar.rational.dwh import dwh_step_matrix_only
 from polar.rational.dwh_stable_solve import (
@@ -38,8 +38,6 @@ def run_one_case_fast(
     target_kappa_O: float,
     schedule: Sequence[StepSpec],
     iter_dtype: torch.dtype,
-    gram_chunk_rows: int,
-    rhs_chunk_rows: int,
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
@@ -71,7 +69,7 @@ def run_one_case_fast(
     q_acc_dirty = False
     
     # Gram matrix S in lower precision
-    ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fast(X, gram_chunk_rows, iter_dtype))
+    ms_gram, S = cuda_time_ms(lambda: gram_xtx_fast(X, iter_dtype))
     ms_gram_sum += ms_gram
 
     def flush_q_acc() -> None:
@@ -79,7 +77,7 @@ def run_one_case_fast(
         if not q_acc_dirty:
             return
         ms_upd, X_next = cuda_time_ms(
-            lambda: apply_right_small_chunked_fast(X, Q_acc, rhs_chunk_rows, iter_dtype)
+            lambda: apply_right_fast_full(X, Q_acc, iter_dtype)
         )
         ms_upd_sum += ms_upd
         X = X_next
@@ -196,7 +194,7 @@ def run_one_case_fast(
                 if Q_step.dtype != iter_dtype:
                     Q_step = Q_step.to(dtype=iter_dtype)
                 X = X @ Q_step
-                ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fast(X, gram_chunk_rows, iter_dtype))
+                ms_gram, S = cuda_time_ms(lambda: gram_xtx_fast(X, iter_dtype))
                 ms_gram_sum += ms_gram
                 ms_solve_sum += ms_solve
                 guards += int(shift > 0.0)
@@ -226,7 +224,7 @@ def run_one_case_fast(
 
     # Finalize the fusion: One pass over X in lower precision.
     ms_upd, X = cuda_time_ms(
-        lambda: apply_right_small_chunked_fast(X, Q_acc, rhs_chunk_rows, iter_dtype)
+        lambda: apply_right_fast_full(X, Q_acc, iter_dtype)
     )
     ms_upd_sum += ms_upd
 
@@ -234,7 +232,7 @@ def run_one_case_fast(
 
     # Verification still needs to be accurate
     ms_exact_verify, final_kO_exact = cuda_time_ms(
-        lambda: exact_final_kappa_O(X, gram_chunk_rows, exact_verify_device)
+        lambda: exact_final_kappa_O(X, exact_verify_device)
     )
     ms_total = ms_gram_sum + ms_solve_sum + ms_upd_sum
     return RunSummary(

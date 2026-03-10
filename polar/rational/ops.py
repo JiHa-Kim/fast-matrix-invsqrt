@@ -44,53 +44,18 @@ def cert_bound_trace_logdet_stable(S: Tensor, jitter_rel: float) -> Tuple[float,
 
 
 @torch.no_grad()
-def apply_right_small_chunked_fast(
-    X: Tensor, U: Tensor, rhs_chunk_rows: int, out_dtype: torch.dtype
-) -> Tensor:
+def apply_right_fast_full(X: Tensor, U: Tensor, out_dtype: torch.dtype) -> Tensor:
     """
     Lower-precision version of apply_right_small_chunked.
     Optimized for speed using TF32.
     """
-    m, n = X.shape
-    X_next = torch.empty((m, n), device=X.device, dtype=out_dtype)
-    
     # Enable TF32 for the matmul if we are in float32
     orig_precision = torch.get_float32_matmul_precision()
     if X.dtype == torch.float32 or U.dtype == torch.float32:
         torch.set_float32_matmul_precision("high")
         
     try:
-        # Use the requested out_dtype for the matmul to gain speed
-        U_work = U.to(dtype=out_dtype)
-
-        for i in range(0, m, rhs_chunk_rows):
-            Xi = X[i : i + rhs_chunk_rows].to(dtype=out_dtype)
-            # This matmul will use TF32 on modern GPUs
-            Zi = Xi @ U_work
-            X_next[i : i + rhs_chunk_rows] = Zi
-    finally:
-        torch.set_float32_matmul_precision(orig_precision)
-
-    return X_next
-
-
-@torch.no_grad()
-def gram_xtx_chunked_fast(X: Tensor, chunk_rows: int, accum_dtype: torch.dtype) -> Tensor:
-    """
-    Chunked Gram matrix calculation for the fused fast runners.
-    """
-    m, n = X.shape
-    S = torch.zeros((n, n), device=X.device, dtype=accum_dtype)
-
-    orig_precision = torch.get_float32_matmul_precision()
-    if X.dtype == torch.float32 or accum_dtype == torch.float32:
-        torch.set_float32_matmul_precision("high")
-
-    try:
-        for i in range(0, m, chunk_rows):
-            Xi = X[i : i + chunk_rows].to(dtype=accum_dtype)
-            S.addmm_(Xi.mT, Xi)
-        return symmetrize(S)
+        return (X.to(dtype=out_dtype) @ U.to(dtype=out_dtype)).to(dtype=out_dtype)
     finally:
         torch.set_float32_matmul_precision(orig_precision)
 
@@ -98,15 +63,15 @@ def gram_xtx_chunked_fast(X: Tensor, chunk_rows: int, accum_dtype: torch.dtype) 
 @torch.no_grad()
 def gram_xtx_fast(X: Tensor, accum_dtype: torch.dtype) -> Tensor:
     """
-    Ultra-fast Gram matrix calculation. No chunking.
+    Full Gram matrix calculation for the fused fast runners.
     """
     orig_precision = torch.get_float32_matmul_precision()
-    if X.dtype == torch.float32:
+    if X.dtype == torch.float32 or accum_dtype == torch.float32:
         torch.set_float32_matmul_precision("high")
+
     try:
-        # Full matmul for peak occupancy
-        S = X.mT @ X
-        return symmetrize(S.to(dtype=accum_dtype))
+        Xw = X.to(dtype=accum_dtype)
+        return symmetrize(Xw.mT @ Xw)
     finally:
         torch.set_float32_matmul_precision(orig_precision)
 

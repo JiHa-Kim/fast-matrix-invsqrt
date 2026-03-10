@@ -63,11 +63,9 @@ def test_poly_schedule_smoke() -> None:
         gram_chunk_rows=64,
         rhs_chunk_rows=64,
         jitter_rel=1e-15,
-        cert_jitter_rel=1e-15,
         tf32=False,
         exact_verify_device="cpu",
         zolo_coeff_dps=100,
-        stop_on_cert=False,
     )
     assert torch.isfinite(torch.tensor(res.final_kO_exact))
     assert res.final_kO_exact < 2.0
@@ -92,11 +90,9 @@ def test_poly_schedule_smoke_bf16() -> None:
         gram_chunk_rows=64,
         rhs_chunk_rows=64,
         jitter_rel=1e-15,
-        cert_jitter_rel=1e-15,
         tf32=False,
         exact_verify_device="cpu",
         zolo_coeff_dps=100,
-        stop_on_cert=False,
     )
     assert torch.isfinite(torch.tensor(res.final_kO_exact))
     assert res.last_step_kind == "POLY(d=16)"
@@ -148,11 +144,9 @@ def test_polar_express_schedule_smoke() -> None:
         gram_chunk_rows=128,
         rhs_chunk_rows=128,
         jitter_rel=1e-15,
-        cert_jitter_rel=1e-15,
         tf32=False,
         exact_verify_device="cpu",
         zolo_coeff_dps=100,
-        stop_on_cert=False,
     )
     assert torch.isfinite(torch.tensor(res.final_kO_exact))
     assert res.final_kO_exact < 2.0

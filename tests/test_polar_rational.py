@@ -24,11 +24,9 @@ def test_fast_runner_matches_baseline_on_mixed_dwh_zolo_schedule() -> None:
         gram_chunk_rows=64,
         rhs_chunk_rows=64,
         jitter_rel=1e-12,
-        cert_jitter_rel=1e-12,
         tf32=False,
         exact_verify_device="cpu",
         zolo_coeff_dps=50,
-        stop_on_cert=False,
     )
 
     baseline = run_one_case(**kwargs)

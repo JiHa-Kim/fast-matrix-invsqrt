@@ -8,7 +8,6 @@ import torch
 
 from polar.ops import (
     apply_right_small_chunked,
-    cert_bound_trace_logdet,
     cuda_time_ms,
     gram_xtx_chunked_fp64,
     symmetrize,
@@ -39,11 +38,9 @@ def run_one_case_hybrid(
     gram_chunk_rows: int,
     rhs_chunk_rows: int,
     jitter_rel: float,
-    cert_jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
     zolo_coeff_dps: int,
-    stop_on_cert: bool,
 ) -> RunSummary:
     """
     HYBRID runner: FP64 state maintenance, but FP32 Scaled Solver.
@@ -58,7 +55,6 @@ def run_one_case_hybrid(
     ms_gram_sum = 0.0
     ms_solve_sum = 0.0
     ms_upd_sum = 0.0
-    ms_cert_sum = 0.0
     dwh_steps = 0
     zolo_steps = 0
     guards = 0
@@ -124,23 +120,15 @@ def run_one_case_hybrid(
     )
     ms_upd_sum += ms_upd
 
-    # Certificate
-    ms_cert, (kO_cert, cert_shift) = cuda_time_ms(
-        lambda: cert_bound_trace_logdet(S, cert_jitter_rel)
-    )
-    ms_cert_sum += ms_cert
-    final_kO_cert = float(kO_cert)
-
     # Verification
     ms_exact_verify, final_kO_exact = cuda_time_ms(
         lambda: exact_final_kappa_O(X, gram_chunk_rows, exact_verify_device)
     )
     
-    ms_total = ms_gram_sum + ms_solve_sum + ms_upd_sum + ms_cert_sum
+    ms_total = ms_gram_sum + ms_solve_sum + ms_upd_sum
     return RunSummary(
         success=bool(final_kO_exact <= target_kappa_O),
         final_kO_exact=float(final_kO_exact),
-        final_kO_cert=float(final_kO_cert),
         steps=len(schedule),
         dwh_steps=dwh_steps,
         zolo_steps=zolo_steps,
@@ -150,7 +138,6 @@ def run_one_case_hybrid(
         ms_gram=ms_gram_sum,
         ms_solve=ms_solve_sum,
         ms_upd=ms_upd_sum,
-        ms_cert=ms_cert_sum,
         ms_total_timed=ms_total,
         ms_exact_verify=ms_exact_verify,
     )

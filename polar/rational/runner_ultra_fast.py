@@ -1,7 +1,4 @@
 from __future__ import annotations
-
-import dataclasses
-import math
 from typing import Sequence
 
 import torch
@@ -11,17 +8,12 @@ from polar.ops import (
     symmetrize,
 )
 from polar.rational.ops import (
-    cert_bound_trace_logdet_stable,
     gram_xtx_chunked_fast,
-)
-from polar.rational.dwh import (
-    dwh_ell_next,
 )
 from polar.rational.dwh_stable_solve import (
     dwh_step_matrix_only_stable_solve,
 )
 from polar.rational.dwh_tuned_fp32 import (
-    dwh_step_matrix_only_tuned_fp32,
     dwh_step_tuned_fp32,
 )
 from polar.schedules import StepSpec
@@ -41,11 +33,9 @@ def run_one_case_ultra_fast(
     gram_chunk_rows: int,
     rhs_chunk_rows: int,
     jitter_rel: float,
-    cert_jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
     zolo_coeff_dps: int,
-    stop_on_cert: bool,
 ) -> RunSummary:
     """
     ULTRA-FAST pure FP32 runner.
@@ -65,7 +55,6 @@ def run_one_case_ultra_fast(
     ms_gram_sum = 0.0
     ms_solve_sum = 0.0
     ms_upd_sum = 0.0
-    ms_cert_sum = 0.0
     dwh_steps = 0
     zolo_steps = 0
     guards = 0
@@ -157,25 +146,15 @@ def run_one_case_ultra_fast(
             # For now, let's just fail or do a very safe DWH step
             continue
 
-    # Final certificate
-    ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fast(X, gram_chunk_rows, iter_dtype))
-    ms_gram_sum += ms_gram
-    ms_cert, (kO_cert, cert_shift) = cuda_time_ms(
-        lambda: cert_bound_trace_logdet_stable(S, cert_jitter_rel)
-    )
-    ms_cert_sum += ms_cert
-    final_kO_cert = float(kO_cert)
-
     # Verification
     ms_exact_verify, final_kO_exact = cuda_time_ms(
         lambda: exact_final_kappa_O(X, gram_chunk_rows, exact_verify_device)
     )
     
-    ms_total = ms_gram_sum + ms_solve_sum + ms_upd_sum + ms_cert_sum
+    ms_total = ms_gram_sum + ms_solve_sum + ms_upd_sum
     return RunSummary(
         success=bool(final_kO_exact <= target_kappa_O),
         final_kO_exact=float(final_kO_exact),
-        final_kO_cert=float(final_kO_cert),
         steps=len(schedule),
         dwh_steps=dwh_steps,
         zolo_steps=zolo_steps,
@@ -185,7 +164,6 @@ def run_one_case_ultra_fast(
         ms_gram=ms_gram_sum,
         ms_solve=ms_solve_sum,
         ms_upd=ms_upd_sum,
-        ms_cert=ms_cert_sum,
         ms_total_timed=ms_total,
         ms_exact_verify=ms_exact_verify,
     )

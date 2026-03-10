@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import math
 import time
 
 import torch
@@ -11,6 +10,7 @@ from polar.ops import bf16_target
 from polar.runner import RunSummary, run_one_case
 from polar.rational.runner_fast import run_one_case_fast
 from polar.rational.runner_ultra_fast import run_one_case_ultra_fast
+from polar.rational.runner_business import run_one_case_business
 from polar.schedules import StepSpec, auto_schedule_name, build_schedule
 from polar.synthetic import (
     dtype_from_name,
@@ -77,12 +77,10 @@ def make_parser() -> argparse.ArgumentParser:
     ap.add_argument("--gram_chunk_rows", type=int, default=2048)
     ap.add_argument("--rhs_chunk_rows", type=int, default=2048)
     ap.add_argument("--jitter_rel", type=float, default=1e-15)
-    ap.add_argument("--cert_jitter_rel", type=float, default=1e-15)
     ap.add_argument("--tf32", action="store_true")
     ap.add_argument("--ell0", type=float, default=0.0)
     ap.add_argument("--zolo_coeff_dps", type=int, default=100)
     ap.add_argument("--exact_verify_device", choices=["auto", "cpu", "cuda"], default="auto")
-    ap.add_argument("--stop_on_cert", action="store_true", default=False)
     ap.add_argument("--fast_runner", action="store_true", default=False)
     ap.add_argument("--ultra_fast_runner", action="store_true", default=False)
     ap.add_argument("--hybrid_runner", action="store_true", default=False)
@@ -98,13 +96,13 @@ def summarize_demo(args: argparse.Namespace, res: RunSummary) -> None:
     print("")
     print(
         f"demo m={args.m} n={args.n}: success={res.success} "
-        f"final_kappa(O)_exact={res.final_kO_exact:.8g} cert={res.final_kO_cert:.8g} "
+        f"final_kappa(O)_exact={res.final_kO_exact:.8g} "
         f"steps={res.steps} dwh_steps={res.dwh_steps} zolo_steps={res.zolo_steps} "
         f"guards={res.guards} fallbacks={res.fallbacks} last_step={res.last_step_kind}"
     )
     print(
         f"  ms timed total={res.ms_total_timed:.3f} "
-        f"(gram={res.ms_gram:.3f} solve={res.ms_solve:.3f} upd={res.ms_upd:.3f} cert={res.ms_cert:.3f})"
+        f"(gram={res.ms_gram:.3f} solve={res.ms_solve:.3f} upd={res.ms_upd:.3f})"
     )
     print(f"  ms exact verify (excluded)={res.ms_exact_verify:.3f}")
 
@@ -135,7 +133,7 @@ def main() -> None:
         "knobs: "
         f"input_dtype={args.input_dtype} iter_dtype={args.iter_dtype} "
         f"gram_chunk_rows={args.gram_chunk_rows} rhs_chunk_rows={args.rhs_chunk_rows} "
-        f"jitter_rel={args.jitter_rel:g} cert_jitter_rel={args.cert_jitter_rel:g} "
+        f"jitter_rel={args.jitter_rel:g} "
         f"tf32={args.tf32} exact_verify_device={args.exact_verify_device}"
     )
     print(f"control: ell0={ell0:.6g} target_mode={args.target_mode} zolo_coeff_dps={args.zolo_coeff_dps}")
@@ -152,6 +150,19 @@ def main() -> None:
         )
 
     def run_case(G: Tensor) -> RunSummary:
+        if args.business_runner:
+            return run_one_case_business(
+                G_storage=G,
+                target_kappa_O=target_kappa_O,
+                schedule=schedule,
+                iter_dtype=iter_dtype,
+                gram_chunk_rows=args.gram_chunk_rows,
+                rhs_chunk_rows=args.rhs_chunk_rows,
+                jitter_rel=args.jitter_rel,
+                tf32=args.tf32,
+                exact_verify_device=args.exact_verify_device,
+                zolo_coeff_dps=args.zolo_coeff_dps,
+            )
         if args.hybrid_runner:
             from polar.rational.runner_hybrid import run_one_case_hybrid
             return run_one_case_hybrid(
@@ -162,11 +173,9 @@ def main() -> None:
                 gram_chunk_rows=args.gram_chunk_rows,
                 rhs_chunk_rows=args.rhs_chunk_rows,
                 jitter_rel=args.jitter_rel,
-                cert_jitter_rel=args.cert_jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
                 zolo_coeff_dps=args.zolo_coeff_dps,
-                stop_on_cert=args.stop_on_cert,
             )
         if args.ultra_fast_runner:
             return run_one_case_ultra_fast(
@@ -177,11 +186,9 @@ def main() -> None:
                 gram_chunk_rows=args.gram_chunk_rows,
                 rhs_chunk_rows=args.rhs_chunk_rows,
                 jitter_rel=args.jitter_rel,
-                cert_jitter_rel=args.cert_jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
                 zolo_coeff_dps=args.zolo_coeff_dps,
-                stop_on_cert=args.stop_on_cert,
             )
         if args.fast_runner:
             return run_one_case_fast(
@@ -192,11 +199,9 @@ def main() -> None:
                 gram_chunk_rows=args.gram_chunk_rows,
                 rhs_chunk_rows=args.rhs_chunk_rows,
                 jitter_rel=args.jitter_rel,
-                cert_jitter_rel=args.cert_jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
                 zolo_coeff_dps=args.zolo_coeff_dps,
-                stop_on_cert=args.stop_on_cert,
             )
         return run_one_case(
             G_storage=G,
@@ -206,11 +211,9 @@ def main() -> None:
             gram_chunk_rows=args.gram_chunk_rows,
             rhs_chunk_rows=args.rhs_chunk_rows,
             jitter_rel=args.jitter_rel,
-            cert_jitter_rel=args.cert_jitter_rel,
             tf32=args.tf32,
             exact_verify_device=args.exact_verify_device,
             zolo_coeff_dps=args.zolo_coeff_dps,
-            stop_on_cert=args.stop_on_cert,
         )
 
     if args.mode == "demo":
@@ -232,7 +235,6 @@ def main() -> None:
             print(f"\nshape m={m} n={n}")
 
         finals = []
-        certs = []
         steps_used = []
         dwh_steps_used = []
         zolo_steps_used = []
@@ -242,7 +244,6 @@ def main() -> None:
         ms_gram = []
         ms_solve = []
         ms_upd = []
-        ms_cert = []
         ms_exact_verify = []
         successes = 0
 
@@ -252,7 +253,6 @@ def main() -> None:
                 G = make_case(m, n, args.seed + 10000 + i)
                 res = run_case(G)
                 finals.append(res.final_kO_exact)
-                certs.append(res.final_kO_cert)
                 steps_used.append(res.steps)
                 dwh_steps_used.append(res.dwh_steps)
                 zolo_steps_used.append(res.zolo_steps)
@@ -263,7 +263,6 @@ def main() -> None:
                 ms_gram.append(res.ms_gram)
                 ms_solve.append(res.ms_solve)
                 ms_upd.append(res.ms_upd)
-                ms_cert.append(res.ms_cert)
                 ms_exact_verify.append(res.ms_exact_verify)
                 del G
                 if args.device.startswith("cuda"):
@@ -271,7 +270,6 @@ def main() -> None:
             except torch.cuda.OutOfMemoryError:
                 print(f"  case {i:02d} OOM (skipping)")
                 finals.append(float("inf"))
-                certs.append(float("nan"))
                 steps_used.append(0)
                 dwh_steps_used.append(0)
                 zolo_steps_used.append(0)
@@ -281,14 +279,12 @@ def main() -> None:
                 ms_gram.append(float("inf"))
                 ms_solve.append(float("inf"))
                 ms_upd.append(float("inf"))
-                ms_cert.append(float("inf"))
                 ms_exact_verify.append(float("inf"))
                 if args.device.startswith("cuda"):
                     torch.cuda.empty_cache()
             except Exception as ex:
                 print(f"  case {i:02d} FAILED: {type(ex).__name__}: {ex}")
                 finals.append(float("inf"))
-                certs.append(float("nan"))
                 steps_used.append(0)
                 dwh_steps_used.append(0)
                 zolo_steps_used.append(0)
@@ -298,7 +294,6 @@ def main() -> None:
                 ms_gram.append(float("inf"))
                 ms_solve.append(float("inf"))
                 ms_upd.append(float("inf"))
-                ms_cert.append(float("inf"))
                 ms_exact_verify.append(float("inf"))
                 if args.device.startswith("cuda"):
                     torch.cuda.empty_cache()
@@ -309,10 +304,6 @@ def main() -> None:
         print(
             f"  worst kappa(O)_exact: {max(finals):.8g}  median: {pct(finals, 0.5):.8g}  p90: {pct(finals, 0.9):.8g}"
         )
-        if any(math.isfinite(x) for x in certs):
-            print(
-                f"  cert kappa(O) median: {pct(certs, 0.5):.8g}  p90: {pct(certs, 0.9):.8g}"
-            )
         print(f"  steps median: {pct(steps_used, 0.5):.6g}  p90: {pct(steps_used, 0.9):.6g}")
         print(f"  dwh_steps median: {pct(dwh_steps_used, 0.5):.6g}  p90: {pct(dwh_steps_used, 0.9):.6g}")
         print(f"  zolo_steps median: {pct(zolo_steps_used, 0.5):.6g}  p90: {pct(zolo_steps_used, 0.9):.6g}")
@@ -322,7 +313,6 @@ def main() -> None:
         print(f"    ms gram  median: {pct(ms_gram, 0.5):.3f}  p90: {pct(ms_gram, 0.9):.3f}")
         print(f"    ms solve median: {pct(ms_solve, 0.5):.3f}  p90: {pct(ms_solve, 0.9):.3f}")
         print(f"    ms upd   median: {pct(ms_upd, 0.5):.3f}  p90: {pct(ms_upd, 0.9):.3f}")
-        print(f"    ms cert  median: {pct(ms_cert, 0.5):.3f}  p90: {pct(ms_cert, 0.9):.3f}")
         print(f"    ms exact_verify median: {pct(ms_exact_verify, 0.5):.3f}  p90: {pct(ms_exact_verify, 0.9):.3f}  (excluded)")
 
 

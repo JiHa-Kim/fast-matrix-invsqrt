@@ -1,0 +1,1 @@
+- [ ] Stable lower precision using `torch.linalg.solve_ex` to avoid Cholesky decomposition failures in low-precision

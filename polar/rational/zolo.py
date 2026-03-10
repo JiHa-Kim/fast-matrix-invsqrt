@@ -85,7 +85,6 @@ def zolo_step_matrix_only(
     coeffs: ZoloCoeffs,
     jitter_rel: float,
 ) -> Tuple[Tensor, float]:
-    # Compute the n x n update matrix Q for Zolo
     n = S.shape[0]
     I = torch.eye(n, device=S.device, dtype=torch.float64)
     max_shift = 0.0

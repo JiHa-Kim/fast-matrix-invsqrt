@@ -33,7 +33,6 @@ def dwh_step_matrix_only(
     ell: float,
     jitter_rel: float,
 ) -> Tuple[Tensor, float]:
-    # Compute the n x n update matrix Q for DWH
     a, b, c = dwh_coeffs_from_ell(ell)
     n = S.shape[0]
     I = torch.eye(n, device=S.device, dtype=torch.float64)

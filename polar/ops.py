@@ -53,6 +53,16 @@ def acosh_exp(logu: float) -> float:
 
 
 @torch.no_grad()
+def gram_xtx_chunked(X: Tensor, chunk_rows: int, accum_dtype: torch.dtype) -> Tensor:
+    m, n = X.shape
+    S = torch.zeros((n, n), device=X.device, dtype=accum_dtype)
+    for i in range(0, m, chunk_rows):
+        Xi = X[i : i + chunk_rows].to(dtype=accum_dtype)
+        S.addmm_(Xi.T, Xi)
+    return symmetrize(S)
+
+
+@torch.no_grad()
 def gram_xtx_chunked_fp64(X: Tensor, chunk_rows: int) -> Tensor:
     m, n = X.shape
     S = torch.zeros((n, n), device=X.device, dtype=torch.float64)

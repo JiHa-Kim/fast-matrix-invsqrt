@@ -14,16 +14,17 @@ from polar.ops import (
     gram_xtx_chunked_fp64,
     symmetrize,
 )
-from polar.dwh import (
-    dwh_ell_next,
-    dwh_step_chunked,
-    dwh_step_matrix_only,
+from polar.polynomial.minimax import poly_inv_sqrt_coeffs_from_ell, poly_step_matrix_only
+from polar.rational.dwh import dwh_ell_next, dwh_step_chunked, dwh_step_matrix_only
+from polar.rational.dwh_stable_solve import (
+    dwh_step_chunked_stable_solve,
+    dwh_step_matrix_only_stable_solve,
+)
+from polar.rational.dwh_tuned_fp32 import (
+    dwh_step_tuned_fp32,
 )
 from polar.schedules import StepSpec
-from polar.zolo import (
-    zolo_coeffs_from_ell,
-    zolo_step_matrix_only,
-)
+from polar.rational.zolo import zolo_coeffs_from_ell, zolo_step_matrix_only
 
 Tensor = torch.Tensor
 
@@ -110,6 +111,45 @@ def run_one_case(
                 )
                 dwh_steps += 1
                 last_step_kind = "DWH"
+            elif step.kind == "DWH_STABLE_SOLVE":
+                ms_solve, (Q_step, shift) = cuda_time_ms(
+                    lambda: dwh_step_matrix_only_stable_solve(
+                        S=S,
+                        ell=step.ell_in,
+                        jitter_rel=jitter_rel,
+                    )
+                )
+                dwh_steps += 1
+                last_step_kind = "DWH_STABLE_SOLVE"
+            elif step.kind == "DWH_TUNED_FP32":
+                ms_solve, (X, shift) = cuda_time_ms(
+                    lambda: dwh_step_tuned_fp32(
+                        X=X,
+                        S=S,
+                        ell=step.ell_in,
+                        rhs_chunk_rows=rhs_chunk_rows,
+                        jitter_rel=jitter_rel,
+                        out_dtype=iter_dtype,
+                    )
+                )
+                ms_solve_sum += ms_solve
+                guards += int(shift > 0.0)
+                dwh_steps += 1
+                last_step_kind = "DWH_TUNED_FP32"
+                # For direct updates, we must recompute S for the next step.
+                ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fp64(X, gram_chunk_rows))
+                ms_gram_sum += ms_gram
+                continue
+            elif step.kind == "POLY":
+                coeffs = poly_inv_sqrt_coeffs_from_ell(step.degree, step.ell_in)
+                ms_solve, (Q_step, shift) = cuda_time_ms(
+                    lambda: poly_step_matrix_only(
+                        S=S,
+                        coeffs=coeffs,
+                        matmul_dtype=torch.float32,
+                    )
+                )
+                last_step_kind = f"POLY(d={step.degree})"
             else:
                 coeffs = zolo_coeffs_from_ell(step.r, step.ell_in, dps=zolo_coeff_dps)
                 ms_solve, (Q_step, shift) = cuda_time_ms(
@@ -136,6 +176,8 @@ def run_one_case(
 
         # Update the accumulated transform and the Gram matrix.
         # S_next = Q_step^T @ S @ Q_step. In Zolo/DWH, Q is symmetric.
+        if Q_step.dtype != Q_acc.dtype:
+            Q_step = Q_step.to(dtype=Q_acc.dtype)
         Q_acc = Q_acc @ Q_step
         S = symmetrize(Q_step @ S @ Q_step)
         
@@ -161,26 +203,41 @@ def run_one_case(
         final_kO_cert = float(kO_cert)
 
         ell = schedule[-1].ell_out if schedule else 1.0
+        use_stable_solve = any(step.kind == "DWH_STABLE_SOLVE" for step in schedule)
         while final_kO_cert > target_kappa_O and steps_used < 16:
             # For polish steps, we just do it iteratively on X for simplicity
             # as it should be very few steps.
             ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fp64(X, gram_chunk_rows))
             ms_gram_sum += ms_gram
             
-            ms_solve, (X, shift) = cuda_time_ms(
-                lambda: dwh_step_chunked(
-                    X=X,
-                    S=S,
-                    ell=ell,
-                    rhs_chunk_rows=rhs_chunk_rows,
-                    jitter_rel=jitter_rel,
-                    out_dtype=iter_dtype,
+            if use_stable_solve:
+                ms_solve, (X, shift) = cuda_time_ms(
+                    lambda: dwh_step_chunked_stable_solve(
+                        X=X,
+                        S=S,
+                        ell=ell,
+                        rhs_chunk_rows=rhs_chunk_rows,
+                        jitter_rel=jitter_rel,
+                        out_dtype=iter_dtype,
+                    )
                 )
-            )
+                last_step_kind = "DWH_STABLE_SOLVE(polish)"
+            else:
+                ms_solve, (X, shift) = cuda_time_ms(
+                    lambda: dwh_step_chunked(
+                        X=X,
+                        S=S,
+                        ell=ell,
+                        rhs_chunk_rows=rhs_chunk_rows,
+                        jitter_rel=jitter_rel,
+                        out_dtype=iter_dtype,
+                    )
+                )
+                last_step_kind = "DWH(polish)"
+
             ms_solve_sum += ms_solve
             guards += int(shift > 0.0)
             dwh_steps += 1
-            last_step_kind = "DWH(polish)"
 
             # Re-update S for cert
             ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fp64(X, gram_chunk_rows))

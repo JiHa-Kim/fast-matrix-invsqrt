@@ -60,6 +60,7 @@ def make_parser() -> argparse.ArgumentParser:
             "dwh3_stable_solve",
             "dwh3_mixed",
             "dwh3_mixed_solve",
+            "dwh3_scaled_fp32",
             "dwh_tuned_fp32",
             "poly16x2",
             "poly24x2",

@@ -33,6 +33,9 @@ from polar.rational.dwh_mixed import (
 from polar.rational.dwh_mixed_solve import (
     dwh_step_mixed_solve,
 )
+from polar.rational.dwh_scaled_fp32_solve import (
+    dwh_step_scaled_fp32_solve,
+)
 from polar.schedules import StepSpec
 from polar.rational.zolo import (
     zolo_coeffs_from_ell,
@@ -141,6 +144,17 @@ def run_one_case_fast(
                 )
                 dwh_steps += 1
                 last_step_kind = "DWH_MIXED_SOLVE"
+            elif step.kind == "DWH_SCALED_FP32_SOLVE":
+                # For scaled fp32 solve, S must be computed accurately in fp64
+                ms_solve, (Q_step, shift) = cuda_time_ms(
+                    lambda: dwh_step_scaled_fp32_solve(
+                        S_fp64=X.to(torch.float64).T @ X.to(torch.float64),
+                        ell=step.ell_in,
+                        jitter_rel=jitter_rel,
+                    )
+                )
+                dwh_steps += 1
+                last_step_kind = "DWH_SCALED_FP32_SOLVE"
             elif step.kind == "ZOLO":
                 # For aggressive speed, we use mixed-precision ZOLO with direct X update
                 coeffs = zolo_coeffs_from_ell(step.r, step.ell_in, dps=zolo_coeff_dps)

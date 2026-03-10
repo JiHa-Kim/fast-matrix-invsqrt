@@ -133,11 +133,16 @@ def _pe_step_from_interval(
         stress_min, stress_max = scalar_map_bounds(coeffs_try, stress_lo, stress_hi)
         if stress_min <= 0.0 or not (stress_max > 0.0):
             continue
-        score = stress_min / max(stress_max, 1e-300)
+        # Favor tighter upper-end control; a bloated certified u_out is what
+        # tends to poison the quadratic suffix in bf16.
+        score = (stress_min / max(stress_max, 1e-300)) / max(stress_max, 1e-300)
         if next_degree is not None:
             next_step = _pe_step_from_interval(stress_min, stress_max, basis, next_degree, next_degree=None)
             # Optimize the handoff first, then prefer the tighter immediate interval.
-            score = (next_step.ell_out / max(next_step.u_out, 1e-300)) + 0.05 * score
+            score = (
+                (next_step.ell_out / max(next_step.u_out, 1e-300)) / max(next_step.u_out, 1e-300)
+                + 0.05 * score
+            )
         if best is None or score > best[0]:
             best = (score, coeffs_try, stress_min, stress_max)
     if best is None:

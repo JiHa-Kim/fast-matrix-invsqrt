@@ -9,6 +9,7 @@ import torch
 
 from polar.ops import bf16_target
 from polar.runner import RunSummary, run_one_case
+from polar.runner_fast import run_one_case_fast
 from polar.schedules import StepSpec, auto_schedule_name, build_schedule
 from polar.synthetic import (
     dtype_from_name,
@@ -78,6 +79,7 @@ def make_parser() -> argparse.ArgumentParser:
     ap.add_argument("--zolo_coeff_dps", type=int, default=100)
     ap.add_argument("--exact_verify_device", choices=["auto", "cpu", "cuda"], default="auto")
     ap.add_argument("--stop_on_cert", action="store_true", default=False)
+    ap.add_argument("--fast_runner", action="store_true", default=False)
     ap.add_argument("--bank_size", type=int, default=12)
     ap.add_argument("--suite_cases", type=int, default=6)
     ap.add_argument("--suite_shapes", choices=["kimi_glm5"], default="kimi_glm5")
@@ -143,6 +145,21 @@ def main() -> None:
         )
 
     def run_case(G: Tensor) -> RunSummary:
+        if args.fast_runner:
+            return run_one_case_fast(
+                G_storage=G,
+                target_kappa_O=target_kappa_O,
+                schedule=schedule,
+                iter_dtype=iter_dtype,
+                gram_chunk_rows=args.gram_chunk_rows,
+                rhs_chunk_rows=args.rhs_chunk_rows,
+                jitter_rel=args.jitter_rel,
+                cert_jitter_rel=args.cert_jitter_rel,
+                tf32=args.tf32,
+                exact_verify_device=args.exact_verify_device,
+                zolo_coeff_dps=args.zolo_coeff_dps,
+                stop_on_cert=args.stop_on_cert,
+            )
         return run_one_case(
             G_storage=G,
             target_kappa_O=target_kappa_O,

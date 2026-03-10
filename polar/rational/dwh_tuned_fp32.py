@@ -10,19 +10,22 @@ from polar.rational.dwh import dwh_coeffs_from_ell
 
 Tensor = torch.Tensor
 
-# For FP32, a condition number of 1e5-1e6 is the absolute limit.
-# We cap 'c' to ensure the matrix I + c*S is reliably invertible in FP32.
-SAFE_MAX_C_FP32 = 100000.0
+# For FP32, a condition number of 1e5 is the limit for precision.
+# We cap 'c' to 20,000 to ensure the matrix addition I + c*S 
+# doesn't truncate the +I shift significantly.
+SAFE_MAX_C_FP32 = 20000.0
 
 def get_tuned_dwh_coeffs_fp32(ell: float) -> Tuple[float, float, float]:
     """
     Computes DWH coefficients but ensures they are numerically safe for FP32.
+    Includes a relaxation buffer to prevent divergence.
     """
-    # If the theoretical 'c' is too large, we back off to a larger 'ell'
-    # that results in a manageable 'c'.
-    # We use a simple binary search to find the safest ell.
+    # Relaxation: Use a slightly larger ell than the theoretical lower bound.
+    # This makes the rational function less aggressive, providing a safety margin.
+    ell_relaxed = float(ell) * 1.1
+    
     low, high = 1e-10, 1.0
-    ell_safe = float(ell)
+    ell_safe = ell_relaxed
     
     # Check if we even need to back off
     _, _, c_test = dwh_coeffs_from_ell(max(ell, 1e-10))

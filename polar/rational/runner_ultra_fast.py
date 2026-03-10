@@ -73,15 +73,8 @@ def run_one_case_ultra_fast(
     last_step_kind = "none"
 
     for i, step in enumerate(schedule):
-        # 1. Compute S
-        if step.kind == "DWH_SCALED_FP32_SOLVE":
-            from polar.ops import gram_xtx_chunked_fp64
-            ms_gram, S_work = cuda_time_ms(lambda: gram_xtx_chunked_fp64(X, gram_chunk_rows))
-            S = S_work.to(iter_dtype) # Still keep a copy in iter_dtype for other things
-        else:
-            ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fast(X, gram_chunk_rows, iter_dtype))
-            S_work = S
-            
+        # 1. Compute S accurately and fast using TF32
+        ms_gram, S = cuda_time_ms(lambda: gram_xtx_chunked_fast(X, gram_chunk_rows, iter_dtype))
         ms_gram_sum += ms_gram
         
         try:
@@ -101,9 +94,11 @@ def run_one_case_ultra_fast(
                 last_step_kind = "DWH_TUNED_FP32"
             elif step.kind == "DWH_SCALED_FP32_SOLVE":
                 from polar.rational.dwh_scaled_fp32_solve import dwh_step_scaled_fp32_solve
+                # For scaled fp32 solve, we can use the pre-computed S
+                # but we cast to fp64 for the stable Formulation of the scaled matrix.
                 ms_solve, (Q_step, shift) = cuda_time_ms(
                     lambda: dwh_step_scaled_fp32_solve(
-                        S_fp64=S_work.to(torch.float64),
+                        S_fp64=S.to(torch.float64),
                         ell=step.ell_in,
                         jitter_rel=jitter_rel,
                     )
@@ -111,7 +106,7 @@ def run_one_case_ultra_fast(
                 dwh_steps += 1
                 last_step_kind = "DWH_SCALED_FP32_SOLVE"
                 
-                # Update X
+                # Update X: O(mn^2) but fast with TF32
                 def update_x_scaled():
                     return X @ Q_step.to(iter_dtype)
                 ms_upd, X = cuda_time_ms(update_x_scaled)

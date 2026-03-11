@@ -100,4 +100,3 @@ def zolo_step_matrix_only(
 
     Q = float(coeffs.mhat) * Q
     return Q, float(max_shift)
-

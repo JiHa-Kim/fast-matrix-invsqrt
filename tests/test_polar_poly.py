@@ -35,12 +35,11 @@ def test_polar_express_paper_schedule_smoke() -> None:
     res = run_one_case(
         G_storage=G,
         target_kappa_O=4.0,
-        schedule=build_schedule("pe5paper", 1.0 / 10.0, 100),
+        schedule=build_schedule("pe5paper", 1.0 / 10.0),
         iter_dtype=torch.bfloat16,
         jitter_rel=1e-15,
         tf32=False,
         exact_verify_device="cpu",
-        zolo_coeff_dps=100,
     )
     assert torch.isfinite(torch.tensor(res.final_kO_exact))
     assert res.last_step_kind == "PEPAPER5"
@@ -60,12 +59,11 @@ def test_polar_express_additive_schedule_smoke() -> None:
     res = run_one_case(
         G_storage=G,
         target_kappa_O=4.0,
-        schedule=build_schedule("pe5add", 1.0 / 10.0, 100),
+        schedule=build_schedule("pe5add", 1.0 / 10.0),
         iter_dtype=torch.bfloat16,
         jitter_rel=1e-15,
         tf32=False,
         exact_verify_device="cpu",
-        zolo_coeff_dps=100,
     )
     assert torch.isfinite(torch.tensor(res.final_kO_exact))
     assert res.last_step_kind == "PEADD5"

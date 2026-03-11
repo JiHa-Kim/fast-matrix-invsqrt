@@ -25,9 +25,6 @@ from polar.rational.dwh_scaled_fp32_solve import (
     dwh_step_scaled_fp32_solve,
 )
 from polar.schedules import StepSpec
-from polar.rational.zolo import (
-    zolo_coeffs_from_ell,
-)
 from polar.runner import RunSummary, exact_final_kappa_O
 
 Tensor = torch.Tensor
@@ -41,7 +38,6 @@ def run_one_case_fast(
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
-    zolo_coeff_dps: int,
 ) -> RunSummary:
     """
     Pure lower-precision runner. AVOIDS ALL FP64 to maximize speed.
@@ -149,56 +145,8 @@ def run_one_case_fast(
                 )
                 dwh_steps += 1
                 last_step_kind = "DWH_SCALED_FP32_SOLVE"
-            elif step.kind == "ZOLO":
-                # For aggressive speed, we use mixed-precision ZOLO with direct X update
-                coeffs = zolo_coeffs_from_ell(step.r, step.ell_in, dps=zolo_coeff_dps)
-                
-                def zolo_mixed_step_stable():
-                    S_fp64 = S.to(torch.float64)
-                    n = S_fp64.shape[0]
-                    I_fp64 = torch.eye(n, device=S_fp64.device, dtype=torch.float64)
-                    Q_fp64 = torch.eye(n, device=S_fp64.device, dtype=torch.float64)
-                    max_shift = 0.0
-                    for ce, co in zip(coeffs.c_even, coeffs.c_odd):
-                        M = symmetrize(S_fp64 + float(co) * I_fp64)
-                        invM, info = torch.linalg.solve_ex(M, I_fp64)
-                        if (info != 0).any():
-                            # Escalation
-                            scale = float((torch.trace(M).abs() / max(n, 1)).item())
-                            base = max(float(jitter_rel) * max(scale, 1.0), 1e-30)
-                            delta_jitter = base
-                            for _ in range(8):
-                                Mt = M + delta_jitter * I_fp64
-                                invM, info = torch.linalg.solve_ex(Mt, I_fp64)
-                                if (info == 0).all():
-                                    max_shift = max(max_shift, delta_jitter)
-                                    break
-                                delta_jitter *= 2.0
-                            else:
-                                raise RuntimeError("Zolo solve failed even after jitter")
-                        
-                        delta = float(ce - co)
-                        Q_fp64 = Q_fp64 + delta * (Q_fp64 @ invM)
-                    
-                    Q_fp64 = float(coeffs.mhat) * Q_fp64
-                    return Q_fp64.to(iter_dtype), max_shift
-                
-                ms_solve, (Q_step, shift) = cuda_time_ms(zolo_mixed_step_stable)
-                zolo_steps += 1
-                last_step_kind = f"ZOLO_MIXED(r={step.r})"
-                
-                # Flush prior fused updates before switching to direct X updates.
-                flush_q_acc()
-
-                # Direct update on X and recompute S for maximum accuracy in pure FP32
-                if Q_step.dtype != iter_dtype:
-                    Q_step = Q_step.to(dtype=iter_dtype)
-                X = X @ Q_step
-                ms_gram, S = cuda_time_ms(lambda: gram_xtx_fast(X, iter_dtype))
-                ms_gram_sum += ms_gram
-                ms_solve_sum += ms_solve
-                guards += int(shift > 0.0)
-                continue
+            else:
+                raise ValueError(f"Unsupported step kind for fast runner: {step.kind}")
         except Exception as e:
             # Fallback to DWH step
             fallbacks += 1

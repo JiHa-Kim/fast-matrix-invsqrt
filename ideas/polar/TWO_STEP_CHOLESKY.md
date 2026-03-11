@@ -102,9 +102,9 @@ partial-fraction sum.
 The repository now keeps a small fixed schedule set instead of a large search
 surface:
 
-1. `zolo22` for the fast target near $1 + 2^{-7}$,
-2. `zolo32` as the stronger two-step fallback,
-3. `dwh3` as the baseline.
+1. `dwh3` as the baseline,
+2. `dwh3_stable_solve` as the finite-precision-first variant,
+3. `dwh_tuned_fp32` as the aggressive full-32-bit path.
 
 All Zolo schedules use the product-form Cholesky realization. The scalar
 guarantee is still

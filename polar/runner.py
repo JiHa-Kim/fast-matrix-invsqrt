@@ -29,7 +29,6 @@ from polar.rational.dwh_tuned_fp32 import (
     dwh_step_tuned_fp32,
 )
 from polar.schedules import StepSpec
-from polar.rational.zolo import zolo_coeffs_from_ell, zolo_step_matrix_only
 
 Tensor = torch.Tensor
 
@@ -69,7 +68,6 @@ def run_one_case(
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
-    zolo_coeff_dps: int,
 ) -> RunSummary:
     device = G_storage.device
     if device.type == "cuda":
@@ -167,18 +165,9 @@ def run_one_case(
                 )
                 last_step_kind = "PEPAPER5"
             else:
-                coeffs = zolo_coeffs_from_ell(step.r, step.ell_in, dps=zolo_coeff_dps)
-                ms_solve, (Q_step, shift) = cuda_time_ms(
-                    lambda: zolo_step_matrix_only(
-                        S=S,
-                        coeffs=coeffs,
-                        jitter_rel=jitter_rel,
-                    )
-                )
-                zolo_steps += 1
-                last_step_kind = f"ZOLO(r={step.r})"
+                raise ValueError(f"Unsupported step kind: {step.kind}")
         except Exception:
-            # Fallback to DWH step if something goes wrong (e.g. ZOLO instability)
+            # Fallback to DWH step if something goes wrong.
             fallbacks += 1
             ms_solve, (Q_step, shift) = cuda_time_ms(
                 lambda: dwh_step_matrix_only(

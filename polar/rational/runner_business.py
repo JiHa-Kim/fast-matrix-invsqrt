@@ -31,7 +31,6 @@ def run_one_case_business(
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
-    zolo_coeff_dps: int,
 ) -> RunSummary:
     """
     ULTIMATE WALL-CLOCK PERFORMANCE path.

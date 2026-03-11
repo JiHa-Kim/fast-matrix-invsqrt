@@ -15,14 +15,14 @@ Lean experimental kernels for two related problems:
 ## Polar usage
 
 ```powershell
-python polar_schedule.py --device cuda --mode demo --m 8192 --n 2048 --kappa_G 1e7 --schedule zolo22
+python polar_schedule.py --device cuda --mode demo --m 8192 --n 2048 --kappa_G 1e7 --schedule dwh3
 ```
 
 The current fixed schedules are:
 
-- `zolo22` for the fast `1 + 2^-7` target
-- `zolo32` for a stronger two-step fallback
 - `dwh3` as a baseline
+- `dwh3_stable_solve` as the finite-precision-first rational path
+- `dwh_tuned_fp32` as the fully 32-bit rational path
 
 Exact success is measured with final `eigvalsh` verification.
 
@@ -31,4 +31,3 @@ Exact success is measured with final `eigvalsh` verification.
 ```powershell
 python -m fast_iroot.main --p_root 4 --mode demo --m 2048 --n 256
 ```
-

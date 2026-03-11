@@ -20,10 +20,6 @@ from polar.rational.dwh_scaled_fp32_solve import (
     dwh_step_scaled_fp32_solve,
 )
 from polar.schedules import StepSpec
-from polar.rational.zolo import (
-    zolo_coeffs_from_ell,
-    zolo_step_matrix_only,
-)
 from polar.runner import RunSummary, exact_final_kappa_O
 
 Tensor = torch.Tensor
@@ -37,7 +33,6 @@ def run_one_case_hybrid(
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
-    zolo_coeff_dps: int,
 ) -> RunSummary:
     """
     HYBRID runner: FP64 state maintenance, but FP32 Scaled Solver.
@@ -83,13 +78,6 @@ def run_one_case_hybrid(
                 )
                 dwh_steps += 1
                 last_step_kind = "DWH"
-            elif step.kind == "ZOLO":
-                coeffs = zolo_coeffs_from_ell(step.r, step.ell_in, dps=zolo_coeff_dps)
-                ms_solve, (Q_step, shift) = cuda_time_ms(
-                    lambda: zolo_step_matrix_only(S, coeffs, jitter_rel)
-                )
-                zolo_steps += 1
-                last_step_kind = f"ZOLO(r={step.r})"
             else:
                 raise ValueError(f"Unsupported kind for hybrid: {step.kind}")
         except Exception:

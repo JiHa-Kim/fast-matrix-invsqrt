@@ -9,6 +9,7 @@ import torch
 from polar.ops import bf16_target
 from polar.runner import RunSummary, run_one_case
 from polar.rational.runner_fast import run_one_case_fast
+from polar.rational.runner_tf32 import run_one_case_tf32_rational
 from polar.rational.runner_ultra_fast import run_one_case_ultra_fast
 from polar.rational.runner_business import run_one_case_business
 from polar.schedules import StepSpec, auto_schedule_name, build_schedule
@@ -19,7 +20,6 @@ from polar.synthetic import (
     pct,
     suite_shapes_kimi_glm5,
 )
-from polar.rational.zolo import mp
 
 Tensor = torch.Tensor
 
@@ -41,7 +41,7 @@ def print_schedule(schedule_name: str, schedule: list[StepSpec]) -> None:
             a, b, c = st.paper_coeffs
             print(f"  step {i}: PEPAPER5          a={a:.6g} b={b:.6g} c={c:.6g}")
         else:
-            print(f"  step {i}: ZOLO r={st.r:<2d} ell_in={st.ell_in:.3e}  pred_kappa(O)_after={st.pred_kappa_after:.8g}")
+            raise ValueError(f"Unsupported step kind in schedule printout: {st.kind}")
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -57,9 +57,6 @@ def make_parser() -> argparse.ArgumentParser:
         "--schedule",
         choices=[
             "auto",
-            "zolo22",
-            "zolo23",
-            "zolo32",
             "dwh3",
             "dwh3_stable_solve",
             "dwh3_mixed",
@@ -76,9 +73,9 @@ def make_parser() -> argparse.ArgumentParser:
     ap.add_argument("--jitter_rel", type=float, default=1e-15)
     ap.add_argument("--tf32", action="store_true")
     ap.add_argument("--ell0", type=float, default=0.0)
-    ap.add_argument("--zolo_coeff_dps", type=int, default=100)
     ap.add_argument("--exact_verify_device", choices=["auto", "cpu", "cuda"], default="auto")
     ap.add_argument("--fast_runner", action="store_true", default=False)
+    ap.add_argument("--tf32_rational_runner", action="store_true", default=False)
     ap.add_argument("--ultra_fast_runner", action="store_true", default=False)
     ap.add_argument("--hybrid_runner", action="store_true", default=False)
     ap.add_argument("--business_runner", action="store_true", default=False)
@@ -108,9 +105,6 @@ def main() -> None:
     args = make_parser().parse_args()
     if args.device.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("CUDA requested but not available")
-    if mp is None:
-        raise RuntimeError("This script requires mpmath for Zolo coefficients")
-
     input_dtype = dtype_from_name(args.input_dtype)
     iter_dtype = dtype_from_name(args.iter_dtype)
     ell0 = float(args.ell0) if args.ell0 > 0.0 else (1.0 / float(args.kappa_G))
@@ -121,7 +115,7 @@ def main() -> None:
     schedule_name = args.schedule
     if schedule_name == "auto":
         schedule_name = auto_schedule_name(target_kappa_O)
-    schedule = build_schedule(schedule_name, ell0, args.zolo_coeff_dps)
+    schedule = build_schedule(schedule_name, ell0)
 
     print(
         f"device={args.device}  mode={args.mode}  kappa_G<={args.kappa_G:.3g}  target_kappa(O)<={target_kappa_O:.8g}"
@@ -132,7 +126,7 @@ def main() -> None:
         f"jitter_rel={args.jitter_rel:g} "
         f"tf32={args.tf32} exact_verify_device={args.exact_verify_device}"
     )
-    print(f"control: ell0={ell0:.6g} target_mode={args.target_mode} zolo_coeff_dps={args.zolo_coeff_dps}")
+    print(f"control: ell0={ell0:.6g} target_mode={args.target_mode}")
     print_schedule(schedule_name, schedule)
 
     def make_case(m: int, n: int, case_seed: int) -> Tensor:
@@ -155,7 +149,6 @@ def main() -> None:
                 jitter_rel=args.jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
-                zolo_coeff_dps=args.zolo_coeff_dps,
             )
         if args.hybrid_runner:
             from polar.rational.runner_hybrid import run_one_case_hybrid
@@ -167,7 +160,6 @@ def main() -> None:
                 jitter_rel=args.jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
-                zolo_coeff_dps=args.zolo_coeff_dps,
             )
         if args.ultra_fast_runner:
             return run_one_case_ultra_fast(
@@ -178,7 +170,6 @@ def main() -> None:
                 jitter_rel=args.jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
-                zolo_coeff_dps=args.zolo_coeff_dps,
             )
         if args.fast_runner:
             return run_one_case_fast(
@@ -189,7 +180,16 @@ def main() -> None:
                 jitter_rel=args.jitter_rel,
                 tf32=args.tf32,
                 exact_verify_device=args.exact_verify_device,
-                zolo_coeff_dps=args.zolo_coeff_dps,
+            )
+        if args.tf32_rational_runner:
+            return run_one_case_tf32_rational(
+                G_storage=G,
+                target_kappa_O=target_kappa_O,
+                schedule=schedule,
+                iter_dtype=iter_dtype,
+                jitter_rel=args.jitter_rel,
+                tf32=args.tf32,
+                exact_verify_device=args.exact_verify_device,
             )
         return run_one_case(
             G_storage=G,
@@ -199,7 +199,6 @@ def main() -> None:
             jitter_rel=args.jitter_rel,
             tf32=args.tf32,
             exact_verify_device=args.exact_verify_device,
-            zolo_coeff_dps=args.zolo_coeff_dps,
         )
 
     if args.mode == "demo":

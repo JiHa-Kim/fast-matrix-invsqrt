@@ -17,9 +17,6 @@ from polar.rational.dwh_tuned_fp32 import (
     dwh_step_tuned_fp32,
 )
 from polar.schedules import StepSpec
-from polar.rational.zolo import (
-    zolo_coeffs_from_ell,
-)
 from polar.runner import RunSummary, exact_final_kappa_O
 
 Tensor = torch.Tensor
@@ -33,7 +30,6 @@ def run_one_case_ultra_fast(
     jitter_rel: float,
     tf32: bool,
     exact_verify_device: str,
-    zolo_coeff_dps: int,
 ) -> RunSummary:
     """
     ULTRA-FAST pure FP32 runner.
@@ -99,27 +95,7 @@ def run_one_case_ultra_fast(
                 ms_upd_sum += ms_upd
             else:
                 # For other steps, compute Q and update X
-                if step.kind == "ZOLO":
-                    coeffs = zolo_coeffs_from_ell(step.r, step.ell_in, dps=zolo_coeff_dps)
-                    # Use a stable version of ZOLO solve
-                    def zolo_solve():
-                        n = S.shape[0]
-                        I = torch.eye(n, device=device, dtype=iter_dtype)
-                        Q = torch.eye(n, device=device, dtype=iter_dtype)
-                        max_s = 0.0
-                        for ce, co in zip(coeffs.c_even, coeffs.c_odd):
-                            M = symmetrize(S + float(co) * I)
-                            invM, info = torch.linalg.solve_ex(M, I)
-                            if (info != 0).any():
-                                raise RuntimeError("Zolo solve failed")
-                            delta = float(ce - co)
-                            Q = Q + delta * (Q @ invM)
-                        Q = float(coeffs.mhat) * Q
-                        return Q, max_s
-                    ms_solve, (Q_step, shift) = cuda_time_ms(zolo_solve)
-                    zolo_steps += 1
-                    last_step_kind = f"ZOLO(r={step.r})"
-                elif step.kind == "DWH_STABLE_SOLVE" or step.kind == "DWH":
+                if step.kind == "DWH_STABLE_SOLVE" or step.kind == "DWH":
                     ms_solve, (Q_step, shift) = cuda_time_ms(
                         lambda: dwh_step_matrix_only_stable_solve(S, step.ell_in, jitter_rel)
                     )

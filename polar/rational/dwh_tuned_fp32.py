@@ -15,6 +15,52 @@ Tensor = torch.Tensor
 # doesn't truncate the +I shift significantly.
 SAFE_MAX_C_FP32 = 20000.0
 
+
+@torch.no_grad()
+def _factor_spd_with_jitter_fp32(
+    M: Tensor,
+    I: Tensor,
+    jitter_rel: float,
+) -> Tuple[Tensor, float]:
+    shift = 0.0
+    L, info = torch.linalg.cholesky_ex(M)
+    if int(info.item()) == 0:
+        return L, shift
+
+    scale = float((torch.trace(M).abs() / max(M.shape[0], 1)).item())
+    base = max(float(jitter_rel) * max(scale, 1.0), 1e-7 * scale)
+    delta = base
+    for _ in range(8):
+        Mt = M + delta * I
+        L, info = torch.linalg.cholesky_ex(Mt)
+        if int(info.item()) == 0:
+            return L, float(delta)
+        delta *= 2.0
+
+    raise RuntimeError("tuned_fp32: cholesky_ex failed even after jitter")
+
+
+@torch.no_grad()
+def _inverse_via_lu_with_jitter_fp32(
+    M: Tensor,
+    I: Tensor,
+    jitter_rel: float,
+) -> Tuple[Tensor, float]:
+    invM, info = torch.linalg.solve_ex(M, I)
+    shift = 0.0
+    if (info != 0).any():
+        scale = float((torch.trace(M).abs() / max(M.shape[0], 1)).item())
+        base = max(float(jitter_rel) * max(scale, 1.0), 1e-7 * scale)
+        delta = base
+        for _ in range(8):
+            Mt = M + delta * I
+            invM, info = torch.linalg.solve_ex(Mt, I)
+            if (info == 0).all():
+                return invM, float(delta)
+            delta *= 2.0
+        raise RuntimeError("tuned_fp32: solve_ex failed even after jitter")
+    return invM, shift
+
 def get_tuned_dwh_coeffs_fp32(ell: float) -> Tuple[float, float, float]:
     """
     Computes DWH coefficients but ensures they are numerically safe for FP32.
@@ -61,31 +107,21 @@ def dwh_step_tuned_fp32(
     I = torch.eye(n, device=device, dtype=dtype)
     M = symmetrize(I + float(c) * S)
     
-    # Use solve_ex for robustness
-    invM, info = torch.linalg.solve_ex(M, I)
-    
-    shift = 0.0
-    if (info != 0).any():
-        # Jitter escalation if solve_ex still fails
-        scale = float((torch.trace(M).abs() / max(n, 1)).item())
-        base = max(float(jitter_rel) * max(scale, 1.0), 1e-7 * scale)
-        delta = base
-        for _ in range(8):
-            Mt = M + delta * I
-            invM, info = torch.linalg.solve_ex(Mt, I)
-            if (info == 0).all():
-                shift = delta
-                break
-            delta *= 2.0
-        else:
-            raise RuntimeError("tuned_fp32: solve_ex failed even after jitter")
-
     alpha = float(b / c)
     beta = float(a - b / c)
-    
-    invM_work = invM.to(dtype=X.dtype)
-    X_next = torch.addmm(X, X, invM_work, beta=alpha, alpha=beta).to(dtype=out_dtype)
-    return X_next, float(shift)
+
+    try:
+        L, shift = _factor_spd_with_jitter_fp32(M, I, jitter_rel)
+        Xt = X.mT.contiguous()
+        Y = torch.linalg.solve_triangular(L, Xt, upper=False)
+        Z = torch.linalg.solve_triangular(L.mT, Y, upper=True)
+        X_next = (alpha * X + beta * Z.mT).to(dtype=out_dtype)
+        return X_next, float(shift)
+    except RuntimeError:
+        invM, shift = _inverse_via_lu_with_jitter_fp32(M, I, jitter_rel)
+        invM_work = invM.to(dtype=X.dtype)
+        X_next = torch.addmm(X, X, invM_work, beta=alpha, alpha=beta).to(dtype=out_dtype)
+        return X_next, float(shift)
 
 @torch.no_grad()
 def dwh_step_matrix_only_tuned_fp32(
@@ -104,26 +140,14 @@ def dwh_step_matrix_only_tuned_fp32(
     I = torch.eye(n, device=device, dtype=dtype)
     M = symmetrize(I + float(c) * S)
     
-    # Use solve_ex for robustness in fp32
-    invM, info = torch.linalg.solve_ex(M, I)
-    
-    shift = 0.0
-    if (info != 0).any():
-        scale = float((torch.trace(M).abs() / max(n, 1)).item())
-        base = max(float(jitter_rel) * max(scale, 1.0), 1e-7 * scale)
-        delta = base
-        for _ in range(8):
-            Mt = M + delta * I
-            invM, info = torch.linalg.solve_ex(Mt, I)
-            if (info == 0).all():
-                shift = delta
-                break
-            delta *= 2.0
-        else:
-            raise RuntimeError("tuned_fp32_matrix: solve_ex failed")
-
     alpha = float(b / c)
     beta = float(a - b / c)
-    
+
+    try:
+        L, shift = _factor_spd_with_jitter_fp32(M, I, jitter_rel)
+        invM = torch.cholesky_inverse(L)
+    except RuntimeError:
+        invM, shift = _inverse_via_lu_with_jitter_fp32(M, I, jitter_rel)
+
     Q = alpha * I + beta * invM
     return symmetrize(Q), float(shift)

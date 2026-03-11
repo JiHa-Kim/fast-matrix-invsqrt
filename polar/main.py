@@ -71,7 +71,12 @@ def make_parser() -> argparse.ArgumentParser:
     ap.add_argument("--input_dtype", choices=["float32", "bfloat16", "float64"], default="float32")
     ap.add_argument("--iter_dtype", choices=["float32", "bfloat16", "float64"], default="float32")
     ap.add_argument("--jitter_rel", type=float, default=1e-15)
-    ap.add_argument("--tf32", action="store_true")
+    ap.add_argument(
+        "--tf32",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable TF32 matmuls on CUDA (default: enabled). Use --no-tf32 to disable.",
+    )
     ap.add_argument("--ell0", type=float, default=0.0)
     ap.add_argument("--exact_verify_device", choices=["auto", "cpu", "cuda"], default="auto")
     ap.add_argument("--fast_runner", action="store_true", default=False)

@@ -31,17 +31,6 @@ def _dwh_tuned_fp32_step(ell: float) -> StepSpec:
     )
 
 
-def _dwh_scaled_fp32_solve_step(ell: float) -> StepSpec:
-    ell_out = dwh_ell_next(ell)
-    return StepSpec(
-        kind="DWH_SCALED_FP32_SOLVE",
-        ell_in=float(ell),
-        ell_out=float(ell_out),
-        pred_kappa_after=float(1.0 / max(ell_out, 1e-300)),
-        r=1,
-    )
-
-
 def build_schedule(schedule_name: str, ell0: float) -> List[StepSpec]:
 
     ell = float(ell0)
@@ -60,24 +49,6 @@ def build_schedule(schedule_name: str, ell0: float) -> List[StepSpec]:
         s1 = _dwh_step("DWH_STABLE_SOLVE", ell)
         s2 = _dwh_step("DWH_STABLE_SOLVE", s1.ell_out)
         s3 = _dwh_step("DWH_STABLE_SOLVE", s2.ell_out)
-        return [s1, s2, s3]
-
-    if schedule_name == "dwh3_mixed":
-        s1 = _dwh_step("DWH_MIXED", ell)
-        s2 = _dwh_step("DWH_MIXED", s1.ell_out)
-        s3 = _dwh_step("DWH_MIXED", s2.ell_out)
-        return [s1, s2, s3]
-
-    if schedule_name == "dwh3_mixed_solve":
-        s1 = _dwh_step("DWH_MIXED_SOLVE", ell)
-        s2 = _dwh_step("DWH_MIXED_SOLVE", s1.ell_out)
-        s3 = _dwh_step("DWH_MIXED_SOLVE", s2.ell_out)
-        return [s1, s2, s3]
-
-    if schedule_name == "dwh3_scaled_fp32":
-        s1 = _dwh_step("DWH_SCALED_FP32_SOLVE", ell)
-        s2 = _dwh_step("DWH_SCALED_FP32_SOLVE", s1.ell_out)
-        s3 = _dwh_step("DWH_SCALED_FP32_SOLVE", s2.ell_out)
         return [s1, s2, s3]
 
     if schedule_name == "dwh_tuned_fp32":

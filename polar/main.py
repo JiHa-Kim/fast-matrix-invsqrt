@@ -8,10 +8,7 @@ import torch
 
 from polar.ops import bf16_target
 from polar.runner import RunSummary, run_one_case
-from polar.rational.runner_fast import run_one_case_fast
 from polar.rational.runner_tf32 import run_one_case_tf32_rational
-from polar.rational.runner_ultra_fast import run_one_case_ultra_fast
-from polar.rational.runner_business import run_one_case_business
 from polar.schedules import StepSpec, auto_schedule_name, build_schedule
 from polar.synthetic import (
     dtype_from_name,
@@ -28,9 +25,6 @@ SCHEDULE_CHOICES = [
     "auto",
     "dwh3",
     "dwh3_stable_solve",
-    "dwh3_mixed",
-    "dwh3_mixed_solve",
-    "dwh3_scaled_fp32",
     "dwh_tuned_fp32",
     "dwh3_sigma3x2",
     "dwh3_sigma3x3",
@@ -101,11 +95,7 @@ def make_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--ell0", type=float, default=0.0)
     ap.add_argument("--exact_verify_device", choices=["auto", "cpu", "cuda"], default="auto")
-    ap.add_argument("--fast_runner", action="store_true", default=False)
     ap.add_argument("--tf32_rational_runner", action="store_true", default=False)
-    ap.add_argument("--ultra_fast_runner", action="store_true", default=False)
-    ap.add_argument("--hybrid_runner", action="store_true", default=False)
-    ap.add_argument("--business_runner", action="store_true", default=False)
     ap.add_argument("--bank_size", type=int, default=12)
     ap.add_argument("--suite_cases", type=int, default=6)
     ap.add_argument("--suite_shapes", choices=["kimi_glm5", "light"], default="kimi_glm5")
@@ -170,47 +160,6 @@ def main() -> None:
         )
 
     def run_case_with_schedule(G: Tensor, sched: list[StepSpec]) -> RunSummary:
-        if args.business_runner:
-            return run_one_case_business(
-                G_storage=G,
-                target_kappa_O=target_kappa_O,
-                schedule=sched,
-                iter_dtype=iter_dtype,
-                jitter_rel=args.jitter_rel,
-                tf32=args.tf32,
-                exact_verify_device=args.exact_verify_device,
-            )
-        if args.hybrid_runner:
-            from polar.rational.runner_hybrid import run_one_case_hybrid
-            return run_one_case_hybrid(
-                G_storage=G,
-                target_kappa_O=target_kappa_O,
-                schedule=sched,
-                iter_dtype=iter_dtype,
-                jitter_rel=args.jitter_rel,
-                tf32=args.tf32,
-                exact_verify_device=args.exact_verify_device,
-            )
-        if args.ultra_fast_runner:
-            return run_one_case_ultra_fast(
-                G_storage=G,
-                target_kappa_O=target_kappa_O,
-                schedule=sched,
-                iter_dtype=iter_dtype,
-                jitter_rel=args.jitter_rel,
-                tf32=args.tf32,
-                exact_verify_device=args.exact_verify_device,
-            )
-        if args.fast_runner:
-            return run_one_case_fast(
-                G_storage=G,
-                target_kappa_O=target_kappa_O,
-                schedule=sched,
-                iter_dtype=iter_dtype,
-                jitter_rel=args.jitter_rel,
-                tf32=args.tf32,
-                exact_verify_device=args.exact_verify_device,
-            )
         if args.tf32_rational_runner:
             return run_one_case_tf32_rational(
                 G_storage=G,
